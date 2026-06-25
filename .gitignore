@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.env
+.venv/
+venv/
+*.egg-info/
+
+# Data / DB
+data/msu_schedule.db
+data/*.xls
+data/*.xlsx
+
+# Next.js
+frontend/.next/
+frontend/node_modules/
+frontend/.env.local
+
+# Expo / React Native
+msu-schedule-mobile/node_modules/
+msu-schedule-mobile/.expo/
+msu-schedule-mobile/dist/
+
+# OS
+.DS_Store
+Thumbs.db
+npm-out.txt
+npm-err.txt
+frontend-dev.log

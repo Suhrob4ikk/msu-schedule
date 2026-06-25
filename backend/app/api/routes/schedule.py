@@ -1,0 +1,380 @@
+"""Основные эндпоинты расписания."""
+
+from datetime import date, datetime, time
+from typing import Optional, List
+from fastapi import APIRouter, Depends, Query, HTTPException
+from sqlalchemy.orm import Session, joinedload
+
+from app.database import get_db
+from app.models import (
+    Lesson, Group, Teacher, Faculty, WeekSchedule, PAIR_TIMES
+)
+from app.schemas import LessonSchema, TodayScheduleItem, StatsSchema
+
+router = APIRouter(prefix="/schedule", tags=["schedule"])
+
+DAYS_ORDER = [
+    "понедельник", "вторник", "среда", "четверг", "пятница", "суббота"
+]
+
+
+def enrich_lesson(lesson: Lesson) -> dict:
+    """Добавляет время пары к объекту урока и возвращает чистый dict."""
+    times = PAIR_TIMES.get(lesson.pair_number, ("", ""))
+    return {
+        "id": lesson.id,
+        "subject": lesson.subject,
+        "lesson_type": lesson.lesson_type,
+        "day_of_week": lesson.day_of_week,
+        "lesson_date": str(lesson.lesson_date) if lesson.lesson_date else None,
+        "pair_number": lesson.pair_number,
+        "pair_time_start": times[0],
+        "pair_time_end": times[1],
+        "teacher": {"id": lesson.teacher.id, "name": lesson.teacher.name} if lesson.teacher else None,
+        "room": {"id": lesson.room.id, "name": lesson.room.name} if lesson.room else None,
+        "group": {
+            "id": lesson.group.id,
+            "name": lesson.group.name,
+            "year": lesson.group.year,
+            "faculty_code": lesson.group.faculty.code if lesson.group.faculty else None,
+        } if lesson.group else None,
+    }
+
+
+@router.get("/groups", response_model=list)
+def get_groups(
+    faculty_code: Optional[str] = None,
+    year: Optional[int] = None,
+    db: Session = Depends(get_db),
+):
+    """Список всех групп с возможностью фильтрации."""
+    q = db.query(Group).join(Faculty)
+    if faculty_code:
+        q = q.filter(Faculty.code == faculty_code)
+    if year:
+        q = q.filter(Group.year == year)
+    groups = q.order_by(Group.year, Group.name).all()
+    return [
+        {
+            "id": g.id,
+            "name": g.name,
+            "year": g.year,
+            "faculty_code": g.faculty.code,
+            "faculty_name": g.faculty.name,
+        }
+        for g in groups
+    ]
+
+
+@router.get("/weeks/{group_id}", response_model=list)
+def get_available_weeks(group_id: int, db: Session = Depends(get_db)):
+    """Список доступных недель для группы (текущая + архив до 2 недель)."""
+    group = db.get(Group, group_id)
+    if not group:
+        raise HTTPException(404, "Группа не найдена")
+
+    weeks = (
+        db.query(WeekSchedule)
+        .filter_by(faculty_code=group.faculty.code)
+        .order_by(WeekSchedule.downloaded_at.desc())
+        .all()
+    )
+    return [
+        {
+            "id": w.id,
+            "week_number": w.week_number,
+            "week_start": str(w.week_start),
+            "downloaded_at": w.downloaded_at.isoformat() if w.downloaded_at else None,
+            "is_latest": w.is_latest,
+        }
+        for w in weeks
+    ]
+
+
+@router.get("/group/{group_id}", response_model=list)
+def get_group_schedule(
+    group_id: int,
+    day_of_week: Optional[str] = None,
+    week_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+):
+    """Расписание конкретной группы. week_id — конкретная неделя (архив), иначе текущая."""
+    group = db.get(Group, group_id)
+    if not group:
+        raise HTTPException(404, "Группа не найдена")
+
+    if week_id:
+        latest_week = db.get(WeekSchedule, week_id)
+        if not latest_week or latest_week.faculty_code != group.faculty.code:
+            raise HTTPException(404, "Неделя не найдена")
+    else:
+        latest_week = (
+            db.query(WeekSchedule)
+            .filter_by(faculty_code=group.faculty.code, is_latest=True)
+            .order_by(WeekSchedule.downloaded_at.desc())
+            .first()
+        )
+    if not latest_week:
+        return []
+
+    q = (
+        db.query(Lesson)
+        .options(joinedload(Lesson.teacher), joinedload(Lesson.room), joinedload(Lesson.group).joinedload(Group.faculty))
+        .filter(Lesson.week_schedule_id == latest_week.id)
+        .filter(Lesson.group_id == group_id)
+    )
+    if day_of_week:
+        q = q.filter(Lesson.day_of_week == day_of_week.lower())
+
+    lessons = q.all()
+    enriched = [enrich_lesson(l) for l in lessons]
+    enriched.sort(key=lambda x: (
+        DAYS_ORDER.index(x["day_of_week"]) if x["day_of_week"] in DAYS_ORDER else 99,
+        ["I", "II", "III", "IV", "V"].index(x["pair_number"])
+    ))
+    return enriched
+
+
+@router.get("/teacher/{teacher_id}", response_model=list)
+def get_teacher_schedule(
+    teacher_id: int,
+    day_of_week: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """Расписание преподавателя на текущую неделю."""
+    teacher = db.get(Teacher, teacher_id)
+    if not teacher:
+        raise HTTPException(404, "Преподаватель не найден")
+
+    # Последние расписания обоих факультетов
+    latest_weeks = {}
+    for fcode in ["ЕНФ", "ГФ"]:
+        w = (
+            db.query(WeekSchedule)
+            .filter_by(faculty_code=fcode, is_latest=True)
+            .order_by(WeekSchedule.downloaded_at.desc())
+            .first()
+        )
+        if w:
+            latest_weeks[fcode] = w.id
+
+    q = (
+        db.query(Lesson)
+        .options(joinedload(Lesson.group), joinedload(Lesson.room))
+        .filter(Lesson.teacher_id == teacher_id)
+        .filter(Lesson.week_schedule_id.in_(latest_weeks.values()))
+    )
+    if day_of_week:
+        q = q.filter(Lesson.day_of_week == day_of_week.lower())
+
+    lessons = q.all()
+    enriched = [enrich_lesson(l) for l in lessons]
+    enriched.sort(key=lambda x: (
+        DAYS_ORDER.index(x["day_of_week"]) if x["day_of_week"] in DAYS_ORDER else 99,
+        ["I", "II", "III", "IV", "V"].index(x["pair_number"])
+    ))
+    return enriched
+
+
+@router.get("/teachers")
+def get_teachers(db: Session = Depends(get_db)):
+    """Список всех преподавателей."""
+    return [{"id": t.id, "name": t.name} for t in db.query(Teacher).order_by(Teacher.name).all()]
+
+
+@router.get("/now", response_model=list)
+def get_current_and_next(
+    group_id: int,
+    db: Session = Depends(get_db),
+):
+    """'Что сейчас идёт' и 'следующая пара' для группы."""
+    now = datetime.now()
+    today = now.date()
+    day_names = ["понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье"]
+    today_name = day_names[today.weekday()]
+
+    group = db.get(Group, group_id)
+    if not group:
+        raise HTTPException(404, "Группа не найдена")
+
+    latest_week = (
+        db.query(WeekSchedule)
+        .filter_by(faculty_code=group.faculty.code, is_latest=True)
+        .order_by(WeekSchedule.downloaded_at.desc())
+        .first()
+    )
+    if not latest_week:
+        return []
+
+    lessons = (
+        db.query(Lesson)
+        .options(joinedload(Lesson.teacher), joinedload(Lesson.room))
+        .filter(
+            Lesson.week_schedule_id == latest_week.id,
+            Lesson.group_id == group_id,
+            Lesson.day_of_week == today_name,
+        )
+        .all()
+    )
+
+    result = []
+    current_time = now.time()
+
+    for lesson in lessons:
+        times = PAIR_TIMES.get(lesson.pair_number)
+        if not times:
+            continue
+        t_start = time(*map(int, times[0].split(":")))
+        t_end = time(*map(int, times[1].split(":")))
+
+        is_current = t_start <= current_time <= t_end
+        is_next = current_time < t_start
+
+        if is_current or is_next:
+            mins = None
+            if is_next:
+                delta = datetime.combine(today, t_start) - now
+                mins = int(delta.total_seconds() // 60)
+
+            result.append(TodayScheduleItem(
+                pair_number=lesson.pair_number,
+                pair_time_start=times[0],
+                pair_time_end=times[1],
+                subject=lesson.subject,
+                lesson_type=lesson.lesson_type,
+                teacher=lesson.teacher.name if lesson.teacher else None,
+                room=lesson.room.name if lesson.room else None,
+                group_name=group.name,
+                is_current=is_current,
+                is_next=is_next and not is_current,
+                minutes_until=mins,
+            ))
+
+    return result
+
+
+@router.get("/free-rooms")
+def get_free_rooms(
+    day_of_week: str = Query(..., description="понедельник, вторник, ..."),
+    pair_number: str = Query(..., description="I, II, III, IV, V"),
+    db: Session = Depends(get_db),
+):
+    """Свободные аудитории в указанный день и пару."""
+    # Все аудитории
+    from app.models import Room
+    all_rooms = {r.id: r.name for r in db.query(Room).all()}
+
+    # Занятые в это время
+    latest_week_ids = []
+    for fcode in ["ЕНФ", "ГФ"]:
+        w = (
+            db.query(WeekSchedule)
+            .filter_by(faculty_code=fcode, is_latest=True)
+            .order_by(WeekSchedule.downloaded_at.desc())
+            .first()
+        )
+        if w:
+            latest_week_ids.append(w.id)
+
+    occupied = (
+        db.query(Lesson)
+        .options(joinedload(Lesson.room), joinedload(Lesson.group).joinedload(Group.faculty))
+        .filter(
+            Lesson.week_schedule_id.in_(latest_week_ids),
+            Lesson.day_of_week == day_of_week.lower(),
+            Lesson.pair_number == pair_number.upper(),
+            Lesson.room_id.isnot(None),
+        )
+        .all()
+    )
+
+    occupied_map = {}
+    for l in occupied:
+        if l.room:
+            occupied_map[l.room.name] = f"{l.group.year} курс · {l.group.name}: {l.subject}"
+
+    result = []
+    for room_name in sorted(all_rooms.values()):
+        if room_name in occupied_map:
+            result.append({
+                "room_name": room_name,
+                "is_free": False,
+                "occupied_by": occupied_map[room_name],
+            })
+        else:
+            result.append({"room_name": room_name, "is_free": True})
+
+    return result
+
+
+@router.get("/stats/{group_id}", response_model=StatsSchema)
+def get_group_stats(group_id: int, db: Session = Depends(get_db)):
+    """Статистика по группе: количество пар, загруженность по дням."""
+    group = db.get(Group, group_id)
+    if not group:
+        raise HTTPException(404, "Группа не найдена")
+
+    latest_week = (
+        db.query(WeekSchedule)
+        .filter_by(faculty_code=group.faculty.code, is_latest=True)
+        .order_by(WeekSchedule.downloaded_at.desc())
+        .first()
+    )
+    if not latest_week:
+        return StatsSchema(
+            faculty_code=group.faculty.code, group_name=group.name,
+            year=group.year, total_lessons_week=0, lessons_by_day={},
+            most_loaded_day=None, unique_teachers=0, unique_subjects=0,
+        )
+
+    lessons = (
+        db.query(Lesson)
+        .options(joinedload(Lesson.teacher))
+        .filter(Lesson.week_schedule_id == latest_week.id, Lesson.group_id == group_id)
+        .all()
+    )
+
+    by_day = {}
+    for l in lessons:
+        by_day[l.day_of_week] = by_day.get(l.day_of_week, 0) + 1
+
+    most_loaded = max(by_day, key=by_day.get) if by_day else None
+
+    return StatsSchema(
+        faculty_code=group.faculty.code,
+        group_name=group.name,
+        year=group.year,
+        total_lessons_week=len(lessons),
+        lessons_by_day=by_day,
+        most_loaded_day=most_loaded,
+        unique_teachers=len({l.teacher_id for l in lessons if l.teacher_id}),
+        unique_subjects=len({l.subject for l in lessons}),
+    )
+
+
+@router.get("/changes")
+def get_changes(
+    faculty_code: Optional[str] = None,
+    limit: int = 50,
+    db: Session = Depends(get_db),
+):
+    """История изменений расписания."""
+    from app.models import ScheduleChange
+    q = db.query(ScheduleChange)
+    if faculty_code:
+        q = q.filter_by(faculty_code=faculty_code)
+    changes = q.order_by(ScheduleChange.detected_at.desc()).limit(limit).all()
+    return [
+        {
+            "id": c.id,
+            "detected_at": c.detected_at.isoformat() if c.detected_at else None,
+            "faculty_code": c.faculty_code,
+            "change_type": c.change_type,
+            "group_name": c.group_name,
+            "day_of_week": c.day_of_week,
+            "pair_number": c.pair_number,
+            "old_value": c.old_value,
+            "new_value": c.new_value,
+        }
+        for c in changes
+    ]

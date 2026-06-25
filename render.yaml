@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: msu-schedule-backend
+    env: python
+    region: frankfurt
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        value: sqlite:///./data/msu_schedule.db
+      - key: DEBUG
+        value: "false"
+    disk:
+      name: msu-data
+      mountPath: /opt/render/project/src/data
+      sizeGB: 1

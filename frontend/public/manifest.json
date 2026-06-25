@@ -1,0 +1,37 @@
+{
+  "name": "МГУ Душанбе — Расписание",
+  "short_name": "МГУ Расписание",
+  "description": "Расписание занятий МГУ филиал в городе Душанбе",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#1d4ed8",
+  "lang": "ru",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable any"
+    }
+  ],
+  "categories": ["education"],
+  "shortcuts": [
+    {
+      "name": "Моё расписание",
+      "url": "/",
+      "description": "Расписание моей группы"
+    },
+    {
+      "name": "Аудитории",
+      "url": "/rooms",
+      "description": "Свободные аудитории"
+    }
+  ]
+}
