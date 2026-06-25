@@ -16,23 +16,26 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-50 bg-[var(--background)] border-b border-[var(--border)] shadow-sm">
-      <div className="max-w-6xl mx-auto px-4">
-        <div className="flex items-center h-14 gap-4">
+      <div className="max-w-7xl mx-auto px-4 lg:px-8">
+        <div className="flex items-center h-14 lg:h-16 gap-4 lg:gap-6">
           {/* Лого */}
           <Link href="/" className="flex items-center gap-2 shrink-0">
-            <div className="w-8 h-8 rounded-lg bg-[var(--primary)] flex items-center justify-center">
-              <span className="text-white text-xs font-bold">МГУ</span>
+            <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-lg bg-[var(--primary)] flex items-center justify-center">
+              <span className="text-white text-xs lg:text-sm font-bold">МГУ</span>
             </div>
-            <span className="font-semibold text-sm hidden sm:block">Душанбе</span>
+            <div className="hidden sm:block">
+              <span className="font-bold text-sm lg:text-base">МГУ Душанбе</span>
+              <span className="hidden lg:block text-xs text-[var(--muted)]">Расписание занятий</span>
+            </div>
           </Link>
 
           {/* Навигация */}
-          <nav className="flex items-center gap-1 overflow-x-auto flex-1 scrollbar-none">
+          <nav className="flex items-center gap-1 lg:gap-2 overflow-x-auto flex-1 scrollbar-none">
             {nav.map(({ href, label }) => (
               <Link
                 key={href}
                 href={href}
-                className={`px-3 py-1.5 rounded-lg text-sm whitespace-nowrap transition-colors ${
+                className={`px-3 lg:px-4 py-1.5 lg:py-2 rounded-lg text-sm lg:text-base whitespace-nowrap transition-colors font-medium ${
                   pathname === href
                     ? "bg-[var(--primary)] text-white"
                     : "text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-gray-100 dark:hover:bg-slate-800"

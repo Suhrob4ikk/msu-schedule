@@ -109,13 +109,13 @@ export default function HomePage() {
     <div className="min-h-screen" style={{ background: "var(--background)" }}>
       <Header />
 
-      <main className="max-w-6xl mx-auto px-4 py-4">
+      <main className="max-w-7xl mx-auto px-4 lg:px-8 py-4 lg:py-6">
         {/* Выбор группы */}
-        <div className="card mb-4">
-          <h1 className="font-bold text-lg mb-3">Расписание занятий МГУ Душанбе</h1>
-          <div className="flex flex-wrap gap-2">
+        <div className="card mb-4 lg:mb-5">
+          <h1 className="font-bold text-lg lg:text-2xl mb-3 lg:mb-4">Расписание занятий МГУ Душанбе</h1>
+          <div className="flex flex-wrap gap-2 lg:gap-3">
             <select
-              className="flex-1 min-w-48 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+              className="flex-1 min-w-48 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 lg:py-3 text-sm lg:text-base focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
               value={selectedGroup?.id ?? ""}
               onChange={e => {
                 const g = groups.find(x => x.id === Number(e.target.value));
@@ -151,9 +151,9 @@ export default function HomePage() {
 
         {/* Переключатель недель (архив) */}
         {weeks.length > 1 && (
-          <div className="card mb-4">
+          <div className="card mb-4 lg:mb-5">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-semibold text-[var(--muted)] shrink-0">Неделя:</span>
+              <span className="text-xs lg:text-sm font-semibold text-[var(--muted)] shrink-0">Неделя:</span>
               {weeks.map((w) => {
                 const d = new Date(w.week_start);
                 const label = w.is_latest
@@ -166,7 +166,7 @@ export default function HomePage() {
                       setSelectedWeekId(w.id);
                       if (selectedGroup) loadGroup(selectedGroup, w.id);
                     }}
-                    className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+                    className={`px-3 lg:px-4 py-1 lg:py-1.5 rounded-lg text-xs lg:text-sm font-medium transition-colors ${
                       selectedWeekId === w.id
                         ? "bg-[var(--primary)] text-white"
                         : "bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)]"
@@ -185,15 +185,15 @@ export default function HomePage() {
 
         {/* "Что сейчас" виджет */}
         {(currentItem || nextItem) && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:gap-4 mb-4 lg:mb-5">
             {currentItem && (
               <div className="card lesson-current">
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                  <span className="text-xs font-semibold text-green-600 dark:text-green-400">ИДЁТ СЕЙЧАС</span>
+                  <span className="w-2 h-2 lg:w-2.5 lg:h-2.5 rounded-full bg-green-500 animate-pulse"></span>
+                  <span className="text-xs lg:text-sm font-semibold text-green-600 dark:text-green-400">ИДЁТ СЕЙЧАС</span>
                 </div>
-                <p className="font-semibold">{currentItem.subject}</p>
-                <p className="text-xs text-[var(--muted)] mt-1">
+                <p className="font-semibold text-sm lg:text-base">{currentItem.subject}</p>
+                <p className="text-xs lg:text-sm text-[var(--muted)] mt-1">
                   {currentItem.pair_time_start}–{currentItem.pair_time_end}
                   {currentItem.teacher && ` · ${currentItem.teacher}`}
                   {currentItem.room && ` · ауд. ${currentItem.room}`}
@@ -203,12 +203,12 @@ export default function HomePage() {
             {nextItem && (
               <div className="card lesson-next">
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">
+                  <span className="text-xs lg:text-sm font-semibold text-blue-600 dark:text-blue-400">
                     СЛЕДУЮЩАЯ {nextItem.minutes_until != null && `через ${nextItem.minutes_until} мин.`}
                   </span>
                 </div>
-                <p className="font-semibold">{nextItem.subject}</p>
-                <p className="text-xs text-[var(--muted)] mt-1">
+                <p className="font-semibold text-sm lg:text-base">{nextItem.subject}</p>
+                <p className="text-xs lg:text-sm text-[var(--muted)] mt-1">
                   {nextItem.pair_time_start}–{nextItem.pair_time_end}
                   {nextItem.teacher && ` · ${nextItem.teacher}`}
                   {nextItem.room && ` · ауд. ${nextItem.room}`}
@@ -220,25 +220,25 @@ export default function HomePage() {
 
         {/* Статистика */}
         {stats && stats.total_lessons_week > 0 && (
-          <div className="card mb-4">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="card mb-4 lg:mb-5">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 lg:gap-6">
               <div className="text-center">
-                <div className="text-2xl font-bold text-[var(--primary)]">{stats.total_lessons_week}</div>
-                <div className="text-xs text-[var(--muted)]">пар в неделю</div>
+                <div className="text-2xl lg:text-4xl font-bold text-[var(--primary)]">{stats.total_lessons_week}</div>
+                <div className="text-xs lg:text-sm text-[var(--muted)] mt-1">пар в неделю</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-purple-500">{stats.unique_subjects}</div>
-                <div className="text-xs text-[var(--muted)]">предметов</div>
+                <div className="text-2xl lg:text-4xl font-bold text-purple-500">{stats.unique_subjects}</div>
+                <div className="text-xs lg:text-sm text-[var(--muted)] mt-1">предметов</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-orange-500">{stats.unique_teachers}</div>
-                <div className="text-xs text-[var(--muted)]">преподавателей</div>
+                <div className="text-2xl lg:text-4xl font-bold text-orange-500">{stats.unique_teachers}</div>
+                <div className="text-xs lg:text-sm text-[var(--muted)] mt-1">преподавателей</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-green-500">
+                <div className="text-2xl lg:text-4xl font-bold text-green-500">
                   {stats.most_loaded_day ? DAY_LABELS[stats.most_loaded_day]?.slice(0, 2) : "—"}
                 </div>
-                <div className="text-xs text-[var(--muted)]">загрузка</div>
+                <div className="text-xs lg:text-sm text-[var(--muted)] mt-1">загрузка</div>
               </div>
             </div>
             {/* Мини-бар-чарт по дням */}
@@ -265,10 +265,10 @@ export default function HomePage() {
 
         {/* Фильтр по дню */}
         {selectedGroup && (
-          <div className="flex gap-1.5 flex-wrap mb-4">
+          <div className="flex gap-1.5 lg:gap-2 flex-wrap mb-4 lg:mb-5">
             <button
               onClick={() => setSelectedDay("all")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              className={`px-3 lg:px-4 py-1.5 lg:py-2 rounded-lg text-xs lg:text-sm font-medium transition-colors ${
                 selectedDay === "all"
                   ? "bg-[var(--primary)] text-white"
                   : "bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)]"
@@ -280,7 +280,7 @@ export default function HomePage() {
               <button
                 key={day}
                 onClick={() => setSelectedDay(day)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                className={`px-3 lg:px-4 py-1.5 lg:py-2 rounded-lg text-xs lg:text-sm font-medium transition-colors ${
                   selectedDay === day
                     ? "bg-[var(--primary)] text-white"
                     : "bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)]"
@@ -326,27 +326,29 @@ export default function HomePage() {
           </div>
         )}
 
-        {Object.entries(lessonsByDay).map(([day, dayLessons]) => (
-          <div key={day} className="mb-5">
-            <h2 className="font-semibold text-sm text-[var(--muted)] uppercase tracking-wider mb-2 flex items-center gap-2">
-              {DAY_LABELS[day]}
-              <span className="text-xs font-normal normal-case">
-                {dayLessons[0]?.lesson_date &&
-                  new Date(dayLessons[0].lesson_date).toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}
-              </span>
-            </h2>
-            {dayLessons.map(lesson => (
-              <LessonCard
-                key={lesson.id}
-                lesson={lesson}
-                sessionId={sessionId}
-                attended={attendance[lesson.id] ?? null}
-                onAttendance={handleAttendance}
-                onNote={setNoteModal}
-              />
-            ))}
-          </div>
-        ))}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-6">
+          {Object.entries(lessonsByDay).map(([day, dayLessons]) => (
+            <div key={day} className="mb-5 lg:mb-6">
+              <h2 className="font-semibold text-sm lg:text-base text-[var(--muted)] uppercase tracking-wider mb-2 lg:mb-3 flex items-center gap-2">
+                {DAY_LABELS[day]}
+                <span className="text-xs lg:text-sm font-normal normal-case">
+                  {dayLessons[0]?.lesson_date &&
+                    new Date(dayLessons[0].lesson_date).toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}
+                </span>
+              </h2>
+              {dayLessons.map(lesson => (
+                <LessonCard
+                  key={lesson.id}
+                  lesson={lesson}
+                  sessionId={sessionId}
+                  attended={attendance[lesson.id] ?? null}
+                  onAttendance={handleAttendance}
+                  onNote={setNoteModal}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
       </main>
 
       {/* Модальное окно заметки */}

@@ -24,6 +24,18 @@
 
 * { box-sizing: border-box; }
 
+html {
+  font-size: 15px;
+}
+
+@media (min-width: 1024px) {
+  html { font-size: 17px; }
+}
+
+@media (min-width: 1280px) {
+  html { font-size: 18px; }
+}
+
 body {
   background-color: var(--background);
   color: var(--foreground);
@@ -37,6 +49,10 @@ body {
   border: 1px solid var(--border);
   border-radius: 0.75rem;
   padding: 1rem;
+}
+
+@media (min-width: 1024px) {
+  .card { padding: 1.25rem; border-radius: 1rem; }
 }
 
 .badge {
