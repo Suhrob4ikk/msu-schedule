@@ -38,7 +38,7 @@ export default function Header() {
                 className={`px-3 lg:px-4 py-1.5 lg:py-2 rounded-lg text-sm lg:text-base whitespace-nowrap transition-colors font-medium ${
                   pathname === href
                     ? "bg-[var(--primary)] text-white"
-                    : "text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-gray-100 dark:hover:bg-slate-800"
+                    : "text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--accent)]"
                 }`}
               >
                 {label}
