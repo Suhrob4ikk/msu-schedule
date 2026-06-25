@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Header from "@/components/Header";
 import LessonCard from "@/components/LessonCard";
+import OnboardingScreen from "@/components/OnboardingScreen";
 import { api, Group, Lesson, TodayItem, Stats, WeekInfo, DAYS_ORDER, PAIR_TIMES, getSessionId } from "@/lib/api";
 
 const DAY_LABELS: Record<string, string> = {
@@ -31,18 +32,21 @@ export default function HomePage() {
   const [view, setView] = useState<"week" | "day">("week");
   const [weeks, setWeeks] = useState<WeekInfo[]>([]);
   const [selectedWeekId, setSelectedWeekId] = useState<number | undefined>(undefined);
+  const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
 
   useEffect(() => {
     setSessionId(getSessionId());
     api.getGroups().then(setGroups).catch(() => setError("Нет соединения с сервером"));
 
-    // Восстанавливаем выбор группы
     const savedId = localStorage.getItem("selected_group_id");
     if (savedId) {
+      setShowOnboarding(false);
       api.getGroups().then(gs => {
         const g = gs.find(x => x.id === Number(savedId));
         if (g) loadGroup(g);
       });
+    } else {
+      setShowOnboarding(true);
     }
   }, []);
 
@@ -110,8 +114,18 @@ export default function HomePage() {
   const currentItem = nowItems.find(i => i.is_current);
   const nextItem = nowItems.find(i => i.is_next);
 
+  if (showOnboarding === null) return null;
+
   return (
     <div className="min-h-screen" style={{ background: "var(--background)" }}>
+      {showOnboarding && (
+        <OnboardingScreen
+          onComplete={group => {
+            setShowOnboarding(false);
+            loadGroup(group);
+          }}
+        />
+      )}
       <Header />
 
       <main className="max-w-7xl mx-auto px-4 lg:px-8 py-4 lg:py-6 pb-24 lg:pb-6">
