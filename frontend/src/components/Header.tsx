@@ -29,8 +29,8 @@ export default function Header() {
             </div>
           </Link>
 
-          {/* Навигация */}
-          <nav className="flex items-center gap-1 lg:gap-2 overflow-x-auto flex-1 scrollbar-none">
+          {/* Навигация — только на десктопе */}
+          <nav className="hidden lg:flex items-center gap-1 lg:gap-2 flex-1">
             {nav.map(({ href, label }) => (
               <Link
                 key={href}
@@ -45,6 +45,8 @@ export default function Header() {
               </Link>
             ))}
           </nav>
+          {/* На мобиле — пустое место для выравнивания */}
+          <div className="flex-1 lg:hidden" />
 
           <ThemeToggle />
         </div>

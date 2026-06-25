@@ -10,6 +10,11 @@ const DAY_LABELS: Record<string, string> = {
   четверг: "Четверг", пятница: "Пятница", суббота: "Суббота",
 };
 
+const DAY_SHORT: Record<string, string> = {
+  понедельник: "Пн", вторник: "Вт", среда: "Ср",
+  четверг: "Чт", пятница: "Пт", суббота: "Сб",
+};
+
 export default function HomePage() {
   const [groups, setGroups] = useState<Group[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
@@ -109,7 +114,7 @@ export default function HomePage() {
     <div className="min-h-screen" style={{ background: "var(--background)" }}>
       <Header />
 
-      <main className="max-w-7xl mx-auto px-4 lg:px-8 py-4 lg:py-6">
+      <main className="max-w-7xl mx-auto px-4 lg:px-8 py-4 lg:py-6 pb-24 lg:pb-6">
         {/* Выбор группы */}
         <div className="card mb-4 lg:mb-5">
           <h1 className="font-bold text-lg lg:text-2xl mb-3 lg:mb-4">Расписание занятий МГУ Душанбе</h1>
@@ -286,7 +291,8 @@ export default function HomePage() {
                     : "bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)]"
                 }`}
               >
-                {DAY_LABELS[day]}
+                <span className="lg:hidden">{DAY_SHORT[day]}</span>
+                <span className="hidden lg:inline">{DAY_LABELS[day]}</span>
               </button>
             ))}
           </div>

@@ -57,7 +57,7 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen">
       <Header />
-      <main className="max-w-2xl mx-auto px-4 py-4 space-y-4">
+      <main className="max-w-2xl mx-auto px-4 py-4 pb-24 lg:pb-6 space-y-4">
         <h1 className="font-bold text-xl">Мой кабинет</h1>
 
         {/* Выбор группы */}

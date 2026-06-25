@@ -28,7 +28,7 @@ export default function RoomsPage() {
   return (
     <div className="min-h-screen">
       <Header />
-      <main className="max-w-5xl mx-auto px-4 lg:px-8 py-4 lg:py-6">
+      <main className="max-w-5xl mx-auto px-4 lg:px-8 py-4 lg:py-6 pb-24 lg:pb-6">
         <div className="card mb-4 lg:mb-5">
           <h1 className="font-bold text-lg lg:text-2xl mb-3 lg:mb-4">Свободные аудитории</h1>
           <div className="flex flex-wrap gap-3 lg:gap-4">
