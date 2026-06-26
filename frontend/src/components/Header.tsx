@@ -7,7 +7,6 @@ const nav = [
   { href: "/", label: "Расписание" },
   { href: "/teachers", label: "Преподаватели" },
   { href: "/rooms", label: "Аудитории" },
-  { href: "/changes", label: "Изменения" },
   { href: "/profile", label: "Мой кабинет" },
 ];
 

@@ -2,188 +2,171 @@
 
 import { useState, useEffect } from "react";
 import Header from "@/components/Header";
-import { api, Group, getSessionId } from "@/lib/api";
+import { api, Group } from "@/lib/api";
+import { useRouter } from "next/navigation";
 
 export default function ProfilePage() {
+  const router = useRouter();
   const [groups, setGroups] = useState<Group[]>([]);
-  const [subscription, setSubscription] = useState<{ group_id: number; group_name: string; year: number } | null>(null);
-  const [attendance, setAttendance] = useState<{ total: number; attended: number; skipped: number; rate: number } | null>(null);
-  const [notes, setNotes] = useState<Array<{ id: number; day_of_week: string; pair_number: string; note: string }>>([]);
-  const [sessionId, setSessionId] = useState("");
+  const [name, setName] = useState("");
   const [selectedGroupId, setSelectedGroupId] = useState<number | "">("");
   const [saving, setSaving] = useState(false);
-  const [syncRunning, setSyncRunning] = useState(false);
-  const [syncResult, setSyncResult] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    const sid = getSessionId();
-    setSessionId(sid);
     api.getGroups().then(setGroups).catch(() => {});
-    api.getSubscription(sid).then(sub => {
-      setSubscription(sub);
-      if (sub) setSelectedGroupId(sub.group_id);
-    }).catch(() => {
-      // Если бэкенд не знает о подписке — берём из localStorage
-      const saved = localStorage.getItem("selected_group_id");
-      if (saved) setSelectedGroupId(Number(saved));
-    });
-    api.getAttendance(sid).then(setAttendance).catch(() => {});
-    api.getNotes(sid).then(setNotes).catch(() => {});
-
-    // Всегда предзаполняем дропдаун из localStorage как fallback
-    const savedId = localStorage.getItem("selected_group_id");
-    if (savedId) setSelectedGroupId(Number(savedId));
+    const savedName = localStorage.getItem("user_name") ?? "";
+    const savedGroup = localStorage.getItem("selected_group_id");
+    setName(savedName);
+    if (savedGroup) setSelectedGroupId(Number(savedGroup));
   }, []);
 
-  const saveSubscription = async () => {
-    if (!selectedGroupId || !sessionId) return;
+  const selectedGroup = groups.find(g => g.id === Number(selectedGroupId));
+
+  const initials = name.trim()
+    ? name.trim().split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase()
+    : "?";
+
+  const handleSave = async () => {
+    if (!selectedGroupId) return;
     setSaving(true);
-    const result = await api.subscribe(sessionId, Number(selectedGroupId));
-    setSubscription(result);
-    setSaving(false);
+    localStorage.setItem("user_name", name.trim());
     localStorage.setItem("selected_group_id", String(selectedGroupId));
+    await new Promise(r => setTimeout(r, 300));
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
   };
 
-  const runSync = async () => {
-    const secret = process.env.NEXT_PUBLIC_ADMIN_SECRET ?? "";
-    if (!secret) {
-      setSyncResult("NEXT_PUBLIC_ADMIN_SECRET не задан");
-      return;
-    }
-    setSyncRunning(true);
-    setSyncResult(null);
-    try {
-      const result = await api.syncNow(true, secret);
-      const msgs = result.results?.map((r: { faculty: string; status: string; lessons?: number }) =>
-        `${r.faculty}: ${r.status}${r.lessons ? ` (${r.lessons} занятий)` : ''}`
-      ).join(", ");
-      setSyncResult("Готово: " + msgs);
-    } catch {
-      setSyncResult("Ошибка синхронизации");
-    } finally {
-      setSyncRunning(false);
-    }
-  };
-
-  const DAY_LABELS: Record<string, string> = {
-    понедельник: "Пн", вторник: "Вт", среда: "Ср",
-    четверг: "Чт", пятница: "Пт", суббота: "Сб",
+  const handleGoToSchedule = () => {
+    router.push("/");
   };
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen" style={{ background: "var(--background)" }}>
       <Header />
-      <main className="max-w-2xl mx-auto px-4 py-4 pb-24 lg:pb-6 space-y-4">
-        <h1 className="font-bold text-xl">Мой кабинет</h1>
+      <main className="max-w-md mx-auto px-4 py-8 pb-28 lg:pb-8">
 
-        {/* Выбор группы */}
-        <div className="card">
-          <h2 className="font-semibold mb-3">Моя группа</h2>
-          {subscription && (
-            <div className="mb-3 p-3 rounded-lg bg-[var(--tag-bg)]">
-              <p className="text-sm font-medium">{subscription.group_name}</p>
-              <p className="text-xs text-[var(--muted)]">{subscription.year} курс</p>
-            </div>
-          )}
-          <div className="flex gap-2">
-            <select
-              className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
-              value={selectedGroupId}
-              onChange={e => setSelectedGroupId(Number(e.target.value) || "")}
-            >
-              <option value="">— Выберите группу —</option>
-              {["ЕНФ", "ГФ"].map(fac => (
-                <optgroup key={fac} label={fac === "ЕНФ" ? "ЕНФ" : "ГФ"}>
-                  {groups.filter(g => g.faculty_code === fac).map(g => (
-                    <option key={g.id} value={g.id}>{g.year} курс — {g.name}</option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-            <button
-              onClick={saveSubscription}
-              disabled={!selectedGroupId || saving}
-              className="px-4 py-2 rounded-lg bg-[var(--primary)] text-white text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
-            >
-              {saving ? "..." : "Сохранить"}
-            </button>
-          </div>
-          <p className="text-xs text-[var(--muted)] mt-2">
-            ID сессии: <code className="font-mono">{sessionId.slice(0, 8)}...</code>
-          </p>
-        </div>
-
-        {/* Посещаемость */}
-        {attendance && attendance.total > 0 && (
-          <div className="card">
-            <h2 className="font-semibold mb-3">Моя посещаемость</h2>
-            <div className="grid grid-cols-3 gap-3 mb-3">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-[var(--primary)]">{attendance.attended}</div>
-                <div className="text-xs text-[var(--muted)]">Посетил</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-[var(--muted)]">{attendance.skipped}</div>
-                <div className="text-xs text-[var(--muted)]">Пропустил</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-[var(--primary)]">{attendance.rate}%</div>
-                <div className="text-xs text-[var(--muted)]">Процент</div>
-              </div>
-            </div>
-            {/* Прогресс-бар */}
-            <div className="h-2 rounded-full bg-gray-200 dark:bg-slate-700">
-              <div
-                className="h-2 rounded-full transition-all duration-500"
-                style={{
-                  width: `${attendance.rate}%`,
-                  background: attendance.rate >= 75 ? "#22c55e" : attendance.rate >= 50 ? "#f59e0b" : "#ef4444"
-                }}
-              />
-            </div>
-            <p className="text-xs text-[var(--muted)] mt-1">
-              {attendance.rate < 75 && "⚠️ Посещаемость ниже нормы (75%)"}
-              {attendance.rate >= 75 && "✅ Посещаемость в норме"}
-            </p>
-          </div>
-        )}
-
-        {/* Заметки */}
-        {notes.length > 0 && (
-          <div className="card">
-            <h2 className="font-semibold mb-3">Мои заметки ({notes.length})</h2>
-            <div className="space-y-2">
-              {notes.map(n => (
-                <div key={n.id} className="p-3 rounded-lg bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-900">
-                  <div className="text-xs text-[var(--muted)] mb-1">
-                    {DAY_LABELS[n.day_of_week]} · {n.pair_number} пара
-                  </div>
-                  <p className="text-sm">{n.note}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Синхронизация */}
-        <div className="card">
-          <h2 className="font-semibold mb-3">Синхронизация</h2>
-          <p className="text-sm text-[var(--muted)] mb-3">
-            Расписание автоматически обновляется каждые 2 часа с сайта msu.tj.
-            Можно запустить вручную:
-          </p>
-          <button
-            onClick={runSync}
-            disabled={syncRunning}
-            className="px-4 py-2 rounded-lg bg-[var(--primary)] text-white text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
+        {/* Аватар */}
+        <div className="flex flex-col items-center mb-8">
+          <div
+            className="w-20 h-20 rounded-full flex items-center justify-center mb-3 text-2xl font-bold text-white"
+            style={{ background: "var(--primary)" }}
           >
-            {syncRunning ? "Синхронизация..." : "Обновить сейчас"}
-          </button>
-          {syncResult && (
-            <p className="text-xs text-[var(--muted)] mt-2">{syncResult}</p>
+            {initials}
+          </div>
+          {name && (
+            <p className="font-semibold text-lg" style={{ color: "var(--foreground)" }}>{name}</p>
+          )}
+          {selectedGroup && (
+            <p className="text-sm mt-0.5" style={{ color: "var(--muted)" }}>
+              {selectedGroup.year} курс · {selectedGroup.name}
+            </p>
           )}
         </div>
+
+        {/* Форма */}
+        <div className="card mb-4">
+          <h2 className="font-semibold text-sm mb-3" style={{ color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            Моё имя
+          </h2>
+          <input
+            type="text"
+            placeholder="Введи своё имя..."
+            className="w-full rounded-lg px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+            style={{ background: "var(--background)", border: "0.5px solid var(--border)", color: "var(--foreground)" }}
+            value={name}
+            onChange={e => { setName(e.target.value); setSaved(false); }}
+          />
+        </div>
+
+        <div className="card mb-6">
+          <h2 className="font-semibold text-sm mb-3" style={{ color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            Моя группа
+          </h2>
+          <select
+            className="w-full rounded-lg px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+            style={{ background: "var(--background)", border: "0.5px solid var(--border)", color: "var(--foreground)" }}
+            value={selectedGroupId}
+            onChange={e => { setSelectedGroupId(Number(e.target.value) || ""); setSaved(false); }}
+          >
+            <option value="">— Выбери группу —</option>
+            {["ЕНФ", "ГФ"].map(fac => (
+              <optgroup key={fac} label={fac === "ЕНФ" ? "Естественнонаучный факультет" : "Гуманитарный факультет"}>
+                {groups.filter(g => g.faculty_code === fac).map(g => (
+                  <option key={g.id} value={g.id}>{g.year} курс — {g.name}</option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        </div>
+
+        {/* Кнопки */}
+        <button
+          onClick={handleSave}
+          disabled={!selectedGroupId || saving}
+          className="w-full py-3 rounded-xl text-base font-semibold text-white transition-opacity disabled:opacity-40 mb-3"
+          style={{ background: "var(--primary)" }}
+        >
+          {saving ? "Сохраняем..." : saved ? "Сохранено ✓" : "Сохранить"}
+        </button>
+
+        {selectedGroupId && (
+          <button
+            onClick={handleGoToSchedule}
+            className="w-full py-3 rounded-xl text-base font-medium transition-colors"
+            style={{ border: "0.5px solid var(--border)", color: "var(--muted)", background: "var(--card)" }}
+          >
+            Перейти к расписанию
+          </button>
+        )}
+
+        {/* Синхронизация — внизу, без лишнего */}
+        <div className="mt-8 pt-6" style={{ borderTop: "0.5px solid var(--border)" }}>
+          <p className="text-xs text-center mb-3" style={{ color: "var(--muted)" }}>
+            Расписание автоматически обновляется каждые 2 часа с msu.tj
+          </p>
+          <SyncButton />
+        </div>
+
       </main>
+    </div>
+  );
+}
+
+function SyncButton() {
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+
+  const run = async () => {
+    const secret = process.env.NEXT_PUBLIC_ADMIN_SECRET ?? "";
+    if (!secret) return;
+    setRunning(true);
+    setResult(null);
+    try {
+      const data = await api.syncNow(true, secret);
+      const msgs = data.results?.map((r: { faculty: string; status: string; lessons?: number }) =>
+        `${r.faculty}: ${r.status}${r.lessons ? ` (${r.lessons} пар)` : ""}`
+      ).join(" · ");
+      setResult("Готово: " + msgs);
+    } catch {
+      setResult("Ошибка синхронизации");
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  return (
+    <div className="text-center">
+      <button
+        onClick={run}
+        disabled={running}
+        className="px-5 py-2 rounded-lg text-sm font-medium transition-opacity disabled:opacity-40"
+        style={{ border: "0.5px solid var(--border)", color: "var(--muted)", background: "var(--card)" }}
+      >
+        {running ? "Синхронизация..." : "Обновить вручную"}
+      </button>
+      {result && <p className="text-xs mt-2" style={{ color: "var(--muted)" }}>{result}</p>}
     </div>
   );
 }
