@@ -247,24 +247,6 @@ export default function HomePage() {
                 <div className="text-xs lg:text-sm text-[var(--muted)] mt-1">загруженный день</div>
               </div>
             </div>
-            {Object.keys(stats.lessons_by_day).length > 0 && (
-              <div className="mt-3 flex items-end gap-1.5 h-12">
-                {visibleDays.map(day => {
-                  const count = stats.lessons_by_day[day] || 0;
-                  const max = Math.max(...Object.values(stats.lessons_by_day));
-                  return (
-                    <div key={day} className="flex-1 flex flex-col items-center gap-0.5">
-                      <div
-                        className="w-full rounded-t bg-[var(--primary)] opacity-60 hover:opacity-100 transition-opacity"
-                        style={{ height: max > 0 ? `${(count / max) * 40}px` : "2px" }}
-                        title={`${DAY_LABELS[day]}: ${count} пар`}
-                      />
-                      <span className="text-[9px] text-[var(--muted)]">{DAY_SHORT[day]}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
           </div>
         )}
 
@@ -281,20 +263,26 @@ export default function HomePage() {
             >
               Вся неделя
             </button>
-            {visibleDays.map(day => (
-              <button
-                key={day}
-                onClick={() => setSelectedDay(day)}
-                className={`px-3 lg:px-5 py-1.5 lg:py-2.5 rounded-lg text-xs lg:text-base font-medium transition-colors ${
-                  selectedDay === day
-                    ? "bg-[var(--primary)] text-white"
-                    : "bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)]"
-                }`}
-              >
-                <span className="lg:hidden">{DAY_SHORT[day]}</span>
-                <span className="hidden lg:inline">{DAY_LABELS[day]}</span>
-              </button>
-            ))}
+            {visibleDays.map(day => {
+              const hasLessons = lessons.some(l => l.day_of_week === day);
+              const isActive = selectedDay === day;
+              return (
+                <button
+                  key={day}
+                  onClick={() => setSelectedDay(day)}
+                  className={`px-3 lg:px-5 py-1.5 lg:py-2.5 rounded-lg text-xs lg:text-base font-medium transition-colors ${
+                    isActive
+                      ? "bg-[var(--primary)] text-white"
+                      : hasLessons
+                        ? "bg-[var(--tag-bg)] border border-[var(--primary)] text-[var(--primary)]"
+                        : "bg-[var(--card)] border border-[var(--border)] text-[var(--muted)]"
+                  }`}
+                >
+                  <span className="lg:hidden">{DAY_SHORT[day]}</span>
+                  <span className="hidden lg:inline">{DAY_LABELS[day]}</span>
+                </button>
+              );
+            })}
           </div>
         )}
 
