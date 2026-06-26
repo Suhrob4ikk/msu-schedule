@@ -2,8 +2,13 @@
 
 from datetime import date, datetime, time
 from typing import Optional, List
+from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends, Query, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
+
+# Душанбе — UTC+5, не переходит на летнее время
+TZ_DUSHANBE = ZoneInfo("Asia/Dushanbe")
 
 from app.database import get_db
 from app.models import (
@@ -188,7 +193,8 @@ def get_current_and_next(
     db: Session = Depends(get_db),
 ):
     """'Что сейчас идёт' и 'следующая пара' для группы."""
-    now = datetime.now()
+    # Используем время Душанбе (UTC+5) — сервер может быть в другом часовом поясе
+    now = datetime.now(tz=TZ_DUSHANBE)
     today = now.date()
     day_names = ["понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье"]
     today_name = day_names[today.weekday()]
@@ -219,8 +225,16 @@ def get_current_and_next(
 
     result = []
     current_time = now.time()
+    PAIR_ORDER = ["I", "II", "III", "IV", "V"]
 
-    for lesson in lessons:
+    # Сортируем по порядку пары, чтобы "следующая" была именно ближайшей
+    sorted_lessons = sorted(
+        lessons,
+        key=lambda l: PAIR_ORDER.index(l.pair_number) if l.pair_number in PAIR_ORDER else 99
+    )
+
+    found_next = False  # берём только одну "следующую" пару
+    for lesson in sorted_lessons:
         times = PAIR_TIMES.get(lesson.pair_number)
         if not times:
             continue
@@ -228,14 +242,9 @@ def get_current_and_next(
         t_end = time(*map(int, times[1].split(":")))
 
         is_current = t_start <= current_time <= t_end
-        is_next = current_time < t_start
+        is_next = (not found_next) and (current_time < t_start)
 
-        if is_current or is_next:
-            mins = None
-            if is_next:
-                delta = datetime.combine(today, t_start) - now
-                mins = int(delta.total_seconds() // 60)
-
+        if is_current:
             result.append(TodayScheduleItem(
                 pair_number=lesson.pair_number,
                 pair_time_start=times[0],
@@ -245,10 +254,28 @@ def get_current_and_next(
                 teacher=lesson.teacher.name if lesson.teacher else None,
                 room=lesson.room.name if lesson.room else None,
                 group_name=group.name,
-                is_current=is_current,
-                is_next=is_next and not is_current,
+                is_current=True,
+                is_next=False,
+                minutes_until=None,
+            ))
+        elif is_next:
+            # Считаем разницу в том же часовом поясе
+            target = datetime.combine(today, t_start, tzinfo=TZ_DUSHANBE)
+            mins = int((target - now).total_seconds() // 60)
+            result.append(TodayScheduleItem(
+                pair_number=lesson.pair_number,
+                pair_time_start=times[0],
+                pair_time_end=times[1],
+                subject=lesson.subject,
+                lesson_type=lesson.lesson_type,
+                teacher=lesson.teacher.name if lesson.teacher else None,
+                room=lesson.room.name if lesson.room else None,
+                group_name=group.name,
+                is_current=False,
+                is_next=True,
                 minutes_until=mins,
             ))
+            found_next = True  # больше "следующих" не добавляем
 
     return result
 
@@ -328,28 +355,37 @@ def get_group_stats(group_id: int, db: Session = Depends(get_db)):
             most_loaded_day=None, unique_teachers=0, unique_subjects=0,
         )
 
-    lessons = (
-        db.query(Lesson)
-        .options(joinedload(Lesson.teacher))
-        .filter(Lesson.week_schedule_id == latest_week.id, Lesson.group_id == group_id)
-        .all()
+    base_filter = (
+        Lesson.week_schedule_id == latest_week.id,
+        Lesson.group_id == group_id,
     )
 
-    by_day = {}
-    for l in lessons:
-        by_day[l.day_of_week] = by_day.get(l.day_of_week, 0) + 1
+    # Считаем уникальных преподавателей и предметов одним SQL-запросом
+    agg = db.query(
+        func.count(Lesson.id).label("total"),
+        func.count(func.distinct(Lesson.teacher_id)).label("unique_teachers"),
+        func.count(func.distinct(Lesson.subject)).label("unique_subjects"),
+    ).filter(*base_filter).one()
 
+    # Количество пар по дням — GROUP BY вместо Python-цикла
+    by_day_rows = (
+        db.query(Lesson.day_of_week, func.count(Lesson.id))
+        .filter(*base_filter)
+        .group_by(Lesson.day_of_week)
+        .all()
+    )
+    by_day = {row[0]: row[1] for row in by_day_rows}
     most_loaded = max(by_day, key=by_day.get) if by_day else None
 
     return StatsSchema(
         faculty_code=group.faculty.code,
         group_name=group.name,
         year=group.year,
-        total_lessons_week=len(lessons),
+        total_lessons_week=agg.total,
         lessons_by_day=by_day,
         most_loaded_day=most_loaded,
-        unique_teachers=len({l.teacher_id for l in lessons if l.teacher_id}),
-        unique_subjects=len({l.subject for l in lessons}),
+        unique_teachers=agg.unique_teachers,
+        unique_subjects=agg.unique_subjects,
     )
 
 

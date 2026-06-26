@@ -28,30 +28,50 @@ CANONICAL_ROOMS = [
 
 
 def seed_rooms():
-    """Добавляет все реальные аудитории в БД и чистит дубли/мусор."""
+    """Добавляет канонические аудитории в БД и чистит мусорные записи."""
     from app.database import SessionLocal
     from app.models import Room
+    from sqlalchemy import func
+
     db = SessionLocal()
     try:
-        # Удаляем мусорные записи (кракозябры, "302 302" и т.п.)
-        all_rooms = db.query(Room).all()
-        for r in all_rooms:
-            # Удаляем если имя не в каноническом списке и нет уроков
-            if r.name not in CANONICAL_ROOMS and not r.lessons:
-                db.delete(r)
-            # Переименовываем "302 302" → "302"
-            elif r.name == "302 302":
-                existing = db.query(Room).filter_by(name="302").first()
-                if not existing:
-                    r.name = "302"
-                else:
-                    db.delete(r)
+        # Получаем id аудиторий у которых есть хотя бы один урок — одним запросом
+        rooms_with_lessons = {
+            row[0] for row in
+            db.query(Room.id).join(Room.lessons).distinct().all()
+        }
 
-        # Добавляем недостающие канонические аудитории
-        existing_names = {r.name for r in db.query(Room).all()}
-        for name in CANONICAL_ROOMS:
-            if name not in existing_names:
-                db.add(Room(name=name))
+        # Удаляем мусорные записи без уроков, которых нет в каноническом списке
+        non_canonical = (
+            db.query(Room)
+            .filter(Room.name.notin_(CANONICAL_ROOMS))
+            .all()
+        )
+        for r in non_canonical:
+            if r.id not in rooms_with_lessons:
+                db.delete(r)
+
+        # Переименовываем "302 302" → "302" если такое есть
+        bad_room = db.query(Room).filter_by(name="302 302").first()
+        if bad_room:
+            exists_302 = db.query(Room).filter_by(name="302").first()
+            if not exists_302:
+                bad_room.name = "302"
+            else:
+                db.delete(bad_room)
+
+        db.flush()
+
+        # Добавляем недостающие канонические аудитории одним запросом
+        existing_names = {r.name for r in db.query(Room.name).all()}
+        new_rooms = [
+            Room(name=name)
+            for name in CANONICAL_ROOMS
+            if name not in existing_names
+        ]
+        if new_rooms:
+            db.add_all(new_rooms)
+
         db.commit()
         logger.info(f"Аудитории засеяны: {len(CANONICAL_ROOMS)} штук")
     finally:
@@ -89,9 +109,12 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
+    # allow_origins=["*"] + allow_credentials=True — невалидная комбинация по спецификации CORS.
+    # Браузеры отклоняют credentialed-запросы к wildcard origin.
+    # Поскольку мы не используем cookies, credentials=False — корректное решение.
     allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 

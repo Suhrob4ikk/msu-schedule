@@ -55,7 +55,7 @@ export default function TeachersPage() {
           <input
             type="search"
             placeholder="Поиск по фамилии..."
-            className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 lg:py-3 text-sm lg:text-base focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+            className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 lg:py-3 text-base focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
             value={search}
             onChange={e => setSearch(e.target.value)}
           />

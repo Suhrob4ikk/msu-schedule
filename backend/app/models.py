@@ -1,7 +1,7 @@
 from datetime import datetime
 from sqlalchemy import (
     Column, Integer, String, Text, DateTime, Date, Boolean,
-    ForeignKey, UniqueConstraint, Enum as SAEnum
+    ForeignKey, UniqueConstraint, Enum as SAEnum, Index
 )
 from sqlalchemy.orm import relationship
 import enum
@@ -90,6 +90,11 @@ class WeekSchedule(Base):
     is_latest = Column(Boolean, default=True, nullable=False)  # Флаг текущей версии
     lessons = relationship("Lesson", back_populates="week_schedule", cascade="all, delete-orphan")
 
+    __table_args__ = (
+        # Ускоряет поиск актуального расписания факультета (самый частый запрос)
+        Index("ix_week_faculty_latest", "faculty_code", "is_latest"),
+    )
+
 
 class Lesson(Base):
     __tablename__ = "lessons"
@@ -110,6 +115,10 @@ class Lesson(Base):
 
     __table_args__ = (
         UniqueConstraint("week_schedule_id", "group_id", "day_of_week", "pair_number"),
+        # Основные индексы — ускоряют все запросы расписания по группе/учителю/кабинету
+        Index("ix_lesson_week_group", "week_schedule_id", "group_id"),
+        Index("ix_lesson_teacher", "teacher_id"),
+        Index("ix_lesson_room", "room_id"),
     )
 
 

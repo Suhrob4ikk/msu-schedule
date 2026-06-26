@@ -45,10 +45,15 @@ export default function ProfilePage() {
   };
 
   const runSync = async () => {
+    const secret = process.env.NEXT_PUBLIC_ADMIN_SECRET ?? "";
+    if (!secret) {
+      setSyncResult("NEXT_PUBLIC_ADMIN_SECRET не задан");
+      return;
+    }
     setSyncRunning(true);
     setSyncResult(null);
     try {
-      const result = await api.syncNow(true);
+      const result = await api.syncNow(true, secret);
       const msgs = result.results?.map((r: { faculty: string; status: string; lessons?: number }) =>
         `${r.faculty}: ${r.status}${r.lessons ? ` (${r.lessons} занятий)` : ''}`
       ).join(", ");
@@ -82,7 +87,7 @@ export default function ProfilePage() {
           )}
           <div className="flex gap-2">
             <select
-              className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+              className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
               value={selectedGroupId}
               onChange={e => setSelectedGroupId(Number(e.target.value) || "")}
             >

@@ -106,36 +106,39 @@ export default function LessonCard({
           </div>
         </div>
 
-        {/* Кнопки действий */}
+        {/* Кнопки действий — минимум 44×44px для корректного tap на мобиле */}
         {sessionId && (
           <div className="flex flex-col gap-1 shrink-0">
             {onAttendance && (
               <div className="flex gap-1">
                 <button
                   onClick={() => onAttendance(lesson.id, true)}
-                  className={`text-xs lg:text-sm px-2 lg:px-3 py-1 rounded transition-colors ${
+                  className={`min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-base transition-colors ${
                     attended === true
                       ? "bg-green-500 text-white"
                       : "bg-gray-100 dark:bg-slate-700 hover:bg-green-100 dark:hover:bg-green-900"
                   }`}
                   title="Был"
+                  aria-label="Отметить присутствие"
                 >✓</button>
                 <button
                   onClick={() => onAttendance(lesson.id, false)}
-                  className={`text-xs lg:text-sm px-2 lg:px-3 py-1 rounded transition-colors ${
+                  className={`min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-base transition-colors ${
                     attended === false
                       ? "bg-red-500 text-white"
                       : "bg-gray-100 dark:bg-slate-700 hover:bg-red-100 dark:hover:bg-red-900"
                   }`}
                   title="Не был"
+                  aria-label="Отметить пропуск"
                 >✗</button>
               </div>
             )}
             {onNote && (
               <button
                 onClick={() => onNote(lesson)}
-                className="text-xs lg:text-sm px-2 lg:px-3 py-1 rounded bg-gray-100 dark:bg-slate-700 hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors"
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-base bg-gray-100 dark:bg-slate-700 hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors"
                 title="Заметка"
+                aria-label="Добавить заметку"
               >📝</button>
             )}
           </div>

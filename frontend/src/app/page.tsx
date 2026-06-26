@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Header from "@/components/Header";
 import LessonCard from "@/components/LessonCard";
 import OnboardingScreen from "@/components/OnboardingScreen";
-import { api, Group, Lesson, TodayItem, Stats, WeekInfo, DAYS_ORDER, PAIR_TIMES, getSessionId } from "@/lib/api";
+import { api, Group, Lesson, TodayItem, Stats, WeekInfo, DAYS_ORDER, getSessionId } from "@/lib/api";
 
 const DAY_LABELS: Record<string, string> = {
   понедельник: "Понедельник", вторник: "Вторник", среда: "Среда",
@@ -29,28 +29,34 @@ export default function HomePage() {
   const [noteModal, setNoteModal] = useState<Lesson | null>(null);
   const [noteText, setNoteText] = useState("");
   const [sessionId, setSessionId] = useState("");
-  const [view, setView] = useState<"week" | "day">("week");
   const [weeks, setWeeks] = useState<WeekInfo[]>([]);
   const [selectedWeekId, setSelectedWeekId] = useState<number | undefined>(undefined);
-  const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
+  const [showOnboarding, setShowOnboarding] = useState<boolean>(false);
 
   useEffect(() => {
-    setSessionId(getSessionId());
-    api.getGroups().then(setGroups).catch(() => setError("Нет соединения с сервером"));
+    // Читаем sessionId синхронно — не ждём setState, чтобы не было stale closure
+    const sid = getSessionId();
+    setSessionId(sid);
 
     const savedId = localStorage.getItem("selected_group_id");
-    if (savedId) {
-      setShowOnboarding(false);
-      api.getGroups().then(gs => {
-        const g = gs.find(x => x.id === Number(savedId));
-        if (g) loadGroup(g);
-      });
-    } else {
-      setShowOnboarding(true);
-    }
-  }, []);
+    setShowOnboarding(!savedId);
 
-  const loadGroup = useCallback(async (group: Group, weekId?: number) => {
+    // Один запрос вместо двух: сначала грузим группы, потом сразу открываем сохранённую
+    api.getGroups()
+      .then(gs => {
+        setGroups(gs);
+        if (savedId) {
+          const g = gs.find(x => x.id === Number(savedId));
+          if (g) loadGroup(g, undefined, sid);
+        }
+      })
+      .catch(() => setError("Нет соединения с сервером"));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // sid — необязательный параметр для случая первого рендера,
+  // когда sessionId в state ещё не обновился
+  const loadGroup = useCallback(async (group: Group, weekId?: number, sid?: string) => {
+    const effectiveSid = sid ?? sessionId;
     setSelectedGroup(group);
     setLoading(true);
     setError(null);
@@ -69,14 +75,14 @@ export default function HomePage() {
       setNowItems(now);
       setStats(st);
 
-      // Загружаем посещаемость
-      if (sessionId) {
-        const att = await api.getAttendance(sessionId);
+      // Загружаем посещаемость используя актуальный sid
+      if (effectiveSid) {
+        const att = await api.getAttendance(effectiveSid);
         const map: Record<number, boolean> = {};
         att.records.forEach(r => { map[r.lesson_id] = r.attended; });
         setAttendance(map);
       }
-    } catch (e) {
+    } catch {
       setError("Ошибка загрузки расписания");
     } finally {
       setLoading(false);
@@ -101,20 +107,52 @@ export default function HomePage() {
     setNoteText("");
   };
 
-  const filteredLessons = selectedDay === "all"
-    ? lessons
-    : lessons.filter(l => l.day_of_week === selectedDay);
+  // Мемоизируем — не пересчитываем при изменении attendance/noteModal и других состояний
+  const lessonsByDay = useMemo(() => {
+    const filtered = selectedDay === "all"
+      ? lessons
+      : lessons.filter(l => l.day_of_week === selectedDay);
 
-  const lessonsByDay = DAYS_ORDER.reduce((acc, day) => {
-    const dayLessons = filteredLessons.filter(l => l.day_of_week === day);
-    if (dayLessons.length > 0) acc[day] = dayLessons;
-    return acc;
-  }, {} as Record<string, Lesson[]>);
+    return DAYS_ORDER.reduce((acc, day) => {
+      const dayLessons = filtered.filter(l => l.day_of_week === day);
+      if (dayLessons.length > 0) acc[day] = dayLessons;
+      return acc;
+    }, {} as Record<string, Lesson[]>);
+  }, [lessons, selectedDay]);
 
   const currentItem = nowItems.find(i => i.is_current);
   const nextItem = nowItems.find(i => i.is_next);
 
-  if (showOnboarding === null) return null;
+  // Живой countdown — обновляется каждую секунду
+  const [countdown, setCountdown] = useState<string>("");
+  useEffect(() => {
+    if (!nextItem) { setCountdown(""); return; }
+
+    const tick = () => {
+      const now = new Date();
+      const [h, m] = nextItem.pair_time_start.split(":").map(Number);
+      const target = new Date(now);
+      target.setHours(h, m, 0, 0);
+
+      const diffMs = target.getTime() - now.getTime();
+      if (diffMs <= 0) { setCountdown(""); return; }
+
+      const totalMin = Math.floor(diffMs / 60000);
+      const secs = Math.floor((diffMs % 60000) / 1000);
+      const hrs = Math.floor(totalMin / 60);
+      const mins = totalMin % 60;
+
+      if (hrs > 0) {
+        setCountdown(`${hrs}ч ${mins}м`);
+      } else {
+        setCountdown(`${mins}:${String(secs).padStart(2, "0")}`);
+      }
+    };
+
+    tick();
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
+  }, [nextItem]);
 
   return (
     <div className="min-h-screen" style={{ background: "var(--background)" }}>
@@ -134,7 +172,7 @@ export default function HomePage() {
           <h1 className="font-bold text-lg lg:text-2xl mb-3 lg:mb-4">Расписание занятий МГУ Душанбе</h1>
           <div className="flex flex-wrap gap-2 lg:gap-3">
             <select
-              className="flex-1 min-w-48 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 lg:py-3 text-sm lg:text-base focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+              className="flex-1 min-w-48 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 lg:py-3 text-base focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
               value={selectedGroup?.id ?? ""}
               onChange={e => {
                 const g = groups.find(x => x.id === Number(e.target.value));
@@ -221,10 +259,16 @@ export default function HomePage() {
             )}
             {nextItem && (
               <div className="card lesson-next">
-                <div className="flex items-center gap-2 mb-2">
+                <div className="flex items-center justify-between gap-2 mb-2">
                   <span className="text-xs lg:text-sm font-semibold text-blue-600 dark:text-blue-400">
-                    СЛЕДУЮЩАЯ {nextItem.minutes_until != null && `через ${nextItem.minutes_until} мин.`}
+                    СЛЕДУЮЩАЯ ПАРА
                   </span>
+                  {/* Живой countdown — тикает каждую секунду */}
+                  {countdown && (
+                    <span className="text-lg lg:text-2xl font-bold tabular-nums text-blue-600 dark:text-blue-400">
+                      {countdown}
+                    </span>
+                  )}
                 </div>
                 <p className="font-semibold text-sm lg:text-base">{nextItem.subject}</p>
                 <p className="text-xs lg:text-sm text-[var(--muted)] mt-1">
@@ -255,9 +299,9 @@ export default function HomePage() {
               </div>
               <div className="text-center">
                 <div className="text-2xl lg:text-4xl font-bold text-green-500">
-                  {stats.most_loaded_day ? DAY_LABELS[stats.most_loaded_day]?.slice(0, 2) : "—"}
+                  {stats.most_loaded_day ? DAY_SHORT[stats.most_loaded_day] : "—"}
                 </div>
-                <div className="text-xs lg:text-sm text-[var(--muted)] mt-1">загрузка</div>
+                <div className="text-xs lg:text-sm text-[var(--muted)] mt-1">загруженный день</div>
               </div>
             </div>
             {/* Мини-бар-чарт по дням */}
@@ -382,7 +426,7 @@ export default function HomePage() {
               Заметка к паре: {noteModal.subject}
             </h3>
             <textarea
-              className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] p-3 text-base resize-none focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
               rows={4}
               placeholder="Напиши заметку к этой паре..."
               value={noteText}

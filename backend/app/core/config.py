@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     CHECK_INTERVAL_HOURS: int = 2
     DATA_DIR: str = os.path.join(os.path.dirname(__file__), "..", "..", "..", "data")
     DEBUG: bool = True
+    # Секретный ключ для admin-эндпоинтов. Передаётся в заголовке X-Admin-Secret.
+    # Если не задан — admin-эндпоинты недоступны.
+    ADMIN_SECRET: str = ""
 
     class Config:
         env_file = ".env"

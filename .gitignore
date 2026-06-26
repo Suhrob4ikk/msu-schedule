@@ -2,12 +2,20 @@
 __pycache__/
 *.py[cod]
 *.pyo
-.env
 .venv/
 venv/
 *.egg-info/
 
-# Data / DB
+# Переменные окружения (содержат секреты)
+backend/.env
+frontend/.env.local
+.env
+.env.*
+
+# Временные debug-скрипты (не часть проекта)
+inspect_xls*.py
+
+# Data / DB — генерируются автоматически, не нужны в репо
 data/msu_schedule.db
 data/*.xls
 data/*.xlsx

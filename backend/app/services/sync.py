@@ -305,9 +305,10 @@ async def sync_faculty(faculty_code: str, force: bool = False) -> dict:
 
 
 async def sync_all(force: bool = False) -> list[dict]:
-    """Синхронизирует оба факультета."""
-    results = []
-    for faculty_code in ["ЕНФ", "ГФ"]:
-        result = await sync_faculty(faculty_code, force=force)
-        results.append(result)
-    return results
+    """Синхронизирует оба факультета параллельно."""
+    import asyncio
+    results = await asyncio.gather(
+        sync_faculty("ЕНФ", force=force),
+        sync_faculty("ГФ", force=force),
+    )
+    return list(results)

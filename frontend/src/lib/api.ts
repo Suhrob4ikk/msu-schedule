@@ -6,6 +6,14 @@ async function fetchApi<T>(path: string): Promise<T> {
   return res.json();
 }
 
+/** Собирает query string из объекта, пропуская undefined/null/false */
+function buildQuery(params: Record<string, string | number | undefined | null | false>): string {
+  const parts = Object.entries(params)
+    .filter(([, v]) => v !== undefined && v !== null && v !== false)
+    .map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`);
+  return parts.length ? '?' + parts.join('&') : '';
+}
+
 export interface Group {
   id: number;
   name: string;
@@ -80,14 +88,10 @@ export interface Change {
 
 export const api = {
   getGroups: (facultyCode?: string) =>
-    fetchApi<Group[]>(`/schedule/groups${facultyCode ? `?faculty_code=${encodeURIComponent(facultyCode)}` : ''}`),
+    fetchApi<Group[]>(`/schedule/groups${buildQuery({ faculty_code: facultyCode })}`),
 
   getGroupSchedule: (groupId: number, day?: string, weekId?: number) =>
-    fetchApi<Lesson[]>(`/schedule/group/${groupId}${
-      [day && `day_of_week=${day}`, weekId && `week_id=${weekId}`].filter(Boolean).join('&')
-        ? '?' + [day && `day_of_week=${day}`, weekId && `week_id=${weekId}`].filter(Boolean).join('&')
-        : ''
-    }`),
+    fetchApi<Lesson[]>(`/schedule/group/${groupId}${buildQuery({ day_of_week: day, week_id: weekId })}`),
 
   getGroupWeeks: (groupId: number) =>
     fetchApi<WeekInfo[]>(`/schedule/weeks/${groupId}`),
@@ -144,9 +148,12 @@ export const api = {
     fetchApi<Array<{ id: number; group_id: number; day_of_week: string; pair_number: string; note: string }>>
       (`/user/notes/${sessionId}`),
 
-  // Принудительная синхронизация
-  syncNow: (force = false) =>
-    fetch(`${API_BASE}/admin/sync?force=${force}`, { method: 'POST' }).then(r => r.json()),
+  // Принудительная синхронизация (требует ADMIN_SECRET в заголовке)
+  syncNow: (force = false, adminSecret: string) =>
+    fetch(`${API_BASE}/admin/sync?force=${force}`, {
+      method: 'POST',
+      headers: { 'X-Admin-Secret': adminSecret },
+    }).then(r => r.json()),
 };
 
 // Имена дней недели на русском с числовым порядком
