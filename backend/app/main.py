@@ -51,14 +51,20 @@ def seed_rooms():
             if r.id not in rooms_with_lessons:
                 db.delete(r)
 
-        # Переименовываем "302 302" → "302" если такое есть
-        bad_room = db.query(Room).filter_by(name="302 302").first()
-        if bad_room:
-            exists_302 = db.query(Room).filter_by(name="302").first()
-            if not exists_302:
-                bad_room.name = "302"
-            else:
-                db.delete(bad_room)
+        # Нормализуем задвоенные имена: "107 107" → "107", "302 302" → "302" и т.д.
+        all_rooms = db.query(Room).all()
+        for room in all_rooms:
+            parts = room.name.split()
+            if len(parts) >= 2 and len(parts) % 2 == 0 and parts[:len(parts)//2] == parts[len(parts)//2:]:
+                canonical = " ".join(parts[:len(parts)//2])
+                existing = db.query(Room).filter(Room.name == canonical, Room.id != room.id).first()
+                if existing:
+                    # Переносим уроки и удаляем дубль
+                    from app.models import Lesson
+                    db.query(Lesson).filter(Lesson.room_id == room.id).update({"room_id": existing.id})
+                    db.delete(room)
+                else:
+                    room.name = canonical
 
         db.flush()
 
