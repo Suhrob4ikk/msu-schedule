@@ -1,7 +1,9 @@
 """Личный кабинет: заметки, посещаемость, подписки."""
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
+import json
 
 from app.database import get_db
 from app.models import LessonNote, AttendanceRecord, Lesson, Group, UserSubscription, UserRegistration
@@ -9,6 +11,7 @@ from app.schemas import (
     LessonNoteCreate, LessonNoteSchema,
     AttendanceCreate, AttendanceSchema,
 )
+from app.core.config import settings
 
 router = APIRouter(prefix="/user", tags=["user"])
 
@@ -153,3 +156,53 @@ def get_subscription(session_id: str, db: Session = Depends(get_db)):
         "group_name": group.name if group else None,
         "year": group.year if group else None,
     }
+
+
+@router.get("/vapid-key")
+def get_vapid_key():
+    """Возвращает публичный VAPID-ключ для Web Push подписки."""
+    if not settings.VAPID_PUBLIC_KEY:
+        raise HTTPException(503, "Push уведомления не настроены")
+    return {"public_key": settings.VAPID_PUBLIC_KEY}
+
+
+class PushSubscriptionBody(BaseModel):
+    session_id: str
+    group_id: int
+    endpoint: str
+    keys: dict  # {"p256dh": "...", "auth": "..."}
+
+
+@router.post("/push-subscribe")
+def push_subscribe(body: PushSubscriptionBody, db: Session = Depends(get_db)):
+    """Сохраняет Web Push подписку пользователя."""
+    group = db.get(Group, body.group_id)
+    if not group:
+        raise HTTPException(404, "Группа не найдена")
+
+    sub = db.query(UserSubscription).filter_by(session_id=body.session_id).first()
+    if sub:
+        sub.group_id = body.group_id
+        sub.push_endpoint = body.endpoint
+        sub.push_keys = json.dumps(body.keys)
+    else:
+        sub = UserSubscription(
+            session_id=body.session_id,
+            group_id=body.group_id,
+            push_endpoint=body.endpoint,
+            push_keys=json.dumps(body.keys),
+        )
+        db.add(sub)
+    db.commit()
+    return {"ok": True}
+
+
+@router.delete("/push-subscribe")
+def push_unsubscribe(session_id: str, db: Session = Depends(get_db)):
+    """Удаляет Web Push подписку (пользователь отключил уведомления)."""
+    sub = db.query(UserSubscription).filter_by(session_id=session_id).first()
+    if sub:
+        sub.push_endpoint = None
+        sub.push_keys = None
+        db.commit()
+    return {"ok": True}

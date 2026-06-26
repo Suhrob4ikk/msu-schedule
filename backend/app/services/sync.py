@@ -152,11 +152,11 @@ def cleanup_old_schedules(db: Session, faculty_code: str):
     db.flush()
 
 
-def save_schedule_to_db(db: Session, parsed: dict, file_last_modified: Optional[str]) -> tuple[int, int]:
+def save_schedule_to_db(db: Session, parsed: dict, file_last_modified: Optional[str]) -> tuple[int, int, dict]:
     """
     Сохраняет расписание в БД как новую версию.
     Старая версия той же недели архивируется (is_latest=False), не удаляется.
-    Возвращает (количество_уроков, количество_изменений).
+    Возвращает (количество_уроков, количество_изменений, изменения_по_группам).
     """
     faculty_code = parsed["faculty_code"]
     week_start = parsed["week_start"]
@@ -186,6 +186,7 @@ def save_schedule_to_db(db: Session, parsed: dict, file_last_modified: Optional[
 
     total_lessons = 0
     total_changes = 0
+    changes_by_group: dict[str, int] = {}
 
     for group_data in parsed["groups"]:
         group = get_or_create_group(
@@ -202,6 +203,8 @@ def save_schedule_to_db(db: Session, parsed: dict, file_last_modified: Optional[
                 group_name=group.name,
                 **change,
             ))
+        if changes:
+            changes_by_group[group.name] = len(changes)
         total_changes += len(changes)
 
         for lesson_data in group_data["lessons"]:
@@ -228,7 +231,7 @@ def save_schedule_to_db(db: Session, parsed: dict, file_last_modified: Optional[
             total_lessons += 1
 
     db.commit()
-    return total_lessons, total_changes
+    return total_lessons, total_changes, changes_by_group
 
 
 async def sync_faculty(faculty_code: str, force: bool = False) -> dict:
@@ -273,7 +276,13 @@ async def sync_faculty(faculty_code: str, force: bool = False) -> dict:
             raise ValueError("Не удалось определить дату начала недели из XLS")
 
         # Сохраняем в БД
-        total_lessons, total_changes = save_schedule_to_db(db, parsed, last_modified)
+        total_lessons, total_changes, changes_by_group = save_schedule_to_db(db, parsed, last_modified)
+
+        # Отправляем push-уведомления подписчикам изменившихся групп
+        if total_changes > 0:
+            from app.services.push import notify_group_changes
+            for group_name, count in changes_by_group.items():
+                notify_group_changes(db, group_name, faculty_code, count)
 
         sync_log.status = "success"
         sync_log.finished_at = datetime.utcnow()

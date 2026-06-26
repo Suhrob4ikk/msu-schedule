@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     # Email-уведомления при регистрации (Resend API)
     RESEND_API_KEY: str = ""  # ключ из resend.com/api-keys
     NOTIFY_EMAIL: str = "davlatovsurob@gmail.com"
+    # Web Push (VAPID)
+    VAPID_PRIVATE_KEY: str = ""
+    VAPID_PUBLIC_KEY: str = ""
+    VAPID_SUBJECT: str = "mailto:davlatovsuhrob1234@gmail.com"
 
     class Config:
         env_file = ".env"
