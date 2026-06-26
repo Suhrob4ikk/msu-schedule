@@ -173,10 +173,17 @@ export default function HomePage() {
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs lg:text-sm font-semibold text-[var(--muted)] shrink-0">Неделя:</span>
               {weeks.map((w) => {
-                const d = new Date(w.week_start);
-                const label = w.is_latest
-                  ? "Текущая"
-                  : `${d.getDate()} ${d.toLocaleString("ru-RU", { month: "short" })}`;
+                const weekStart = new Date(w.week_start + "T00:00:00");
+                const weekEnd = new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+
+                const isThisWeek = today >= weekStart && today <= weekEnd;
+                const isNextWeek = weekStart > today && weekStart.getTime() - today.getTime() <= 8 * 24 * 60 * 60 * 1000;
+
+                const dateLabel = `${weekStart.getDate()} ${weekStart.toLocaleString("ru-RU", { month: "short" })}`;
+                const label = isThisWeek ? "Эта неделя" : isNextWeek ? `Следующая · ${dateLabel}` : dateLabel;
+
                 return (
                   <button
                     key={w.id}
@@ -191,7 +198,7 @@ export default function HomePage() {
                     }`}
                   >
                     {label}
-                    {w.is_latest && (
+                    {isThisWeek && (
                       <span className="ml-1 w-1.5 h-1.5 rounded-full bg-[var(--primary)] opacity-60 inline-block align-middle" />
                     )}
                   </button>

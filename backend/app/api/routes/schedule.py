@@ -73,7 +73,7 @@ def get_groups(
 
 @router.get("/weeks/{group_id}", response_model=list)
 def get_available_weeks(group_id: int, db: Session = Depends(get_db)):
-    """Список доступных недель для группы (текущая + архив до 2 недель)."""
+    """Список доступных недель для группы — дедуплицированный по week_start."""
     group = db.get(Group, group_id)
     if not group:
         raise HTTPException(404, "Группа не найдена")
@@ -84,6 +84,15 @@ def get_available_weeks(group_id: int, db: Session = Depends(get_db)):
         .order_by(WeekSchedule.downloaded_at.desc())
         .all()
     )
+
+    # Дедупликация: оставляем только самую свежую запись для каждой week_start
+    seen: set = set()
+    unique_weeks = []
+    for w in weeks:
+        if w.week_start not in seen:
+            seen.add(w.week_start)
+            unique_weeks.append(w)
+
     return [
         {
             "id": w.id,
@@ -92,7 +101,7 @@ def get_available_weeks(group_id: int, db: Session = Depends(get_db)):
             "downloaded_at": w.downloaded_at.isoformat() if w.downloaded_at else None,
             "is_latest": w.is_latest,
         }
-        for w in weeks
+        for w in unique_weeks
     ]
 
 
