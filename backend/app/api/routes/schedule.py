@@ -291,7 +291,8 @@ def get_free_rooms(
     occupied_map = {}
     for l in occupied:
         if l.room:
-            occupied_map[l.room.name] = f"{l.group.year} курс · {l.group.name}: {l.subject}"
+            type_suffix = f" · {l.lesson_type}" if l.lesson_type else ""
+            occupied_map[l.room.name] = f"{l.group.year} курс · {l.group.name}: {l.subject}{type_suffix}"
 
     result = []
     for room_name in sorted(all_rooms.values()):

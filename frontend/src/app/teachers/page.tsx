@@ -16,6 +16,7 @@ export default function TeachersPage() {
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
+  const [mobileView, setMobileView] = useState<"list" | "detail">("list");
 
   useEffect(() => {
     api.getTeachers().then(setTeachers);
@@ -24,6 +25,7 @@ export default function TeachersPage() {
   const loadTeacher = async (t: Teacher) => {
     setSelected(t);
     setLoading(true);
+    setMobileView("detail");
     try {
       const data = await api.getTeacherSchedule(t.id);
       setLessons(data);
@@ -46,7 +48,9 @@ export default function TeachersPage() {
     <div className="min-h-screen">
       <Header />
       <main className="max-w-7xl mx-auto px-4 lg:px-8 py-4 lg:py-6 pb-24 lg:pb-6">
-        <div className="card mb-4 lg:mb-5">
+
+        {/* Поиск — скрываем на мобиле в режиме детали */}
+        <div className={`card mb-4 lg:mb-5 ${mobileView === "detail" ? "hidden lg:block" : ""}`}>
           <h1 className="font-bold text-lg lg:text-2xl mb-3 lg:mb-4">Расписание преподавателей</h1>
           <input
             type="search"
@@ -58,35 +62,52 @@ export default function TeachersPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
-          {/* Список преподавателей */}
-          <div className="card lg:col-span-1 h-[calc(100vh-220px)] lg:h-[calc(100vh-200px)] overflow-y-auto">
-            {filtered.length === 0 && (
-              <p className="text-[var(--muted)] text-sm lg:text-base text-center py-4">Нет результатов</p>
-            )}
-            {filtered.map(t => (
-              <button
-                key={t.id}
-                onClick={() => loadTeacher(t)}
-                className={`w-full text-left px-3 lg:px-4 py-2 lg:py-2.5 rounded-lg mb-1 text-sm lg:text-base transition-colors ${
-                  selected?.id === t.id
-                    ? "bg-[var(--primary)] text-white"
-                    : "hover:bg-gray-100 dark:hover:bg-slate-700"
-                }`}
-              >
-                {t.name}
-              </button>
-            ))}
+
+          {/* Список преподавателей — скрывается на мобиле в режиме детали */}
+          <div className={`lg:col-span-1 ${mobileView === "detail" ? "hidden lg:block" : ""}`}>
+            <div className="card h-[calc(100vh-280px)] lg:h-[calc(100vh-200px)] overflow-y-auto">
+              {filtered.length === 0 && (
+                <p className="text-[var(--muted)] text-sm lg:text-base text-center py-4">Нет результатов</p>
+              )}
+              {filtered.map(t => (
+                <button
+                  key={t.id}
+                  onClick={() => loadTeacher(t)}
+                  className={`w-full text-left px-3 lg:px-4 py-3 lg:py-2.5 rounded-lg mb-1 text-sm lg:text-base transition-colors ${
+                    selected?.id === t.id
+                      ? "bg-[var(--primary)] text-white"
+                      : "hover:bg-[var(--accent)] text-[var(--foreground)]"
+                  }`}
+                >
+                  {t.name}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* Расписание выбранного преподавателя */}
-          <div className="lg:col-span-2">
+          {/* Расписание — детальный вид */}
+          <div className={`lg:col-span-2 ${mobileView === "list" ? "hidden lg:block" : ""}`}>
+
+            {/* Кнопка назад — только мобиле */}
+            {mobileView === "detail" && (
+              <button
+                onClick={() => setMobileView("list")}
+                className="lg:hidden flex items-center gap-2 text-[var(--primary)] text-sm font-medium mb-4"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                  <path d="M19 12H5M12 5l-7 7 7 7"/>
+                </svg>
+                К списку преподавателей
+              </button>
+            )}
+
             {loading && (
               <div className="flex items-center justify-center py-16">
                 <div className="w-6 h-6 lg:w-8 lg:h-8 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
               </div>
             )}
             {!selected && !loading && (
-              <div className="text-center py-16 text-[var(--muted)]">
+              <div className="hidden lg:flex text-center py-16 text-[var(--muted)] items-center justify-center">
                 <p className="text-sm lg:text-base">Выберите преподавателя из списка</p>
               </div>
             )}
