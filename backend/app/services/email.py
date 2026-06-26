@@ -54,6 +54,6 @@ def send_registration_email(name: str, group: str) -> None:
             server.starttls()
             server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
             server.send_message(msg)
-        log.info("Письмо отправлено: %s → %s", name, settings.NOTIFY_EMAIL)
+        log.warning("Письмо отправлено: %s → %s", name, settings.NOTIFY_EMAIL)
     except Exception as e:
         log.error("Ошибка отправки письма: %s", e)
