@@ -153,30 +153,42 @@ def get_group_schedule(
 def get_teacher_schedule(
     teacher_id: int,
     day_of_week: Optional[str] = None,
+    week_start: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
-    """Расписание преподавателя на текущую неделю."""
+    """Расписание преподавателя. week_start — конкретная неделя, иначе текущая."""
     teacher = db.get(Teacher, teacher_id)
     if not teacher:
         raise HTTPException(404, "Преподаватель не найден")
 
-    # Последние расписания обоих факультетов
-    latest_weeks = {}
-    for fcode in ["ЕНФ", "ГФ"]:
-        w = (
-            db.query(WeekSchedule)
-            .filter_by(faculty_code=fcode, is_latest=True)
-            .order_by(WeekSchedule.downloaded_at.desc())
-            .first()
-        )
-        if w:
-            latest_weeks[fcode] = w.id
+    if week_start:
+        try:
+            ws_date = date.fromisoformat(week_start)
+        except ValueError:
+            raise HTTPException(400, "Неверный формат даты")
+        week_ids = [w.id for w in db.query(WeekSchedule).filter(WeekSchedule.week_start == ws_date).all()]
+    else:
+        # Последние расписания обоих факультетов
+        week_ids = []
+        for fcode in ["ЕНФ", "ГФ"]:
+            w = (
+                db.query(WeekSchedule)
+                .filter_by(faculty_code=fcode, is_latest=True)
+                .order_by(WeekSchedule.downloaded_at.desc())
+                .first()
+            )
+            if w:
+                week_ids.append(w.id)
 
     q = (
         db.query(Lesson)
-        .options(joinedload(Lesson.group), joinedload(Lesson.room))
+        .options(
+            joinedload(Lesson.teacher),
+            joinedload(Lesson.room),
+            joinedload(Lesson.group).joinedload(Group.faculty),
+        )
         .filter(Lesson.teacher_id == teacher_id)
-        .filter(Lesson.week_schedule_id.in_(latest_weeks.values()))
+        .filter(Lesson.week_schedule_id.in_(week_ids))
     )
     if day_of_week:
         q = q.filter(Lesson.day_of_week == day_of_week.lower())
@@ -190,10 +202,54 @@ def get_teacher_schedule(
     return enriched
 
 
+@router.get("/weeks-all", response_model=list)
+def get_all_weeks(db: Session = Depends(get_db)):
+    """Все уникальные недели по всем факультетам — для глобального переключателя."""
+    weeks = (
+        db.query(WeekSchedule)
+        .order_by(WeekSchedule.week_start.desc(), WeekSchedule.downloaded_at.desc())
+        .all()
+    )
+    seen: set = set()
+    unique: list = []
+    for w in weeks:
+        if w.week_start not in seen:
+            seen.add(w.week_start)
+            unique.append(w)
+    return [
+        {
+            "week_start": str(w.week_start),
+            "week_number": w.week_number,
+            "is_latest": w.is_latest,
+        }
+        for w in unique
+    ]
+
+
 @router.get("/teachers")
-def get_teachers(db: Session = Depends(get_db)):
-    """Список всех преподавателей."""
-    return [{"id": t.id, "name": t.name} for t in db.query(Teacher).order_by(Teacher.name).all()]
+def get_teachers(week_start: Optional[str] = None, db: Session = Depends(get_db)):
+    """Список преподавателей. Если week_start задан — только те, у кого есть занятия в эту неделю."""
+    if week_start:
+        try:
+            ws_date = date.fromisoformat(week_start)
+        except ValueError:
+            raise HTTPException(400, "Неверный формат даты")
+        week_ids = [
+            w.id for w in db.query(WeekSchedule).filter(WeekSchedule.week_start == ws_date).all()
+        ]
+        active_ids: set = set()
+        if week_ids:
+            rows = (
+                db.query(Lesson.teacher_id)
+                .filter(Lesson.week_schedule_id.in_(week_ids), Lesson.teacher_id.isnot(None))
+                .distinct()
+                .all()
+            )
+            active_ids = {r[0] for r in rows}
+        teachers = db.query(Teacher).filter(Teacher.id.in_(active_ids)).order_by(Teacher.name).all()
+    else:
+        teachers = db.query(Teacher).order_by(Teacher.name).all()
+    return [{"id": t.id, "name": t.name} for t in teachers]
 
 
 @router.get("/now", response_model=list)

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Header from "@/components/Header";
+import WeekBar from "@/components/WeekBar";
 import LessonCard from "@/components/LessonCard";
 import { api, Teacher, Lesson, DAYS_ORDER } from "@/lib/api";
 
@@ -17,17 +18,29 @@ export default function TeachersPage() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [mobileView, setMobileView] = useState<"list" | "detail">("list");
+  const [selectedWeekStart, setSelectedWeekStart] = useState<string>("");
 
-  useEffect(() => {
-    api.getTeachers().then(setTeachers);
+  // Загрузка преподавателей при смене недели
+  const loadTeachers = useCallback(async (weekStart: string) => {
+    const data = await api.getTeachers(weekStart || undefined);
+    setTeachers(data);
   }, []);
+
+  // Обработчик WeekBar
+  const handleWeekChange = useCallback(async (weekStart: string) => {
+    setSelectedWeekStart(weekStart);
+    setSelected(null);
+    setLessons([]);
+    setMobileView("list");
+    await loadTeachers(weekStart);
+  }, [loadTeachers]);
 
   const loadTeacher = async (t: Teacher) => {
     setSelected(t);
     setLoading(true);
     setMobileView("detail");
     try {
-      const data = await api.getTeacherSchedule(t.id);
+      const data = await api.getTeacherSchedule(t.id, selectedWeekStart || undefined);
       setLessons(data);
     } finally {
       setLoading(false);
@@ -47,6 +60,7 @@ export default function TeachersPage() {
   return (
     <div className="min-h-screen">
       <Header />
+      <WeekBar onWeekChange={handleWeekChange} selectedWeekStart={selectedWeekStart} />
       <main className="max-w-7xl mx-auto px-4 lg:px-8 py-4 lg:py-6 pb-24 lg:pb-6">
 
         {/* Поиск — скрываем на мобиле в режиме детали */}
@@ -63,10 +77,13 @@ export default function TeachersPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
 
-          {/* Список преподавателей — скрывается на мобиле в режиме детали */}
+          {/* Список преподавателей */}
           <div className={`lg:col-span-1 ${mobileView === "detail" ? "hidden lg:block" : ""}`}>
-            <div className="card h-[calc(100vh-280px)] lg:h-[calc(100vh-200px)] overflow-y-auto">
-              {filtered.length === 0 && (
+            <div className="card h-[calc(100vh-320px)] lg:h-[calc(100vh-240px)] overflow-y-auto">
+              {!selectedWeekStart && (
+                <p className="text-[var(--muted)] text-sm text-center py-4">Загрузка...</p>
+              )}
+              {selectedWeekStart && filtered.length === 0 && (
                 <p className="text-[var(--muted)] text-sm lg:text-base text-center py-4">Нет результатов</p>
               )}
               {filtered.map(t => (
@@ -85,10 +102,10 @@ export default function TeachersPage() {
             </div>
           </div>
 
-          {/* Расписание — детальный вид */}
+          {/* Расписание преподавателя */}
           <div className={`lg:col-span-2 ${mobileView === "list" ? "hidden lg:block" : ""}`}>
 
-            {/* Кнопка назад — только мобиле */}
+            {/* Кнопка назад — мобиле */}
             {mobileView === "detail" && (
               <button
                 onClick={() => setMobileView("list")}

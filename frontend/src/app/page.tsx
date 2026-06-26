@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import Header from "@/components/Header";
+import WeekBar from "@/components/WeekBar";
 import LessonCard from "@/components/LessonCard";
 import OnboardingScreen from "@/components/OnboardingScreen";
 import { api, Group, Lesson, TodayItem, Stats, WeekInfo, DAYS_ORDER } from "@/lib/api";
@@ -27,6 +28,7 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [weeks, setWeeks] = useState<WeekInfo[]>([]);
   const [selectedWeekId, setSelectedWeekId] = useState<number | undefined>(undefined);
+  const [selectedWeekStart, setSelectedWeekStart] = useState<string>("");
   const [showOnboarding, setShowOnboarding] = useState<boolean>(false);
 
   useEffect(() => {
@@ -58,7 +60,9 @@ export default function HomePage() {
         api.getGroupWeeks(group.id),
       ]);
       setWeeks(wks);
-      setSelectedWeekId(weekId ?? wks.find(w => w.is_latest)?.id);
+      const activeWeek = weekId ? wks.find(w => w.id === weekId) : wks.find(w => w.is_latest);
+      setSelectedWeekId(activeWeek?.id);
+      if (activeWeek) setSelectedWeekStart(activeWeek.week_start);
       setLessons(sched);
       setNowItems(now);
       setStats(st);
@@ -68,6 +72,14 @@ export default function HomePage() {
       setLoading(false);
     }
   }, []);
+
+  // Обработчик переключения недели из WeekBar
+  const handleWeekChange = useCallback((weekStart: string) => {
+    setSelectedWeekStart(weekStart);
+    if (!selectedGroup) return;
+    const week = weeks.find(w => w.week_start === weekStart);
+    if (week) loadGroup(selectedGroup, week.id);
+  }, [selectedGroup, weeks, loadGroup]);
 
   const lessonsByDay = useMemo(() => {
     const filtered = selectedDay === "all"
@@ -126,6 +138,7 @@ export default function HomePage() {
         />
       )}
       <Header />
+      <WeekBar onWeekChange={handleWeekChange} selectedWeekStart={selectedWeekStart} />
 
       <main className="max-w-7xl mx-auto px-4 lg:px-8 py-4 lg:py-6 pb-24 lg:pb-6">
         {/* Выбор группы */}
@@ -166,47 +179,6 @@ export default function HomePage() {
             )}
           </div>
         </div>
-
-        {/* Переключатель недель (архив) */}
-        {weeks.length > 1 && (
-          <div className="card mb-4 lg:mb-5">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs lg:text-sm font-semibold text-[var(--muted)] shrink-0">Неделя:</span>
-              {weeks.map((w) => {
-                const weekStart = new Date(w.week_start + "T00:00:00");
-                const weekEnd = new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000);
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-
-                const isThisWeek = today >= weekStart && today <= weekEnd;
-                const isNextWeek = weekStart > today && weekStart.getTime() - today.getTime() <= 8 * 24 * 60 * 60 * 1000;
-
-                const dateLabel = `${weekStart.getDate()} ${weekStart.toLocaleString("ru-RU", { month: "short" })}`;
-                const label = isThisWeek ? "Эта неделя" : isNextWeek ? `Следующая · ${dateLabel}` : dateLabel;
-
-                return (
-                  <button
-                    key={w.id}
-                    onClick={() => {
-                      setSelectedWeekId(w.id);
-                      if (selectedGroup) loadGroup(selectedGroup, w.id);
-                    }}
-                    className={`px-3 lg:px-4 py-1 lg:py-1.5 rounded-lg text-xs lg:text-sm font-medium transition-colors ${
-                      selectedWeekId === w.id
-                        ? "bg-[var(--primary)] text-white"
-                        : "bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)]"
-                    }`}
-                  >
-                    {label}
-                    {isThisWeek && (
-                      <span className="ml-1 w-1.5 h-1.5 rounded-full bg-[var(--primary)] opacity-60 inline-block align-middle" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
 
         {/* "Что сейчас" виджет */}
         {(currentItem || nextItem) && (

@@ -96,11 +96,14 @@ export const api = {
   getGroupWeeks: (groupId: number) =>
     fetchApi<WeekInfo[]>(`/schedule/weeks/${groupId}`),
 
-  getTeachers: () =>
-    fetchApi<Teacher[]>('/schedule/teachers'),
+  getAllWeeks: () =>
+    fetchApi<Array<{ week_start: string; week_number: number; is_latest: boolean }>>('/schedule/weeks-all'),
 
-  getTeacherSchedule: (teacherId: number) =>
-    fetchApi<Lesson[]>(`/schedule/teacher/${teacherId}`),
+  getTeachers: (weekStart?: string) =>
+    fetchApi<Teacher[]>(`/schedule/teachers${buildQuery({ week_start: weekStart })}`),
+
+  getTeacherSchedule: (teacherId: number, weekStart?: string) =>
+    fetchApi<Lesson[]>(`/schedule/teacher/${teacherId}${buildQuery({ week_start: weekStart })}`),
 
   getNow: (groupId: number) =>
     fetchApi<TodayItem[]>(`/schedule/now?group_id=${groupId}`),
