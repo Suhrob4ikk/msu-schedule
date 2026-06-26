@@ -102,7 +102,13 @@ def parse_room(cell_value) -> Optional[str]:
     val = str(cell_value).strip()
     # Убираем .0 у числовых значений
     if re.match(r'^\d+\.0$', val):
-        return val[:-2]
+        val = val[:-2]
+    # Убираем задвоенные значения: "107 107" → "107"
+    parts = val.split()
+    if len(parts) >= 2 and len(parts) % 2 == 0:
+        half = len(parts) // 2
+        if parts[:half] == parts[half:]:
+            val = " ".join(parts[:half])
     return val
 
 

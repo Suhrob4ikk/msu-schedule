@@ -78,35 +78,37 @@ export default function RoomsPage() {
         </div>
 
         {rooms.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+            {/* Свободные — на lg занимают 1 колонку с внутренней сеткой */}
             <div>
-              <h2 className="font-semibold text-sm lg:text-base text-green-600 dark:text-green-400 mb-2 lg:mb-3 flex items-center gap-2">
-                <span className="w-2 h-2 lg:w-2.5 lg:h-2.5 rounded-full bg-green-500"></span>
+              <h2 className="font-semibold text-base lg:text-lg text-green-600 dark:text-green-400 mb-3 flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-green-500"></span>
                 Свободных: {freeRooms.length}
               </h2>
-              <div className="space-y-1.5">
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
                 {freeRooms.map(r => (
-                  <div key={r.room_name} className="card py-2 lg:py-3 flex items-center gap-2">
+                  <div key={r.room_name} className="card py-3 lg:py-4 flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-green-400 shrink-0"></span>
-                    <span className="text-sm lg:text-base font-medium">{r.room_name}</span>
+                    <span className="text-sm lg:text-base font-semibold">{r.room_name}</span>
                   </div>
                 ))}
                 {freeRooms.length === 0 && (
-                  <p className="text-[var(--muted)] text-sm lg:text-base py-4 text-center">Свободных аудиторий нет</p>
+                  <p className="col-span-2 lg:col-span-3 text-[var(--muted)] text-sm lg:text-base py-4 text-center">Свободных аудиторий нет</p>
                 )}
               </div>
             </div>
+            {/* Занятые */}
             <div>
-              <h2 className="font-semibold text-sm lg:text-base text-red-600 dark:text-red-400 mb-2 lg:mb-3 flex items-center gap-2">
-                <span className="w-2 h-2 lg:w-2.5 lg:h-2.5 rounded-full bg-red-500"></span>
+              <h2 className="font-semibold text-base lg:text-lg text-red-600 dark:text-red-400 mb-3 flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-red-500"></span>
                 Занятых: {busyRooms.length}
               </h2>
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 {busyRooms.map(r => (
-                  <div key={r.room_name} className="card py-2 lg:py-3">
+                  <div key={r.room_name} className="card py-3 lg:py-4">
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-red-400 shrink-0"></span>
-                      <span className="text-sm lg:text-base font-medium">{r.room_name}</span>
+                      <span className="text-sm lg:text-base font-semibold">{r.room_name}</span>
                     </div>
                     {r.occupied_by && (
                       <p className="text-xs lg:text-sm text-[var(--muted)] mt-1 pl-4">{r.occupied_by}</p>

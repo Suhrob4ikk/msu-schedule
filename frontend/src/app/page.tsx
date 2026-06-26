@@ -33,7 +33,7 @@ export default function HomePage() {
 
   useEffect(() => {
     const savedId = localStorage.getItem("selected_group_id");
-    const deviceId = localStorage.getItem("msu_device_id");
+    const deviceId = localStorage.getItem("msu_device_id_v2");
     // Новый пользователь или ещё не регистрировался — отправляем на страницу настройки
     if (!savedId || !deviceId) { router.push("/profile"); return; }
 
@@ -262,10 +262,10 @@ export default function HomePage() {
 
         {/* Фильтр по дню */}
         {selectedGroup && (
-          <div className="flex gap-1.5 lg:gap-2 flex-wrap mb-4 lg:mb-5">
+          <div className="flex gap-1.5 lg:gap-3 flex-wrap mb-4 lg:mb-5">
             <button
               onClick={() => setSelectedDay("all")}
-              className={`px-3 lg:px-4 py-1.5 lg:py-2 rounded-lg text-xs lg:text-sm font-medium transition-colors ${
+              className={`px-3 lg:px-5 py-1.5 lg:py-2.5 rounded-lg text-xs lg:text-base font-medium transition-colors ${
                 selectedDay === "all"
                   ? "bg-[var(--primary)] text-white"
                   : "bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)]"
@@ -277,7 +277,7 @@ export default function HomePage() {
               <button
                 key={day}
                 onClick={() => setSelectedDay(day)}
-                className={`px-3 lg:px-4 py-1.5 lg:py-2 rounded-lg text-xs lg:text-sm font-medium transition-colors ${
+                className={`px-3 lg:px-5 py-1.5 lg:py-2.5 rounded-lg text-xs lg:text-base font-medium transition-colors ${
                   selectedDay === day
                     ? "bg-[var(--primary)] text-white"
                     : "bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)]"
@@ -309,8 +309,17 @@ export default function HomePage() {
             <svg className="w-12 h-12 mx-auto mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
             </svg>
-            <p>Занятий не найдено</p>
-            <p className="text-xs mt-1">Возможно, это сессионная неделя</p>
+            {selectedDay !== "all" ? (
+              <>
+                <p className="font-medium">В {DAY_LABELS[selectedDay].toLowerCase()} занятий нет</p>
+                <p className="text-xs mt-1">Выходной или нет пар в этот день</p>
+              </>
+            ) : (
+              <>
+                <p className="font-medium">На этой неделе занятий нет</p>
+                <p className="text-xs mt-1">Идёт сессия или каникулы</p>
+              </>
+            )}
           </div>
         )}
 
