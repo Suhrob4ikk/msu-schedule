@@ -18,10 +18,21 @@ export default function ProfilePage() {
   useEffect(() => {
     const sid = getSessionId();
     setSessionId(sid);
-    api.getGroups().then(setGroups);
-    api.getSubscription(sid).then(setSubscription);
-    api.getAttendance(sid).then(setAttendance);
-    api.getNotes(sid).then(setNotes);
+    api.getGroups().then(setGroups).catch(() => {});
+    api.getSubscription(sid).then(sub => {
+      setSubscription(sub);
+      if (sub) setSelectedGroupId(sub.group_id);
+    }).catch(() => {
+      // Если бэкенд не знает о подписке — берём из localStorage
+      const saved = localStorage.getItem("selected_group_id");
+      if (saved) setSelectedGroupId(Number(saved));
+    });
+    api.getAttendance(sid).then(setAttendance).catch(() => {});
+    api.getNotes(sid).then(setNotes).catch(() => {});
+
+    // Всегда предзаполняем дропдаун из localStorage как fallback
+    const savedId = localStorage.getItem("selected_group_id");
+    if (savedId) setSelectedGroupId(Number(savedId));
   }, []);
 
   const saveSubscription = async () => {

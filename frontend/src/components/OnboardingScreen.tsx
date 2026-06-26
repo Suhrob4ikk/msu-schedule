@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { api, Group } from "@/lib/api";
+import { api, Group, getSessionId } from "@/lib/api";
 
 interface Props {
   onComplete: (group: Group) => void;
@@ -19,6 +19,9 @@ export default function OnboardingScreen({ onComplete }: Props) {
     const group = groups.find(g => g.id === selectedId);
     if (!group) return;
     localStorage.setItem("selected_group_id", String(group.id));
+    // Регистрируем подписку на бэкенде, чтобы профиль её увидел
+    const sid = getSessionId();
+    if (sid) api.subscribe(sid, group.id).catch(() => {});
     onComplete(group);
   };
 
