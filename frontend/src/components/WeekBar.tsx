@@ -64,9 +64,9 @@ export default function WeekBar({ onWeekChange, selectedWeekStart }: Props) {
 
   return (
     <div className="border-b border-[var(--border)]" style={{ background: "var(--background)" }}>
-      <div className="max-w-7xl mx-auto px-4 lg:px-8 py-2 flex items-center gap-2 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+      <div className="max-w-7xl mx-auto px-4 lg:px-8 py-2.5 flex items-center gap-2.5 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
         <span
-          className="text-xs font-semibold shrink-0"
+          className="text-sm font-semibold shrink-0"
           style={{ color: "var(--muted)" }}
         >
           Неделя:
@@ -78,7 +78,7 @@ export default function WeekBar({ onWeekChange, selectedWeekStart }: Props) {
             <button
               key={w.week_start}
               onClick={() => handleSelect(w.week_start)}
-              className="shrink-0 flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-colors"
+              className="shrink-0 flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"
               style={
                 active
                   ? { background: "var(--primary)", color: "#fff" }
