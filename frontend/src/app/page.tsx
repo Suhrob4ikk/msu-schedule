@@ -55,14 +55,30 @@ export default function HomePage() {
     localStorage.setItem("selected_group_id", String(group.id));
 
     try {
-      const [sched, now, st, wks] = await Promise.all([
-        api.getGroupSchedule(group.id, undefined, weekId),
+      // Сначала загружаем список недель, чтобы найти нужный week_id
+      const wks = await api.getGroupWeeks(group.id);
+      setWeeks(wks);
+
+      let targetWeekId = weekId;
+      if (!targetWeekId) {
+        // Ищем неделю, содержащую сегодняшнюю дату
+        const today = new Date().toISOString().slice(0, 10);
+        const currentWeek = wks.find(w => {
+          const end = new Date(w.week_start);
+          end.setDate(end.getDate() + 6);
+          return today >= w.week_start && today <= end.toISOString().slice(0, 10);
+        });
+        // Если сегодня нет в ни одной неделе — берём is_latest
+        targetWeekId = currentWeek?.id ?? wks.find(w => w.is_latest)?.id;
+      }
+
+      const [sched, now, st] = await Promise.all([
+        api.getGroupSchedule(group.id, undefined, targetWeekId),
         api.getNow(group.id),
         api.getStats(group.id),
-        api.getGroupWeeks(group.id),
       ]);
-      setWeeks(wks);
-      const activeWeek = weekId ? wks.find(w => w.id === weekId) : wks.find(w => w.is_latest);
+
+      const activeWeek = wks.find(w => w.id === targetWeekId) ?? wks.find(w => w.is_latest);
       setSelectedWeekId(activeWeek?.id);
       if (activeWeek) setSelectedWeekStart(activeWeek.week_start);
       setLessons(sched);
