@@ -108,9 +108,10 @@ export const api = {
   getNow: (groupId: number) =>
     fetchApi<TodayItem[]>(`/schedule/now?group_id=${groupId}`),
 
-  getFreeRooms: (day: string, pair: string) =>
-    fetchApi<Array<{ room_name: string; is_free: boolean; occupied_by?: string }>>
-      (`/schedule/free-rooms?day_of_week=${encodeURIComponent(day)}&pair_number=${pair}`),
+  getFreeRooms: (day: string, pair: string, weekStart?: string) =>
+    fetchApi<Array<{ room_name: string; is_free: boolean; occupied_by?: string }>>(
+      `/schedule/free-rooms${buildQuery({ day_of_week: day, pair_number: pair, week_start: weekStart })}`
+    ),
 
   getStats: (groupId: number) =>
     fetchApi<Stats>(`/schedule/stats/${groupId}`),

@@ -367,22 +367,34 @@ def get_current_and_next(
 def get_free_rooms(
     day_of_week: str = Query(..., description="понедельник, вторник, ..."),
     pair_number: str = Query(..., description="I, II, III, IV, V"),
+    week_start: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
-    """Свободные аудитории в указанный день и пару."""
-    # Все аудитории
+    """Свободные аудитории в указанный день и пару. week_start — конкретная неделя."""
     from app.models import Room
     all_rooms = {r.id: r.name for r in db.query(Room).all()}
 
-    # Занятые в это время
+    # Определяем week_ids — по одной свежей записи на факультет
     latest_week_ids = []
     for fcode in ["ЕНФ", "ГФ"]:
-        w = (
-            db.query(WeekSchedule)
-            .filter_by(faculty_code=fcode, is_latest=True)
-            .order_by(WeekSchedule.downloaded_at.desc())
-            .first()
-        )
+        if week_start:
+            try:
+                ws_date = date.fromisoformat(week_start)
+            except ValueError:
+                raise HTTPException(400, "Неверный формат даты")
+            w = (
+                db.query(WeekSchedule)
+                .filter(WeekSchedule.faculty_code == fcode, WeekSchedule.week_start == ws_date)
+                .order_by(WeekSchedule.downloaded_at.desc())
+                .first()
+            )
+        else:
+            w = (
+                db.query(WeekSchedule)
+                .filter_by(faculty_code=fcode, is_latest=True)
+                .order_by(WeekSchedule.downloaded_at.desc())
+                .first()
+            )
         if w:
             latest_week_ids.append(w.id)
 

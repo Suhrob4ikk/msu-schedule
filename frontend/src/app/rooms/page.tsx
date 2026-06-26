@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Header from "@/components/Header";
+import WeekBar from "@/components/WeekBar";
 import { api, DAYS_ORDER, PAIR_TIMES } from "@/lib/api";
 
 const DAY_LABELS: Record<string, string> = {
@@ -14,13 +15,24 @@ export default function RoomsPage() {
   const [pair, setPair] = useState("I");
   const [rooms, setRooms] = useState<Array<{ room_name: string; is_free: boolean; occupied_by?: string }>>([]);
   const [loading, setLoading] = useState(false);
+  const [selectedWeekStart, setSelectedWeekStart] = useState<string>("");
 
-  useEffect(() => {
+  const loadRooms = (d: string, p: string, weekStart: string) => {
+    if (!weekStart) return;
     setLoading(true);
-    api.getFreeRooms(day, pair)
+    api.getFreeRooms(d, p, weekStart)
       .then(setRooms)
       .finally(() => setLoading(false));
-  }, [day, pair]);
+  };
+
+  // Перезагружаем при смене дня/пары/недели
+  useEffect(() => {
+    loadRooms(day, pair, selectedWeekStart);
+  }, [day, pair, selectedWeekStart]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleWeekChange = (weekStart: string) => {
+    setSelectedWeekStart(weekStart);
+  };
 
   const freeRooms = rooms.filter(r => r.is_free);
   const busyRooms = rooms.filter(r => !r.is_free);
@@ -28,6 +40,7 @@ export default function RoomsPage() {
   return (
     <div className="min-h-screen">
       <Header />
+      <WeekBar onWeekChange={handleWeekChange} selectedWeekStart={selectedWeekStart} />
       <main className="max-w-5xl mx-auto px-4 lg:px-8 py-4 lg:py-6 pb-24 lg:pb-6">
         <div className="card mb-4 lg:mb-5">
           <h1 className="font-bold text-lg lg:text-2xl mb-3 lg:mb-4">Свободные аудитории</h1>
@@ -102,6 +115,12 @@ export default function RoomsPage() {
                 ))}
               </div>
             </div>
+          </div>
+        )}
+
+        {!loading && rooms.length === 0 && selectedWeekStart && (
+          <div className="text-center py-16 text-[var(--muted)]">
+            <p>Данных нет для выбранной недели</p>
           </div>
         )}
       </main>
