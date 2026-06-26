@@ -1,15 +1,19 @@
 """Отправка email-уведомлений администратору."""
 
+import logging
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from app.core.config import settings
 
+log = logging.getLogger(__name__)
+
 
 def send_registration_email(name: str, group: str) -> None:
     """Отправляет письмо когда новый пользователь регистрируется."""
     if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
-        return  # SMTP не настроен — просто пропускаем
+        log.warning("SMTP не настроен, письмо не отправлено")
+        return
 
     try:
         msg = MIMEMultipart("alternative")
@@ -48,5 +52,6 @@ def send_registration_email(name: str, group: str) -> None:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
             server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
             server.send_message(msg)
-    except Exception:
-        pass  # Не падаем если письмо не отправилось
+        log.info("Письмо отправлено: %s → %s", name, settings.NOTIFY_EMAIL)
+    except Exception as e:
+        log.error("Ошибка отправки письма: %s", e)

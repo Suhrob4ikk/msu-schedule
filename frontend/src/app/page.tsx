@@ -33,8 +33,9 @@ export default function HomePage() {
 
   useEffect(() => {
     const savedId = localStorage.getItem("selected_group_id");
-    // Новый пользователь — отправляем на страницу настройки
-    if (!savedId) { router.push("/profile"); return; }
+    const deviceId = localStorage.getItem("msu_device_id");
+    // Новый пользователь или ещё не регистрировался — отправляем на страницу настройки
+    if (!savedId || !deviceId) { router.push("/profile"); return; }
 
     api.getGroups()
       .then(gs => {

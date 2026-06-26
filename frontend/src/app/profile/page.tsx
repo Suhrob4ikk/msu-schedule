@@ -20,9 +20,11 @@ export default function ProfilePage() {
     api.getGroups().then(setGroups).catch(() => {});
     const savedName = localStorage.getItem("user_name") ?? "";
     const savedGroup = localStorage.getItem("selected_group_id");
+    const deviceId = localStorage.getItem("msu_device_id");
     setName(savedName);
     if (savedGroup) setSelectedGroupId(Number(savedGroup));
-    setIsSetup(!savedGroup);
+    // isSetup = true если первый раз ИЛИ ещё не проходил регистрацию
+    setIsSetup(!savedGroup || !deviceId);
 
     // Проверяем возможность установки PWA
     const standalone =
@@ -160,16 +162,6 @@ export default function ProfilePage() {
           {saving ? "Сохраняем..." : isSetup ? "Начать" : "Сохранить"}
         </button>
 
-        {/* Пропустить — только при первой настройке */}
-        {isSetup && (
-          <button
-            onClick={() => router.push("/")}
-            className="w-full py-2 text-sm transition-colors"
-            style={{ color: "var(--muted)" }}
-          >
-            Пропустить
-          </button>
-        )}
 
         {/* При редактировании — кнопка назад */}
         {!isSetup && (

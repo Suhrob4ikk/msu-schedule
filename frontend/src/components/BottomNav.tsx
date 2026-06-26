@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
 const nav = [
   {
@@ -48,6 +49,14 @@ const nav = [
 
 export default function BottomNav() {
   const pathname = usePathname();
+  const [registered, setRegistered] = useState(true); // по умолчанию показываем
+
+  useEffect(() => {
+    setRegistered(!!localStorage.getItem("msu_device_id"));
+  }, [pathname]);
+
+  // Скрываем навбар на странице регистрации (первый вход)
+  if (pathname === "/profile" && !registered) return null;
 
   return (
     <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-[var(--background)] border-t border-[var(--border)]"
