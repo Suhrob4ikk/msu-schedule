@@ -9,139 +9,57 @@ const typeLabels: Record<string, string> = {
   ЛЕКЦИЯ: "Лекция",
 };
 
-const typeClasses: Record<string, string> = {
-  ЗАЧЕТ: "badge-credit",
-  ЭКЗАМЕН: "badge-exam",
-  ПРАКТИКА: "badge-practice",
-  Практика: "badge-practice",
-  ЛЕКЦИЯ: "badge-lecture",
-};
-
 interface Props {
   lesson: Lesson;
   showGroup?: boolean;
-  isCurrent?: boolean;
-  isNext?: boolean;
-  sessionId?: string;
-  onNote?: (lesson: Lesson) => void;
-  attended?: boolean | null;
-  onAttendance?: (lessonId: number, attended: boolean) => void;
 }
 
-export default function LessonCard({
-  lesson, showGroup, isCurrent, isNext, sessionId,
-  onNote, attended, onAttendance,
-}: Props) {
-  const badgeClass = lesson.lesson_type
-    ? (typeClasses[lesson.lesson_type] || "badge-lecture")
-    : "";
-
+export default function LessonCard({ lesson, showGroup }: Props) {
   return (
-    <div
-      className={`card mb-2 lg:mb-3 transition-all ${
-        isCurrent ? "lesson-current shadow-lg" :
-        isNext ? "lesson-next" : ""
-      }`}
-    >
-      <div className="flex items-start justify-between gap-2 lg:gap-4">
-        <div className="flex-1 min-w-0">
-          {/* Время и номер пары */}
-          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-            <span className="text-xs lg:text-sm font-bold text-[var(--primary)] bg-blue-50 dark:bg-blue-950 px-2 py-0.5 lg:px-3 lg:py-1 rounded">
-              {lesson.pair_number} пара
-            </span>
-            {lesson.pair_time_start && (
-              <span className="text-xs lg:text-sm text-[var(--muted)] font-medium">
-                {lesson.pair_time_start} – {lesson.pair_time_end}
-              </span>
-            )}
-            {isCurrent && (
-              <span className="badge text-xs lg:text-sm" style={{ background: "#dcfce7", color: "#166534" }}>
-                ● Идёт сейчас
-              </span>
-            )}
-            {isNext && (
-              <span className="badge text-xs lg:text-sm" style={{ background: "#dbeafe", color: "#1e40af" }}>
-                Следующая
-              </span>
-            )}
-          </div>
+    <div className="card mb-2 lg:mb-2.5">
+      {/* Номер пары + время + тип */}
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <span className="lesson-tag">
+          {lesson.pair_number} пара
+          {lesson.pair_time_start && ` · ${lesson.pair_time_start}–${lesson.pair_time_end}`}
+        </span>
+        {lesson.lesson_type && (
+          <span className="lesson-tag">
+            {typeLabels[lesson.lesson_type] || lesson.lesson_type}
+          </span>
+        )}
+      </div>
 
-          {/* Название предмета */}
-          <h3 className="font-semibold text-sm lg:text-base leading-snug mb-1.5">
-            {lesson.subject}
-            {lesson.lesson_type && (
-              <span className={`badge ml-2 text-xs lg:text-sm ${badgeClass}`}>
-                {typeLabels[lesson.lesson_type] || lesson.lesson_type}
-              </span>
-            )}
-          </h3>
+      {/* Название предмета */}
+      <p className="font-medium text-sm lg:text-base leading-snug mb-2" style={{ color: "var(--foreground)" }}>
+        {lesson.subject}
+      </p>
 
-          {/* Преподаватель и аудитория */}
-          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs lg:text-sm text-[var(--muted)]">
-            {lesson.teacher && (
-              <span className="flex items-center gap-1">
-                <svg className="w-3.5 h-3.5 lg:w-4 lg:h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"/>
-                </svg>
-                {lesson.teacher.name}
-              </span>
-            )}
-            {lesson.room && (
-              <span className="flex items-center gap-1">
-                <svg className="w-3.5 h-3.5 lg:w-4 lg:h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
-                </svg>
-                Ауд. {lesson.room.name}
-              </span>
-            )}
-            {showGroup && lesson.group && (
-              <span className="flex items-center gap-1">
-                <svg className="w-3.5 h-3.5 lg:w-4 lg:h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/>
-                </svg>
-                {lesson.group.name}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Кнопки действий — минимум 44×44px для корректного tap на мобиле */}
-        {sessionId && (
-          <div className="flex flex-col gap-1 shrink-0">
-            {onAttendance && (
-              <div className="flex gap-1">
-                <button
-                  onClick={() => onAttendance(lesson.id, true)}
-                  className={`min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-base transition-colors ${
-                    attended === true
-                      ? "bg-green-500 text-white"
-                      : "bg-gray-100 dark:bg-slate-700 hover:bg-green-100 dark:hover:bg-green-900"
-                  }`}
-                  title="Был"
-                  aria-label="Отметить присутствие"
-                >✓</button>
-                <button
-                  onClick={() => onAttendance(lesson.id, false)}
-                  className={`min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-base transition-colors ${
-                    attended === false
-                      ? "bg-red-500 text-white"
-                      : "bg-gray-100 dark:bg-slate-700 hover:bg-red-100 dark:hover:bg-red-900"
-                  }`}
-                  title="Не был"
-                  aria-label="Отметить пропуск"
-                >✗</button>
-              </div>
-            )}
-            {onNote && (
-              <button
-                onClick={() => onNote(lesson)}
-                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-base bg-gray-100 dark:bg-slate-700 hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors"
-                title="Заметка"
-                aria-label="Добавить заметку"
-              >📝</button>
-            )}
-          </div>
+      {/* Преподаватель, аудитория, группа */}
+      <div className="flex flex-wrap gap-x-4 gap-y-1" style={{ color: "var(--muted)", fontSize: "12px" }}>
+        {lesson.teacher && (
+          <span className="flex items-center gap-1">
+            <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"/>
+            </svg>
+            {lesson.teacher.name}
+          </span>
+        )}
+        {lesson.room && (
+          <span className="flex items-center gap-1">
+            <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
+            </svg>
+            Ауд. {lesson.room.name}
+          </span>
+        )}
+        {showGroup && lesson.group && (
+          <span className="flex items-center gap-1">
+            <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/>
+            </svg>
+            {lesson.group.name}
+          </span>
         )}
       </div>
     </div>

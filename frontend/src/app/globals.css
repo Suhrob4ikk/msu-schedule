@@ -1,43 +1,39 @@
 @import "tailwindcss";
 
-/* dark: классы работают только от .dark класса, не от prefers-color-scheme */
 @variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: #ffffff;
-  --foreground: #0a0a0a;
-  --card: #f9fafb;
-  --border: #e5e7eb;
-  --primary: #1d4ed8;
+  --background: #f5f5f0;
+  --foreground: #111111;
+  --card: #ffffff;
+  --border: #e2e1d9;
+  --primary: #2563eb;
   --primary-fg: #ffffff;
-  --muted: #6b7280;
-  --accent: #dbeafe;
+  --muted: #6b6b6b;
+  --tag-bg: #f0efe8;
+  --tag-text: #555555;
+  --tag-border: #d8d7cf;
 }
 
 .dark {
-  --background: #0f172a;
-  --foreground: #f1f5f9;
-  --card: #1e293b;
-  --border: #334155;
+  --background: #0d1117;
+  --foreground: #e6edf3;
+  --card: #161b22;
+  --border: #30363d;
   --primary: #3b82f6;
   --primary-fg: #ffffff;
-  --muted: #94a3b8;
-  --accent: #1e3a5f;
+  --muted: #8b949e;
+  --tag-bg: #21262d;
+  --tag-text: #8b949e;
+  --tag-border: #30363d;
 }
 
 * { box-sizing: border-box; }
 
-html {
-  font-size: 16px;
-}
+html { font-size: 16px; }
 
-@media (min-width: 1024px) {
-  html { font-size: 17px; }
-}
-
-@media (min-width: 1280px) {
-  html { font-size: 18px; }
-}
+@media (min-width: 1024px) { html { font-size: 17px; } }
+@media (min-width: 1280px) { html { font-size: 18px; } }
 
 body {
   background-color: var(--background);
@@ -49,37 +45,36 @@ body {
 
 .card {
   background-color: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 0.75rem;
-  padding: 1rem;
+  border: 0.5px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
 }
 
 @media (min-width: 1024px) {
-  .card { padding: 1.25rem; border-radius: 1rem; }
+  .card { padding: 14px 16px; border-radius: 10px; }
 }
 
-.badge {
+/* Тег типа занятия — единый нейтральный стиль */
+.lesson-tag {
   display: inline-flex;
   align-items: center;
-  padding: 0.125rem 0.5rem;
-  border-radius: 9999px;
-  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
   font-weight: 500;
+  letter-spacing: 0.03em;
+  background: var(--tag-bg);
+  color: var(--tag-text);
+  border: 0.5px solid var(--tag-border);
 }
 
-.badge-exam    { background: #fef3c7; color: #92400e; }
-.badge-credit  { background: #dcfce7; color: #166534; }
-.badge-practice { background: #e0e7ff; color: #3730a3; }
-.badge-lecture  { background: #f3e8ff; color: #6b21a8; }
+/* Карточка текущей/следующей пары */
+.lesson-now {
+  border-left: 3px solid var(--primary);
+  border-color: var(--border);
+  border-left-color: var(--primary);
+}
 
-.dark .badge-exam    { background: #451a03; color: #fbbf24; }
-.dark .badge-credit  { background: #052e16; color: #4ade80; }
-.dark .badge-practice { background: #1e1b4b; color: #a5b4fc; }
-.dark .badge-lecture  { background: #2e1065; color: #c084fc; }
-
-.lesson-current { border-left: 4px solid #22c55e; }
-.lesson-next    { border-left: 4px solid #3b82f6; }
-
-::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }

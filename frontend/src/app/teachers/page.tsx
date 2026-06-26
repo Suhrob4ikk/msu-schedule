@@ -76,7 +76,7 @@ export default function TeachersPage() {
                   className={`w-full text-left px-3 lg:px-4 py-3 lg:py-2.5 rounded-lg mb-1 text-sm lg:text-base transition-colors ${
                     selected?.id === t.id
                       ? "bg-[var(--primary)] text-white"
-                      : "hover:bg-[var(--accent)] text-[var(--foreground)]"
+                      : "hover:bg-[var(--tag-bg)] text-[var(--foreground)]"
                   }`}
                 >
                   {t.name}

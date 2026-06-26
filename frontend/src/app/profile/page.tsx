@@ -80,7 +80,7 @@ export default function ProfilePage() {
         <div className="card">
           <h2 className="font-semibold mb-3">Моя группа</h2>
           {subscription && (
-            <div className="mb-3 p-3 rounded-lg bg-[var(--accent)]">
+            <div className="mb-3 p-3 rounded-lg bg-[var(--tag-bg)]">
               <p className="text-sm font-medium">{subscription.group_name}</p>
               <p className="text-xs text-[var(--muted)]">{subscription.year} курс</p>
             </div>
@@ -119,11 +119,11 @@ export default function ProfilePage() {
             <h2 className="font-semibold mb-3">Моя посещаемость</h2>
             <div className="grid grid-cols-3 gap-3 mb-3">
               <div className="text-center">
-                <div className="text-2xl font-bold text-green-500">{attendance.attended}</div>
+                <div className="text-2xl font-bold text-[var(--primary)]">{attendance.attended}</div>
                 <div className="text-xs text-[var(--muted)]">Посетил</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-red-500">{attendance.skipped}</div>
+                <div className="text-2xl font-bold text-[var(--muted)]">{attendance.skipped}</div>
                 <div className="text-xs text-[var(--muted)]">Пропустил</div>
               </div>
               <div className="text-center">
@@ -175,7 +175,7 @@ export default function ProfilePage() {
           <button
             onClick={runSync}
             disabled={syncRunning}
-            className="px-4 py-2 rounded-lg bg-orange-500 text-white text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
+            className="px-4 py-2 rounded-lg bg-[var(--primary)] text-white text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
           >
             {syncRunning ? "Синхронизация..." : "Обновить сейчас"}
           </button>

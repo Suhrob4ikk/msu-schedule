@@ -4,10 +4,10 @@ import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import { api, Change } from "@/lib/api";
 
-const typeLabels: Record<string, { label: string; class: string }> = {
-  added:   { label: "Добавлено", class: "badge-credit" },
-  removed: { label: "Удалено", class: "badge-exam" },
-  changed: { label: "Изменено", class: "badge-practice" },
+const typeLabels: Record<string, string> = {
+  added:   "Добавлено",
+  removed: "Удалено",
+  changed: "Изменено",
 };
 
 const DAY_LABELS: Record<string, string> = {
@@ -49,12 +49,12 @@ export default function ChangesPage() {
 
         <div className="space-y-2">
           {changes.map(c => {
-            const t = typeLabels[c.change_type] || { label: c.change_type, class: "" };
+            const label = typeLabels[c.change_type] || c.change_type;
             return (
               <div key={c.id} className="card">
                 <div className="flex items-start justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className={`badge ${t.class}`}>{t.label}</span>
+                    <span className="lesson-tag">{label}</span>
                     <span className="text-xs font-semibold">{c.faculty_code}</span>
                     <span className="text-xs text-[var(--muted)]">{c.group_name}</span>
                     {c.day_of_week && c.pair_number && (

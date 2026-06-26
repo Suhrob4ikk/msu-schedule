@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import Header from "@/components/Header";
 import LessonCard from "@/components/LessonCard";
 import OnboardingScreen from "@/components/OnboardingScreen";
-import { api, Group, Lesson, TodayItem, Stats, WeekInfo, DAYS_ORDER, getSessionId } from "@/lib/api";
+import { api, Group, Lesson, TodayItem, Stats, WeekInfo, DAYS_ORDER } from "@/lib/api";
 
 const DAY_LABELS: Record<string, string> = {
   понедельник: "Понедельник", вторник: "Вторник", среда: "Среда",
@@ -25,38 +25,26 @@ export default function HomePage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [attendance, setAttendance] = useState<Record<number, boolean>>({});
-  const [noteModal, setNoteModal] = useState<Lesson | null>(null);
-  const [noteText, setNoteText] = useState("");
-  const [sessionId, setSessionId] = useState("");
   const [weeks, setWeeks] = useState<WeekInfo[]>([]);
   const [selectedWeekId, setSelectedWeekId] = useState<number | undefined>(undefined);
   const [showOnboarding, setShowOnboarding] = useState<boolean>(false);
 
   useEffect(() => {
-    // Читаем sessionId синхронно — не ждём setState, чтобы не было stale closure
-    const sid = getSessionId();
-    setSessionId(sid);
-
     const savedId = localStorage.getItem("selected_group_id");
     setShowOnboarding(!savedId);
 
-    // Один запрос вместо двух: сначала грузим группы, потом сразу открываем сохранённую
     api.getGroups()
       .then(gs => {
         setGroups(gs);
         if (savedId) {
           const g = gs.find(x => x.id === Number(savedId));
-          if (g) loadGroup(g, undefined, sid);
+          if (g) loadGroup(g);
         }
       })
       .catch(() => setError("Нет соединения с сервером"));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // sid — необязательный параметр для случая первого рендера,
-  // когда sessionId в state ещё не обновился
-  const loadGroup = useCallback(async (group: Group, weekId?: number, sid?: string) => {
-    const effectiveSid = sid ?? sessionId;
+  const loadGroup = useCallback(async (group: Group, weekId?: number) => {
     setSelectedGroup(group);
     setLoading(true);
     setError(null);
@@ -74,40 +62,13 @@ export default function HomePage() {
       setLessons(sched);
       setNowItems(now);
       setStats(st);
-
-      // Загружаем посещаемость используя актуальный sid
-      if (effectiveSid) {
-        const att = await api.getAttendance(effectiveSid);
-        const map: Record<number, boolean> = {};
-        att.records.forEach(r => { map[r.lesson_id] = r.attended; });
-        setAttendance(map);
-      }
     } catch {
       setError("Ошибка загрузки расписания");
     } finally {
       setLoading(false);
     }
-  }, [sessionId]);
+  }, []);
 
-  const handleAttendance = async (lessonId: number, attended: boolean) => {
-    if (!sessionId) return;
-    await api.markAttendance(sessionId, lessonId, attended);
-    setAttendance(prev => ({ ...prev, [lessonId]: attended }));
-  };
-
-  const handleSaveNote = async () => {
-    if (!noteModal || !noteText.trim() || !sessionId) return;
-    await api.addNote(sessionId, {
-      group_id: selectedGroup!.id,
-      day_of_week: noteModal.day_of_week,
-      pair_number: noteModal.pair_number,
-      note: noteText,
-    });
-    setNoteModal(null);
-    setNoteText("");
-  };
-
-  // Мемоизируем — не пересчитываем при изменении attendance/noteModal и других состояний
   const lessonsByDay = useMemo(() => {
     const filtered = selectedDay === "all"
       ? lessons
@@ -194,7 +155,7 @@ export default function HomePage() {
             {selectedGroup && (
               <a
                 href={api.getIcsUrl(selectedGroup.id)}
-                className="flex items-center gap-1 px-3 py-2 rounded-lg bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 text-sm hover:bg-green-100 dark:hover:bg-green-900 transition-colors"
+                className="flex items-center gap-1 px-3 py-2 rounded-lg border border-[var(--border)] text-[var(--muted)] text-sm hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors"
                 download
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -231,7 +192,7 @@ export default function HomePage() {
                   >
                     {label}
                     {w.is_latest && (
-                      <span className="ml-1 w-1.5 h-1.5 rounded-full bg-green-400 inline-block align-middle" />
+                      <span className="ml-1 w-1.5 h-1.5 rounded-full bg-[var(--primary)] opacity-60 inline-block align-middle" />
                     )}
                   </button>
                 );
@@ -244,10 +205,11 @@ export default function HomePage() {
         {(currentItem || nextItem) && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:gap-4 mb-4 lg:mb-5">
             {currentItem && (
-              <div className="card lesson-current">
+              <div className="card lesson-now">
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="w-2 h-2 lg:w-2.5 lg:h-2.5 rounded-full bg-green-500 animate-pulse"></span>
-                  <span className="text-xs lg:text-sm font-semibold text-green-600 dark:text-green-400">ИДЁТ СЕЙЧАС</span>
+                  <span className="w-2 h-2 rounded-full bg-[var(--primary)] animate-pulse"></span>
+                  <span className="text-xs lg:text-sm font-semibold text-[var(--primary)]">ИДЁТ СЕЙЧАС</span>
+                  <span className="lesson-tag ml-auto">{currentItem.pair_number} пара</span>
                 </div>
                 <p className="font-semibold text-sm lg:text-base">{currentItem.subject}</p>
                 <p className="text-xs lg:text-sm text-[var(--muted)] mt-1">
@@ -258,14 +220,14 @@ export default function HomePage() {
               </div>
             )}
             {nextItem && (
-              <div className="card lesson-next">
+              <div className="card lesson-now">
                 <div className="flex items-center justify-between gap-2 mb-2">
-                  <span className="text-xs lg:text-sm font-semibold text-blue-600 dark:text-blue-400">
-                    СЛЕДУЮЩАЯ ПАРА
-                  </span>
-                  {/* Живой countdown — тикает каждую секунду */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs lg:text-sm font-semibold text-[var(--primary)]">СЛЕДУЮЩАЯ</span>
+                    <span className="lesson-tag">{nextItem.pair_number} пара</span>
+                  </div>
                   {countdown && (
-                    <span className="text-lg lg:text-2xl font-bold tabular-nums text-blue-600 dark:text-blue-400">
+                    <span className="text-lg lg:text-2xl font-bold tabular-nums text-[var(--primary)]">
                       {countdown}
                     </span>
                   )}
@@ -290,21 +252,20 @@ export default function HomePage() {
                 <div className="text-xs lg:text-sm text-[var(--muted)] mt-1">пар в неделю</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl lg:text-4xl font-bold text-purple-500">{stats.unique_subjects}</div>
+                <div className="text-2xl lg:text-4xl font-bold text-[var(--primary)]">{stats.unique_subjects}</div>
                 <div className="text-xs lg:text-sm text-[var(--muted)] mt-1">предметов</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl lg:text-4xl font-bold text-orange-500">{stats.unique_teachers}</div>
+                <div className="text-2xl lg:text-4xl font-bold text-[var(--primary)]">{stats.unique_teachers}</div>
                 <div className="text-xs lg:text-sm text-[var(--muted)] mt-1">преподавателей</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl lg:text-4xl font-bold text-green-500">
+                <div className="text-2xl lg:text-4xl font-bold text-[var(--primary)]">
                   {stats.most_loaded_day ? DAY_SHORT[stats.most_loaded_day] : "—"}
                 </div>
                 <div className="text-xs lg:text-sm text-[var(--muted)] mt-1">загруженный день</div>
               </div>
             </div>
-            {/* Мини-бар-чарт по дням */}
             {Object.keys(stats.lessons_by_day).length > 0 && (
               <div className="mt-3 flex items-end gap-1.5 h-12">
                 {DAYS_ORDER.map(day => {
@@ -313,7 +274,7 @@ export default function HomePage() {
                   return (
                     <div key={day} className="flex-1 flex flex-col items-center gap-0.5">
                       <div
-                        className="w-full rounded-t bg-[var(--primary)] opacity-70 hover:opacity-100 transition-opacity"
+                        className="w-full rounded-t bg-[var(--primary)] opacity-60 hover:opacity-100 transition-opacity"
                         style={{ height: max > 0 ? `${(count / max) * 40}px` : "2px" }}
                         title={`${DAY_LABELS[day]}: ${count} пар`}
                       />
@@ -365,7 +326,7 @@ export default function HomePage() {
         )}
 
         {error && (
-          <div className="card border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 text-sm">
+          <div className="card text-sm" style={{ borderColor: "var(--border)", color: "var(--muted)" }}>
             ⚠️ {error}
           </div>
         )}
@@ -404,52 +365,12 @@ export default function HomePage() {
                 <LessonCard
                   key={lesson.id}
                   lesson={lesson}
-                  sessionId={sessionId}
-                  attended={attendance[lesson.id] ?? null}
-                  onAttendance={handleAttendance}
-                  onNote={setNoteModal}
                 />
               ))}
             </div>
           ))}
         </div>
       </main>
-
-      {/* Модальное окно заметки */}
-      {noteModal && (
-        <div
-          className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-4"
-          onClick={e => e.target === e.currentTarget && setNoteModal(null)}
-        >
-          <div className="card w-full max-w-md">
-            <h3 className="font-semibold mb-3">
-              Заметка к паре: {noteModal.subject}
-            </h3>
-            <textarea
-              className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] p-3 text-base resize-none focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
-              rows={4}
-              placeholder="Напиши заметку к этой паре..."
-              value={noteText}
-              onChange={e => setNoteText(e.target.value)}
-              autoFocus
-            />
-            <div className="flex gap-2 mt-3">
-              <button
-                onClick={handleSaveNote}
-                className="flex-1 bg-[var(--primary)] text-white rounded-lg py-2 text-sm font-medium hover:opacity-90 transition-opacity"
-              >
-                Сохранить
-              </button>
-              <button
-                onClick={() => setNoteModal(null)}
-                className="flex-1 border border-[var(--border)] rounded-lg py-2 text-sm hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
-              >
-                Отмена
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
