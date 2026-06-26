@@ -1,9 +1,17 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api';
 
-async function fetchApi<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, { next: { revalidate: 60 } });
+// Client-side cache: 3 минуты для списков, 60 сек для расписания
+const _cache = new Map<string, { data: unknown; ts: number }>();
+
+async function fetchApi<T>(path: string, ttl = 180_000): Promise<T> {
+  const hit = _cache.get(path);
+  if (hit && Date.now() - hit.ts < ttl) return hit.data as T;
+
+  const res = await fetch(`${API_BASE}${path}`);
   if (!res.ok) throw new Error(`API error: ${res.status}`);
-  return res.json();
+  const data: T = await res.json();
+  _cache.set(path, { data, ts: Date.now() });
+  return data;
 }
 
 /** Собирает query string из объекта, пропуская undefined/null/false */
@@ -186,6 +194,17 @@ export const api = {
       method: 'DELETE',
     }).then(r => r.json()),
 };
+
+export function shortGroupName(name: string): string {
+  const n = name.toUpperCase();
+  if (n.includes('ПРИКЛАДНАЯ МАТЕМАТИКА') || (n.includes('МАТЕМАТИК') && n.includes('ИНФОРМАТИК'))) return 'ПМиИ';
+  if (n.includes('ХИМИЯ') && (n.includes('ФИЗИКА') || n.includes('МЕХАНИКА'))) return 'ХФММ';
+  if (n.includes('ГЕОЛОГИЯ')) return 'Геология';
+  if (n.includes('МУНИЦИПАЛЬН') || (n.includes('ГОСУДАРСТВЕНН') && n.includes('УПРАВЛЕНИ'))) return 'ГМУ';
+  if (n.includes('МЕЖДУНАРОДН') && n.includes('ОТНОШЕНИ')) return 'МО';
+  if (n.includes('ЛИНГВИСТИК')) return 'Лингвистика';
+  return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+}
 
 // Имена дней недели на русском с числовым порядком
 export const DAYS_ORDER = ['понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота', 'воскресенье'];

@@ -6,7 +6,7 @@ import Header from "@/components/Header";
 import WeekBar from "@/components/WeekBar";
 import LessonCard from "@/components/LessonCard";
 import NotificationToggle from "@/components/NotificationToggle";
-import { api, Group, Lesson, TodayItem, Stats, WeekInfo, DAYS_ORDER } from "@/lib/api";
+import { api, Group, Lesson, TodayItem, Stats, WeekInfo, DAYS_ORDER, shortGroupName } from "@/lib/api";
 
 const DAY_LABELS: Record<string, string> = {
   понедельник: "Понедельник", вторник: "Вторник", среда: "Среда",
@@ -177,7 +177,7 @@ export default function HomePage() {
                 <optgroup key={fac} label={fac === "ЕНФ" ? "Естественнонаучный факультет" : "Гуманитарный факультет"}>
                   {groups.filter(g => g.faculty_code === fac).map(g => (
                     <option key={g.id} value={g.id}>
-                      {g.year} курс — {g.name}
+                      {g.year} курс — {shortGroupName(g.name)}
                     </option>
                   ))}
                 </optgroup>
