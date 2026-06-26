@@ -259,7 +259,7 @@ export default function HomePage() {
                         style={{ height: max > 0 ? `${(count / max) * 40}px` : "2px" }}
                         title={`${DAY_LABELS[day]}: ${count} пар`}
                       />
-                      <span className="text-[9px] text-[var(--muted)]">{day.slice(0, 2)}</span>
+                      <span className="text-[9px] text-[var(--muted)]">{DAY_SHORT[day]}</span>
                     </div>
                   );
                 })}
