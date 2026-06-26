@@ -167,7 +167,7 @@ export const api = {
 };
 
 // Имена дней недели на русском с числовым порядком
-export const DAYS_ORDER = ['понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота'];
+export const DAYS_ORDER = ['понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота', 'воскресенье'];
 export const PAIR_NUMBERS = ['I', 'II', 'III', 'IV', 'V'];
 
 export const PAIR_TIMES: Record<string, [string, string]> = {

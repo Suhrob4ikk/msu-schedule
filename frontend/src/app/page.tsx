@@ -9,12 +9,12 @@ import { api, Group, Lesson, TodayItem, Stats, WeekInfo, DAYS_ORDER } from "@/li
 
 const DAY_LABELS: Record<string, string> = {
   понедельник: "Понедельник", вторник: "Вторник", среда: "Среда",
-  четверг: "Четверг", пятница: "Пятница", суббота: "Суббота",
+  четверг: "Четверг", пятница: "Пятница", суббота: "Суббота", воскресенье: "Воскресенье",
 };
 
 const DAY_SHORT: Record<string, string> = {
   понедельник: "Пн", вторник: "Вт", среда: "Ср",
-  четверг: "Чт", пятница: "Пт", суббота: "Сб",
+  четверг: "Чт", пятница: "Пт", суббота: "Сб", воскресенье: "Вс",
 };
 
 export default function HomePage() {
@@ -83,17 +83,25 @@ export default function HomePage() {
     if (week) loadGroup(selectedGroup, week.id);
   }, [selectedGroup, weeks, loadGroup]);
 
+  // Воскресенье показываем только если в этой неделе есть пары в этот день
+  const hasSunday = useMemo(() => lessons.some(l => l.day_of_week === 'воскресенье'), [lessons]);
+
+  const visibleDays = useMemo(
+    () => DAYS_ORDER.filter(d => d !== 'воскресенье' || hasSunday),
+    [hasSunday]
+  );
+
   const lessonsByDay = useMemo(() => {
     const filtered = selectedDay === "all"
       ? lessons
       : lessons.filter(l => l.day_of_week === selectedDay);
 
-    return DAYS_ORDER.reduce((acc, day) => {
+    return visibleDays.reduce((acc, day) => {
       const dayLessons = filtered.filter(l => l.day_of_week === day);
       if (dayLessons.length > 0) acc[day] = dayLessons;
       return acc;
     }, {} as Record<string, Lesson[]>);
-  }, [lessons, selectedDay]);
+  }, [lessons, selectedDay, visibleDays]);
 
   const currentItem = nowItems.find(i => i.is_current);
   const nextItem = nowItems.find(i => i.is_next);
@@ -241,7 +249,7 @@ export default function HomePage() {
             </div>
             {Object.keys(stats.lessons_by_day).length > 0 && (
               <div className="mt-3 flex items-end gap-1.5 h-12">
-                {DAYS_ORDER.map(day => {
+                {visibleDays.map(day => {
                   const count = stats.lessons_by_day[day] || 0;
                   const max = Math.max(...Object.values(stats.lessons_by_day));
                   return (
@@ -273,7 +281,7 @@ export default function HomePage() {
             >
               Вся неделя
             </button>
-            {DAYS_ORDER.map(day => (
+            {visibleDays.map(day => (
               <button
                 key={day}
                 onClick={() => setSelectedDay(day)}
