@@ -75,7 +75,7 @@ export default function InstallPrompt() {
             {/* Минимум 44×44px для touch-цели */}
             <button
               onClick={dismiss}
-              className="w-11 h-11 flex items-center justify-center rounded-lg text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--accent)] transition-colors shrink-0 text-xl"
+              className="w-11 h-11 flex items-center justify-center rounded-lg text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--tag-bg)] transition-colors shrink-0 text-xl"
               aria-label="Закрыть"
             >
               ×
