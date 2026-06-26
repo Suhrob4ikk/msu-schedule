@@ -31,7 +31,7 @@ export default function OnboardingScreen({ onComplete }: Props) {
   ];
 
   return (
-    <div className="fixed inset-0 z-[200] bg-[var(--background)] flex flex-col items-center justify-center px-6 py-12 overflow-y-auto">
+    <div className="fixed inset-0 z-[200] bg-[var(--background)] flex flex-col items-center px-6 py-12 overflow-y-auto">
       {/* Логотип */}
       <div className="flex flex-col items-center mb-8">
         <div className="w-20 h-20 rounded-3xl bg-[var(--primary)] flex items-center justify-center shadow-xl mb-4">
@@ -76,7 +76,7 @@ export default function OnboardingScreen({ onComplete }: Props) {
                                 className={`px-4 py-2.5 rounded-xl text-sm font-medium border-2 transition-all duration-150 ${
                                   active
                                     ? "bg-[var(--primary)] text-white border-[var(--primary)] shadow-md scale-105"
-                                    : "border-[var(--border)] bg-[var(--card)] hover:border-[var(--primary)] hover:bg-[var(--accent)]"
+                                    : "border-[var(--border)] bg-[var(--card)] hover:border-[var(--primary)] hover:bg-[var(--tag-bg)]"
                                 }`}
                               >
                                 {g.name}
