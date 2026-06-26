@@ -9,15 +9,11 @@ const typeLabels: Record<string, string> = {
   ЛЕКЦИЯ: "Лекция",
 };
 
-// Inline-стили для цветных тегов (bypass CSS cascade — inline > any class)
-type TagStyle = { backgroundColor: string; color: string; borderColor: string };
-const AMBER: TagStyle = { backgroundColor: "#fffbeb", color: "#b45309", borderColor: "#fde68a" };
-const BLUE: TagStyle  = { backgroundColor: "#eff6ff", color: "#1d4ed8", borderColor: "#bfdbfe" };
-
-const typeTagStyle: Record<string, TagStyle> = {
-  ЭКЗАМЕН: AMBER, Экзамен: AMBER,
-  ЗАЧЕТ:   AMBER, Зачёт:   AMBER,
-  ПРАКТИКА: BLUE, Практика: BLUE, ПЗ: BLUE,
+// CSS-классы для цветных тегов (определены в globals.css, поддерживают dark mode)
+const typeTagClass: Record<string, string> = {
+  ЭКЗАМЕН: "lesson-tag-exam", Экзамен: "lesson-tag-exam",
+  ЗАЧЕТ:   "lesson-tag-exam", Зачёт:   "lesson-tag-exam",
+  ПРАКТИКА:"lesson-tag-practice", Практика:"lesson-tag-practice", ПЗ:"lesson-tag-practice",
 };
 
 interface Props {
@@ -35,7 +31,7 @@ export default function LessonCard({ lesson, showGroup }: Props) {
           {lesson.pair_time_start && ` · ${lesson.pair_time_start}–${lesson.pair_time_end}`}
         </span>
         {lesson.lesson_type && (
-          <span className="lesson-tag" style={typeTagStyle[lesson.lesson_type]}>
+          <span className={`lesson-tag ${typeTagClass[lesson.lesson_type] || ""}`}>
             {typeLabels[lesson.lesson_type] || lesson.lesson_type}
           </span>
         )}

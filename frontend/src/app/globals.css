@@ -72,6 +72,28 @@ body {
   }
 }
 
+/* Цветные теги для важных типов занятий */
+.lesson-tag-exam {
+  background: #fef3c7;
+  color: #b45309;
+  border-color: #fde68a;
+}
+.dark .lesson-tag-exam {
+  background: rgba(120, 53, 15, 0.25);
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.3);
+}
+.lesson-tag-practice {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+.dark .lesson-tag-practice {
+  background: rgba(30, 58, 138, 0.25);
+  color: #60a5fa;
+  border-color: rgba(96, 165, 250, 0.3);
+}
+
 /* Карточка текущей/следующей пары */
 .lesson-now {
   border-left: 3px solid var(--primary);
