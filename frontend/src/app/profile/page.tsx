@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Header from "@/components/Header";
 import { api, Group } from "@/lib/api";
 import { useRouter } from "next/navigation";
 
@@ -11,7 +10,7 @@ export default function ProfilePage() {
   const [name, setName] = useState("");
   const [selectedGroupId, setSelectedGroupId] = useState<number | "">("");
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [isSetup, setIsSetup] = useState(false); // первый ли раз или редактируем
 
   useEffect(() => {
     api.getGroups().then(setGroups).catch(() => {});
@@ -19,6 +18,8 @@ export default function ProfilePage() {
     const savedGroup = localStorage.getItem("selected_group_id");
     setName(savedName);
     if (savedGroup) setSelectedGroupId(Number(savedGroup));
+    // Если группа не выбрана — режим первоначальной настройки
+    setIsSetup(!savedGroup);
   }, []);
 
   const selectedGroup = groups.find(g => g.id === Number(selectedGroupId));
@@ -34,61 +35,82 @@ export default function ProfilePage() {
     localStorage.setItem("selected_group_id", String(selectedGroupId));
     await new Promise(r => setTimeout(r, 300));
     setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-  };
-
-  const handleGoToSchedule = () => {
     router.push("/");
   };
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--background)" }}>
-      <Header />
-      <main className="max-w-md mx-auto px-4 py-8 pb-28 lg:pb-8">
-
-        {/* Аватар */}
-        <div className="flex flex-col items-center mb-8">
-          <div
-            className="w-20 h-20 rounded-full flex items-center justify-center mb-3 text-2xl font-bold text-white"
-            style={{ background: "var(--primary)" }}
-          >
-            {initials}
-          </div>
-          {name && (
-            <p className="font-semibold text-lg" style={{ color: "var(--foreground)" }}>{name}</p>
-          )}
-          {selectedGroup && (
-            <p className="text-sm mt-0.5" style={{ color: "var(--muted)" }}>
-              {selectedGroup.year} курс · {selectedGroup.name}
-            </p>
-          )}
+    <div
+      className="min-h-screen flex flex-col items-center justify-center px-6"
+      style={{ background: "var(--background)" }}
+    >
+      {/* Лого вверху */}
+      <div className="flex items-center gap-2 mb-10">
+        <div
+          className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white text-sm"
+          style={{ background: "var(--primary)" }}
+        >
+          МГУ
         </div>
+        <div>
+          <p className="font-bold text-base" style={{ color: "var(--foreground)" }}>МГУ Душанбе</p>
+          <p className="text-xs" style={{ color: "var(--muted)" }}>Расписание занятий</p>
+        </div>
+      </div>
 
-        {/* Форма */}
-        <div className="card mb-4">
-          <h2 className="font-semibold text-sm mb-3" style={{ color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-            Моё имя
-          </h2>
+      {/* Аватар */}
+      <div
+        className="w-24 h-24 rounded-full flex items-center justify-center mb-4 text-3xl font-bold text-white"
+        style={{ background: "var(--primary)", opacity: name.trim() ? 1 : 0.4, transition: "opacity 0.2s" }}
+      >
+        {initials}
+      </div>
+
+      {name.trim() && (
+        <p className="font-semibold text-lg mb-1" style={{ color: "var(--foreground)" }}>{name.trim()}</p>
+      )}
+      {selectedGroup && (
+        <p className="text-sm mb-8" style={{ color: "var(--muted)" }}>
+          {selectedGroup.year} курс · {selectedGroup.name}
+        </p>
+      )}
+      {!selectedGroup && <div className="mb-8" />}
+
+      {/* Форма */}
+      <div className="w-full max-w-sm flex flex-col gap-3">
+        {/* Имя */}
+        <div>
+          <label className="block text-xs font-semibold mb-1.5 tracking-wider" style={{ color: "var(--muted)", textTransform: "uppercase" }}>
+            Имя
+          </label>
           <input
             type="text"
             placeholder="Введи своё имя..."
-            className="w-full rounded-lg px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
-            style={{ background: "var(--background)", border: "0.5px solid var(--border)", color: "var(--foreground)" }}
+            autoFocus={isSetup}
+            className="w-full rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-[var(--primary)] transition-all"
+            style={{
+              background: "var(--card)",
+              border: "0.5px solid var(--border)",
+              color: "var(--foreground)",
+            }}
             value={name}
-            onChange={e => { setName(e.target.value); setSaved(false); }}
+            onChange={e => setName(e.target.value)}
           />
         </div>
 
-        <div className="card mb-6">
-          <h2 className="font-semibold text-sm mb-3" style={{ color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-            Моя группа
-          </h2>
+        {/* Группа */}
+        <div>
+          <label className="block text-xs font-semibold mb-1.5 tracking-wider" style={{ color: "var(--muted)", textTransform: "uppercase" }}>
+            Группа
+          </label>
           <select
-            className="w-full rounded-lg px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
-            style={{ background: "var(--background)", border: "0.5px solid var(--border)", color: "var(--foreground)" }}
+            className="w-full rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-[var(--primary)] transition-all"
+            style={{
+              background: "var(--card)",
+              border: "0.5px solid var(--border)",
+              color: selectedGroupId ? "var(--foreground)" : "var(--muted)",
+            }}
             value={selectedGroupId}
-            onChange={e => { setSelectedGroupId(Number(e.target.value) || ""); setSaved(false); }}
+            onChange={e => setSelectedGroupId(Number(e.target.value) || "")}
           >
             <option value="">— Выбери группу —</option>
             {["ЕНФ", "ГФ"].map(fac => (
@@ -101,72 +123,38 @@ export default function ProfilePage() {
           </select>
         </div>
 
-        {/* Кнопки */}
+        {/* Кнопка */}
         <button
           onClick={handleSave}
           disabled={!selectedGroupId || saving}
-          className="w-full py-3 rounded-xl text-base font-semibold text-white transition-opacity disabled:opacity-40 mb-3"
+          className="w-full py-3.5 rounded-xl text-base font-semibold text-white mt-2 transition-opacity disabled:opacity-40"
           style={{ background: "var(--primary)" }}
         >
-          {saving ? "Сохраняем..." : saved ? "Сохранено ✓" : "Сохранить"}
+          {saving ? "Сохраняем..." : isSetup ? "Начать" : "Сохранить"}
         </button>
 
-        {selectedGroupId && (
+        {/* Пропустить — только при первой настройке */}
+        {isSetup && (
           <button
-            onClick={handleGoToSchedule}
-            className="w-full py-3 rounded-xl text-base font-medium transition-colors"
-            style={{ border: "0.5px solid var(--border)", color: "var(--muted)", background: "var(--card)" }}
+            onClick={() => router.push("/")}
+            className="w-full py-2 text-sm transition-colors"
+            style={{ color: "var(--muted)" }}
           >
-            Перейти к расписанию
+            Пропустить
           </button>
         )}
 
-        {/* Синхронизация — внизу, без лишнего */}
-        <div className="mt-8 pt-6" style={{ borderTop: "0.5px solid var(--border)" }}>
-          <p className="text-xs text-center mb-3" style={{ color: "var(--muted)" }}>
-            Расписание автоматически обновляется каждые 2 часа с msu.tj
-          </p>
-          <SyncButton />
-        </div>
-
-      </main>
-    </div>
-  );
-}
-
-function SyncButton() {
-  const [running, setRunning] = useState(false);
-  const [result, setResult] = useState<string | null>(null);
-
-  const run = async () => {
-    const secret = process.env.NEXT_PUBLIC_ADMIN_SECRET ?? "";
-    if (!secret) return;
-    setRunning(true);
-    setResult(null);
-    try {
-      const data = await api.syncNow(true, secret);
-      const msgs = data.results?.map((r: { faculty: string; status: string; lessons?: number }) =>
-        `${r.faculty}: ${r.status}${r.lessons ? ` (${r.lessons} пар)` : ""}`
-      ).join(" · ");
-      setResult("Готово: " + msgs);
-    } catch {
-      setResult("Ошибка синхронизации");
-    } finally {
-      setRunning(false);
-    }
-  };
-
-  return (
-    <div className="text-center">
-      <button
-        onClick={run}
-        disabled={running}
-        className="px-5 py-2 rounded-lg text-sm font-medium transition-opacity disabled:opacity-40"
-        style={{ border: "0.5px solid var(--border)", color: "var(--muted)", background: "var(--card)" }}
-      >
-        {running ? "Синхронизация..." : "Обновить вручную"}
-      </button>
-      {result && <p className="text-xs mt-2" style={{ color: "var(--muted)" }}>{result}</p>}
+        {/* При редактировании — кнопка назад */}
+        {!isSetup && (
+          <button
+            onClick={() => router.back()}
+            className="w-full py-2 text-sm transition-colors"
+            style={{ color: "var(--muted)" }}
+          >
+            Отмена
+          </button>
+        )}
+      </div>
     </div>
   );
 }
