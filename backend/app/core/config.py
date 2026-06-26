@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     # Секретный ключ для admin-эндпоинтов. Передаётся в заголовке X-Admin-Secret.
     # Если не задан — admin-эндпоинты недоступны.
     ADMIN_SECRET: str = ""
+    # Email-уведомления при регистрации (Gmail App Password)
+    SMTP_USER: str = ""      # твой gmail: xxx@gmail.com
+    SMTP_PASSWORD: str = ""  # App Password из Google Account
+    NOTIFY_EMAIL: str = "davlatovsurob@gmail.com"
 
     class Config:
         env_file = ".env"

@@ -1,6 +1,6 @@
 """Личный кабинет: заметки, посещаемость, подписки."""
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -18,14 +18,20 @@ def register_user(
     device_id: str,
     name: str,
     group_id: int,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
     """Сохраняет или обновляет регистрацию пользователя (имя + группа)."""
+    from app.services.email import send_registration_email
+
     group = db.get(Group, group_id)
     if not group:
         raise HTTPException(404, "Группа не найдена")
 
+    group_label = f"{group.year} курс · {group.name}"
     reg = db.query(UserRegistration).filter_by(device_id=device_id).first()
+    is_new = reg is None
+
     if reg:
         reg.name = name.strip()
         reg.group_id = group_id
@@ -33,6 +39,11 @@ def register_user(
         reg = UserRegistration(device_id=device_id, name=name.strip(), group_id=group_id)
         db.add(reg)
     db.commit()
+
+    # Письмо отправляем только при первой регистрации (не при каждом обновлении)
+    if is_new:
+        background_tasks.add_task(send_registration_email, name.strip() or "Аноним", group_label)
+
     return {"ok": True}
 
 

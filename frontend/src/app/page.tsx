@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import WeekBar from "@/components/WeekBar";
 import LessonCard from "@/components/LessonCard";
-import OnboardingScreen from "@/components/OnboardingScreen";
 import { api, Group, Lesson, TodayItem, Stats, WeekInfo, DAYS_ORDER } from "@/lib/api";
 
 const DAY_LABELS: Record<string, string> = {
@@ -18,6 +18,7 @@ const DAY_SHORT: Record<string, string> = {
 };
 
 export default function HomePage() {
+  const router = useRouter();
   const [groups, setGroups] = useState<Group[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
   const [selectedDay, setSelectedDay] = useState<string>("all");
@@ -29,11 +30,11 @@ export default function HomePage() {
   const [weeks, setWeeks] = useState<WeekInfo[]>([]);
   const [selectedWeekId, setSelectedWeekId] = useState<number | undefined>(undefined);
   const [selectedWeekStart, setSelectedWeekStart] = useState<string>("");
-  const [showOnboarding, setShowOnboarding] = useState<boolean>(false);
 
   useEffect(() => {
     const savedId = localStorage.getItem("selected_group_id");
-    setShowOnboarding(!savedId);
+    // Новый пользователь — отправляем на страницу настройки
+    if (!savedId) { router.push("/profile"); return; }
 
     api.getGroups()
       .then(gs => {
@@ -129,14 +130,6 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen" style={{ background: "var(--background)" }}>
-      {showOnboarding && (
-        <OnboardingScreen
-          onComplete={group => {
-            setShowOnboarding(false);
-            loadGroup(group);
-          }}
-        />
-      )}
       <Header />
       <WeekBar onWeekChange={handleWeekChange} selectedWeekStart={selectedWeekStart} />
 
