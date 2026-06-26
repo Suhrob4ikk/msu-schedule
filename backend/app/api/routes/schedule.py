@@ -166,7 +166,17 @@ def get_teacher_schedule(
             ws_date = date.fromisoformat(week_start)
         except ValueError:
             raise HTTPException(400, "Неверный формат даты")
-        week_ids = [w.id for w in db.query(WeekSchedule).filter(WeekSchedule.week_start == ws_date).all()]
+        # По одной самой свежей записи на каждый факультет — избегаем дублей
+        week_ids = []
+        for fcode in ["ЕНФ", "ГФ"]:
+            w = (
+                db.query(WeekSchedule)
+                .filter(WeekSchedule.faculty_code == fcode, WeekSchedule.week_start == ws_date)
+                .order_by(WeekSchedule.downloaded_at.desc())
+                .first()
+            )
+            if w:
+                week_ids.append(w.id)
     else:
         # Последние расписания обоих факультетов
         week_ids = []
@@ -234,9 +244,17 @@ def get_teachers(week_start: Optional[str] = None, db: Session = Depends(get_db)
             ws_date = date.fromisoformat(week_start)
         except ValueError:
             raise HTTPException(400, "Неверный формат даты")
-        week_ids = [
-            w.id for w in db.query(WeekSchedule).filter(WeekSchedule.week_start == ws_date).all()
-        ]
+        # По одной самой свежей записи на каждый факультет — избегаем дублей
+        week_ids = []
+        for fcode in ["ЕНФ", "ГФ"]:
+            w = (
+                db.query(WeekSchedule)
+                .filter(WeekSchedule.faculty_code == fcode, WeekSchedule.week_start == ws_date)
+                .order_by(WeekSchedule.downloaded_at.desc())
+                .first()
+            )
+            if w:
+                week_ids.append(w.id)
         active_ids: set = set()
         if week_ids:
             rows = (
