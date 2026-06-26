@@ -152,6 +152,12 @@ export const api = {
     fetchApi<Array<{ id: number; group_id: number; day_of_week: string; pair_number: string; note: string }>>
       (`/user/notes/${sessionId}`),
 
+  // Регистрация пользователя — сохраняем имя + группу на сервере
+  registerUser: (deviceId: string, name: string, groupId: number) =>
+    fetch(`${API_BASE}/user/register?device_id=${encodeURIComponent(deviceId)}&name=${encodeURIComponent(name)}&group_id=${groupId}`, {
+      method: 'POST',
+    }).then(r => r.json()).catch(() => null),
+
   // Принудительная синхронизация (требует ADMIN_SECRET в заголовке)
   syncNow: (force = false, adminSecret: string) =>
     fetch(`${API_BASE}/admin/sync?force=${force}`, {

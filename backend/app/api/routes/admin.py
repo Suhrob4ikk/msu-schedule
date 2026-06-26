@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.database import get_db
-from app.models import SyncLog, WeekSchedule
+from app.models import SyncLog, WeekSchedule, UserRegistration, Group
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -52,3 +52,27 @@ def get_weeks(db: Session = Depends(get_db)):
     """Все загруженные недели расписания."""
     weeks = db.query(WeekSchedule).order_by(WeekSchedule.week_start.desc()).all()
     return weeks
+
+
+@router.get("/users", dependencies=[Depends(require_admin)])
+def get_registered_users(db: Session = Depends(get_db)):
+    """Список всех зарегистрированных пользователей (только для админа)."""
+    from sqlalchemy.orm import joinedload
+    regs = (
+        db.query(UserRegistration)
+        .options(joinedload(UserRegistration.group).joinedload(Group.faculty))
+        .order_by(UserRegistration.registered_at.desc())
+        .all()
+    )
+    return [
+        {
+            "id": r.id,
+            "name": r.name,
+            "group": f"{r.group.year} курс · {r.group.name}" if r.group else None,
+            "faculty": r.group.faculty.code if r.group and r.group.faculty else None,
+            "registered_at": r.registered_at.isoformat() if r.registered_at else None,
+            "updated_at": r.updated_at.isoformat() if r.updated_at else None,
+            "device_id": r.device_id,
+        }
+        for r in regs
+    ]

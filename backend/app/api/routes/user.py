@@ -4,13 +4,36 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import LessonNote, AttendanceRecord, Lesson, Group, UserSubscription
+from app.models import LessonNote, AttendanceRecord, Lesson, Group, UserSubscription, UserRegistration
 from app.schemas import (
     LessonNoteCreate, LessonNoteSchema,
     AttendanceCreate, AttendanceSchema,
 )
 
 router = APIRouter(prefix="/user", tags=["user"])
+
+
+@router.post("/register")
+def register_user(
+    device_id: str,
+    name: str,
+    group_id: int,
+    db: Session = Depends(get_db),
+):
+    """Сохраняет или обновляет регистрацию пользователя (имя + группа)."""
+    group = db.get(Group, group_id)
+    if not group:
+        raise HTTPException(404, "Группа не найдена")
+
+    reg = db.query(UserRegistration).filter_by(device_id=device_id).first()
+    if reg:
+        reg.name = name.strip()
+        reg.group_id = group_id
+    else:
+        reg = UserRegistration(device_id=device_id, name=name.strip(), group_id=group_id)
+        db.add(reg)
+    db.commit()
+    return {"ok": True}
 
 
 @router.get("/notes/{session_id}")

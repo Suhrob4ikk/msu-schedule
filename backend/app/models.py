@@ -172,6 +172,18 @@ class AttendanceRecord(Base):
     __table_args__ = (UniqueConstraint("session_id", "lesson_id"),)
 
 
+class UserRegistration(Base):
+    """Регистрация пользователя: имя + группа."""
+    __tablename__ = "user_registrations"
+    id = Column(Integer, primary_key=True)
+    device_id = Column(String(100), unique=True, nullable=False)  # уникальный ID устройства
+    name = Column(String(200), nullable=False)
+    group_id = Column(Integer, ForeignKey("groups.id"), nullable=True)
+    registered_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    group = relationship("Group")
+
+
 class SyncLog(Base):
     """Журнал синхронизации."""
     __tablename__ = "sync_logs"

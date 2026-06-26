@@ -51,6 +51,15 @@ export default function ProfilePage() {
     setSaving(true);
     localStorage.setItem("user_name", name.trim());
     localStorage.setItem("selected_group_id", String(selectedGroupId));
+
+    // Сохраняем регистрацию на сервер
+    let deviceId = localStorage.getItem("msu_device_id");
+    if (!deviceId) {
+      deviceId = crypto.randomUUID();
+      localStorage.setItem("msu_device_id", deviceId);
+    }
+    await api.registerUser(deviceId, name.trim() || "Аноним", Number(selectedGroupId));
+
     await new Promise(r => setTimeout(r, 300));
     setSaving(false);
     router.push("/");
