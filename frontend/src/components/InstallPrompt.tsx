@@ -23,8 +23,9 @@ export default function InstallPrompt() {
   useEffect(() => {
     // Уже установлено — не показываем
     if (isInStandaloneMode()) return;
-    // Пользователь уже закрыл баннер
-    if (localStorage.getItem("pwa_install_dismissed")) return;
+    // Пользователь закрыл баннер менее 7 дней назад
+    const dismissed = localStorage.getItem("pwa_install_dismissed");
+    if (dismissed && Date.now() - Number(dismissed) < 7 * 24 * 60 * 60 * 1000) return;
 
     if (isIOS()) {
       // На iOS нет события beforeinstallprompt — показываем инструкцию вручную
@@ -45,7 +46,7 @@ export default function InstallPrompt() {
 
   const dismiss = () => {
     setVisible(false);
-    localStorage.setItem("pwa_install_dismissed", "1");
+    localStorage.setItem("pwa_install_dismissed", String(Date.now()));
   };
 
   if (!visible) return null;

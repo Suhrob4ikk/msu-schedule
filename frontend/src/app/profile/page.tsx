@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { api, Group } from "@/lib/api";
 import { useRouter } from "next/navigation";
 
@@ -10,7 +10,11 @@ export default function ProfilePage() {
   const [name, setName] = useState("");
   const [selectedGroupId, setSelectedGroupId] = useState<number | "">("");
   const [saving, setSaving] = useState(false);
-  const [isSetup, setIsSetup] = useState(false); // первый ли раз или редактируем
+  const [isSetup, setIsSetup] = useState(false);
+  const [isInstalled, setIsInstalled] = useState(true); // по умолчанию скрываем кнопку
+  const [isIOS, setIsIOS] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const installPromptRef = useRef<any>(null);
 
   useEffect(() => {
     api.getGroups().then(setGroups).catch(() => {});
@@ -18,8 +22,22 @@ export default function ProfilePage() {
     const savedGroup = localStorage.getItem("selected_group_id");
     setName(savedName);
     if (savedGroup) setSelectedGroupId(Number(savedGroup));
-    // Если группа не выбрана — режим первоначальной настройки
     setIsSetup(!savedGroup);
+
+    // Проверяем возможность установки PWA
+    const standalone =
+      (window.navigator as { standalone?: boolean }).standalone === true ||
+      window.matchMedia("(display-mode: standalone)").matches;
+    if (!standalone) {
+      setIsInstalled(false);
+      setIsIOS(/iphone|ipad|ipod/i.test(navigator.userAgent));
+      const handler = (e: Event) => {
+        e.preventDefault();
+        installPromptRef.current = e;
+      };
+      window.addEventListener("beforeinstallprompt", handler);
+      return () => window.removeEventListener("beforeinstallprompt", handler);
+    }
   }, []);
 
   const selectedGroup = groups.find(g => g.id === Number(selectedGroupId));
@@ -153,6 +171,61 @@ export default function ProfilePage() {
           >
             Отмена
           </button>
+        )}
+
+        {/* Установка PWA */}
+        {!isInstalled && (
+          <div
+            className="mt-4 rounded-xl p-4 flex flex-col gap-3"
+            style={{ background: "var(--card)", border: "0.5px solid var(--border)" }}
+          >
+            <div className="flex items-center gap-3">
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-xs font-bold shrink-0"
+                style={{ background: "var(--primary)" }}
+              >
+                МГУ
+              </div>
+              <div>
+                <p className="font-semibold text-sm" style={{ color: "var(--foreground)" }}>
+                  Установить приложение
+                </p>
+                <p className="text-xs" style={{ color: "var(--muted)" }}>
+                  Иконка на экране · работает офлайн
+                </p>
+              </div>
+            </div>
+
+            {isIOS ? (
+              // iOS — инструкция вручную
+              <p className="text-xs leading-relaxed" style={{ color: "var(--muted)" }}>
+                Нажми{" "}
+                <svg className="inline w-4 h-4 mb-0.5" fill="currentColor" viewBox="0 0 20 20" style={{ color: "var(--primary)" }}>
+                  <path d="M10 2a1 1 0 011 1v5.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 011.414-1.414L9 8.586V3a1 1 0 011-1z"/>
+                  <path d="M3 10a1 1 0 011-1h1a1 1 0 010 2H5v5h10v-5h-1a1 1 0 010-2h1a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2z"/>
+                </svg>
+                {" "}в нижней панели Safari → <strong>«На экран "Домой"»</strong>
+              </p>
+            ) : (
+              <button
+                onClick={async () => {
+                  if (installPromptRef.current) {
+                    await installPromptRef.current.prompt();
+                    const { outcome } = await installPromptRef.current.userChoice;
+                    if (outcome === "accepted") setIsInstalled(true);
+                    installPromptRef.current = null;
+                  } else {
+                    // Если prompt недоступен — подсказка открыть из меню браузера
+                    alert("Открой меню браузера (⋮) и выбери «Установить приложение» или «Добавить на главный экран»");
+                  }
+                }}
+                className="w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-opacity"
+                style={{ background: "var(--primary)" }}
+              >
+                Установить
+              </button>
+            )}
+          </div>
         )}
       </div>
     </div>
