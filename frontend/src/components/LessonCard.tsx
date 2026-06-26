@@ -9,12 +9,15 @@ const typeLabels: Record<string, string> = {
   ЛЕКЦИЯ: "Лекция",
 };
 
-// Цветные теги для важных типов занятий
-const typeTagClass: Record<string, string> = {
-  ЭКЗАМЕН: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800",
-  ЗАЧЕТ:   "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800",
-  ПРАКТИКА:"bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800",
-  Практика:"bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800",
+// Inline-стили для цветных тегов (bypass CSS cascade — inline > any class)
+type TagStyle = { backgroundColor: string; color: string; borderColor: string };
+const AMBER: TagStyle = { backgroundColor: "#fffbeb", color: "#b45309", borderColor: "#fde68a" };
+const BLUE: TagStyle  = { backgroundColor: "#eff6ff", color: "#1d4ed8", borderColor: "#bfdbfe" };
+
+const typeTagStyle: Record<string, TagStyle> = {
+  ЭКЗАМЕН: AMBER, Экзамен: AMBER,
+  ЗАЧЕТ:   AMBER, Зачёт:   AMBER,
+  ПРАКТИКА: BLUE, Практика: BLUE, ПЗ: BLUE,
 };
 
 interface Props {
@@ -32,7 +35,7 @@ export default function LessonCard({ lesson, showGroup }: Props) {
           {lesson.pair_time_start && ` · ${lesson.pair_time_start}–${lesson.pair_time_end}`}
         </span>
         {lesson.lesson_type && (
-          <span className={`lesson-tag ${typeTagClass[lesson.lesson_type] || ""}`}>
+          <span className="lesson-tag" style={typeTagStyle[lesson.lesson_type]}>
             {typeLabels[lesson.lesson_type] || lesson.lesson_type}
           </span>
         )}

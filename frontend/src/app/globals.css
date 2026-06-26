@@ -54,18 +54,22 @@ body {
   .card { padding: 14px 16px; border-radius: 10px; }
 }
 
-/* Тег типа занятия — единый нейтральный стиль */
-.lesson-tag {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.03em;
-  background: var(--tag-bg);
-  color: var(--tag-text);
-  border: 0.5px solid var(--tag-border);
+/* Тег типа занятия — в @layer base чтобы Tailwind-утилиты могли переопределить цвета */
+@layer base {
+  .lesson-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+    background-color: var(--tag-bg);
+    color: var(--tag-text);
+    border-width: 0.5px;
+    border-style: solid;
+    border-color: var(--tag-border);
+  }
 }
 
 /* Карточка текущей/следующей пары */
