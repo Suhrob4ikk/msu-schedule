@@ -9,6 +9,14 @@ const typeLabels: Record<string, string> = {
   ЛЕКЦИЯ: "Лекция",
 };
 
+// Цветные теги для важных типов занятий
+const typeTagClass: Record<string, string> = {
+  ЭКЗАМЕН: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800",
+  ЗАЧЕТ:   "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800",
+  ПРАКТИКА:"bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800",
+  Практика:"bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800",
+};
+
 interface Props {
   lesson: Lesson;
   showGroup?: boolean;
@@ -24,7 +32,7 @@ export default function LessonCard({ lesson, showGroup }: Props) {
           {lesson.pair_time_start && ` · ${lesson.pair_time_start}–${lesson.pair_time_end}`}
         </span>
         {lesson.lesson_type && (
-          <span className="lesson-tag">
+          <span className={`lesson-tag ${typeTagClass[lesson.lesson_type] || ""}`}>
             {typeLabels[lesson.lesson_type] || lesson.lesson_type}
           </span>
         )}
@@ -36,7 +44,7 @@ export default function LessonCard({ lesson, showGroup }: Props) {
       </p>
 
       {/* Преподаватель, аудитория, группа */}
-      <div className="flex flex-wrap gap-x-4 gap-y-1" style={{ color: "var(--muted)", fontSize: "12px" }}>
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs lg:text-sm" style={{ color: "var(--muted)" }}>
         {lesson.teacher && (
           <span className="flex items-center gap-1">
             <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor">

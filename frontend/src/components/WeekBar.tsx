@@ -15,14 +15,14 @@ interface Props {
   selectedWeekStart?: string;
 }
 
-// Метка недели: "Эта неделя", "Следующая · 29 июн" или просто "29 июн"
+// Метка недели: "Эта неделя", "Следующая · 29 июня" или просто "29 июня"
 function weekLabel(weekStart: string): string {
   const start = new Date(weekStart + "T00:00:00");
   const end = new Date(start.getTime() + 6 * 24 * 60 * 60 * 1000);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const dateStr = `${start.getDate()} ${start.toLocaleString("ru-RU", { month: "short" })}`;
+  const dateStr = start.toLocaleDateString("ru-RU", { day: "numeric", month: "long" });
   if (today >= start && today <= end) return "Эта неделя";
   if (start > today && start.getTime() - today.getTime() <= 8 * 24 * 60 * 60 * 1000)
     return `Следующая · ${dateStr}`;
@@ -78,7 +78,7 @@ export default function WeekBar({ onWeekChange, selectedWeekStart }: Props) {
             <button
               key={w.week_start}
               onClick={() => handleSelect(w.week_start)}
-              className="shrink-0 flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"
+              className="shrink-0 flex items-center gap-1.5 px-4 py-0 min-h-[44px] rounded-lg text-sm font-medium transition-colors"
               style={
                 active
                   ? { background: "var(--primary)", color: "#fff" }

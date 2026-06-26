@@ -225,7 +225,7 @@ export default function HomePage() {
         )}
 
         {/* Статистика */}
-        {stats && stats.total_lessons_week > 0 && (
+        {stats && stats.total_lessons_week >= 3 && (
           <div className="card mb-4 lg:mb-5">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 lg:gap-6">
               <div className="text-center">
@@ -266,20 +266,26 @@ export default function HomePage() {
             {visibleDays.map(day => {
               const hasLessons = lessons.some(l => l.day_of_week === day);
               const isActive = selectedDay === day;
+              // Подсвечивать синей рамкой только когда выбран конкретный день, а не "вся неделя"
+              const showHighlight = hasLessons && !isActive && selectedDay !== "all";
               return (
                 <button
                   key={day}
                   onClick={() => setSelectedDay(day)}
-                  className={`px-3 lg:px-5 py-1.5 lg:py-2.5 rounded-lg text-xs lg:text-base font-medium transition-colors ${
+                  className={`relative flex items-center gap-1 px-3 lg:px-5 min-h-[44px] rounded-lg text-xs lg:text-base font-medium transition-colors ${
                     isActive
                       ? "bg-[var(--primary)] text-white"
-                      : hasLessons
+                      : showHighlight
                         ? "bg-[var(--tag-bg)] border border-[var(--primary)] text-[var(--primary)]"
                         : "bg-[var(--card)] border border-[var(--border)] text-[var(--muted)]"
                   }`}
                 >
                   <span className="lg:hidden">{DAY_SHORT[day]}</span>
                   <span className="hidden lg:inline">{DAY_LABELS[day]}</span>
+                  {/* Точка-индикатор: есть пары, режим "вся неделя", кнопка не активна */}
+                  {hasLessons && selectedDay === "all" && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--primary)] shrink-0" />
+                  )}
                 </button>
               );
             })}
@@ -332,7 +338,7 @@ export default function HomePage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-6">
           {Object.entries(lessonsByDay).map(([day, dayLessons]) => (
             <div key={day} className="mb-5 lg:mb-6">
-              <h2 className="font-semibold text-sm lg:text-base text-[var(--muted)] uppercase tracking-wider mb-2 lg:mb-3 flex items-center gap-2">
+              <h2 className="font-semibold text-sm lg:text-base text-[var(--foreground)] mb-2 lg:mb-3 flex items-center gap-2">
                 {DAY_LABELS[day]}
                 <span className="text-xs lg:text-sm font-normal normal-case">
                   {dayLessons[0]?.lesson_date &&

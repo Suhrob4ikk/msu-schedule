@@ -26,7 +26,7 @@ export default function ChangesPage() {
   return (
     <div className="min-h-screen">
       <Header />
-      <main className="max-w-4xl mx-auto px-4 py-4 pb-24 lg:pb-6">
+      <main className="max-w-5xl mx-auto px-4 lg:px-8 py-4 lg:py-6 pb-24 lg:pb-6">
         <div className="card mb-4">
           <h1 className="font-bold text-lg">История изменений расписания</h1>
           <p className="text-sm text-[var(--muted)] mt-1">

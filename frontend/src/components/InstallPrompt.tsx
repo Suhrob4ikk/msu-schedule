@@ -30,7 +30,7 @@ export default function InstallPrompt() {
     if (isIOS()) {
       // На iOS нет события beforeinstallprompt — показываем инструкцию вручную
       setShowIOS(true);
-      setTimeout(() => setVisible(true), 5000);
+      setTimeout(() => setVisible(true), 15000);
       return;
     }
 
@@ -38,7 +38,7 @@ export default function InstallPrompt() {
     const handler = (e: Event) => {
       e.preventDefault();
       setAndroidPrompt(e as typeof androidPrompt);
-      setTimeout(() => setVisible(true), 4000);
+      setTimeout(() => setVisible(true), 15000);
     };
     window.addEventListener("beforeinstallprompt", handler);
     return () => window.removeEventListener("beforeinstallprompt", handler);

@@ -22,7 +22,7 @@ export default function ThemeToggle() {
   return (
     <button
       onClick={toggle}
-      className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
+      className="p-2.5 rounded-lg min-w-[44px] min-h-[44px] flex items-center justify-center hover:bg-[var(--tag-bg)] transition-colors"
       title={dark ? "Светлая тема" : "Тёмная тема"}
       aria-label="Переключить тему"
     >
