@@ -164,6 +164,27 @@ export const api = {
       method: 'POST',
       headers: { 'X-Admin-Secret': adminSecret },
     }).then(r => r.json()),
+
+  // Web Push
+  getVapidKey: () =>
+    fetchApi<{ public_key: string }>('/user/vapid-key'),
+
+  savePushSubscription: (sessionId: string, groupId: number, sub: PushSubscriptionJSON) =>
+    fetch(`${API_BASE}/user/push-subscribe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        session_id: sessionId,
+        group_id: groupId,
+        endpoint: sub.endpoint,
+        keys: sub.keys,
+      }),
+    }).then(r => r.json()),
+
+  deletePushSubscription: (sessionId: string) =>
+    fetch(`${API_BASE}/user/push-subscribe?session_id=${sessionId}`, {
+      method: 'DELETE',
+    }).then(r => r.json()),
 };
 
 // Имена дней недели на русском с числовым порядком

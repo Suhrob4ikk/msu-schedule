@@ -114,3 +114,32 @@ self.addEventListener('fetch', e => {
     })
   );
 });
+
+// ─── Push-уведомления ────────────────────────────────────────────────────────
+self.addEventListener('push', e => {
+  let data = { title: 'МГУ Душанбе', body: 'Расписание обновилось', url: '/' };
+  try { data = { ...data, ...e.data.json() }; } catch {}
+
+  e.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      tag: 'schedule-change',
+      renotify: true,
+      data: { url: data.url },
+    })
+  );
+});
+
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const url = e.notification.data?.url || '/';
+  e.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      const existing = list.find(c => c.url.includes(self.location.origin));
+      if (existing) return existing.focus();
+      return clients.openWindow(url);
+    })
+  );
+});

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import WeekBar from "@/components/WeekBar";
 import LessonCard from "@/components/LessonCard";
+import NotificationToggle from "@/components/NotificationToggle";
 import { api, Group, Lesson, TodayItem, Stats, WeekInfo, DAYS_ORDER } from "@/lib/api";
 
 const DAY_LABELS: Record<string, string> = {
@@ -195,6 +196,7 @@ export default function HomePage() {
                 Google Calendar
               </a>
             )}
+            {selectedGroup && <NotificationToggle />}
           </div>
         </div>
 
