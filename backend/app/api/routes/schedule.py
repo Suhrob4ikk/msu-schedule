@@ -400,7 +400,11 @@ def get_free_rooms(
 
     occupied = (
         db.query(Lesson)
-        .options(joinedload(Lesson.room), joinedload(Lesson.group).joinedload(Group.faculty))
+        .options(
+            joinedload(Lesson.room),
+            joinedload(Lesson.group).joinedload(Group.faculty),
+            joinedload(Lesson.teacher),
+        )
         .filter(
             Lesson.week_schedule_id.in_(latest_week_ids),
             Lesson.day_of_week == day_of_week.lower(),
@@ -410,11 +414,31 @@ def get_free_rooms(
         .all()
     )
 
+    def short_group_name(name: str) -> str:
+        n = name.strip().upper()
+        if "ПРИКЛАДНАЯ МАТЕМАТИКА" in n or ("МАТЕМАТИК" in n and "ИНФОРМАТИК" in n):
+            return "ПМиИ"
+        if "ХИМИЯ" in n and ("ФИЗИКА" in n or "МЕХАНИКА" in n):
+            return "ХФММ"
+        if "ГЕОЛОГИЯ" in n:
+            return "Геология"
+        if "МУНИЦИПАЛЬН" in n or ("ГОСУДАРСТВЕНН" in n and "УПРАВЛЕНИ" in n):
+            return "ГМУ"
+        if "МЕЖДУНАРОДН" in n and "ОТНОШЕНИ" in n:
+            return "МО"
+        if "ЛИНГВИСТИК" in n:
+            return "Лингвистика"
+        return name
+
     occupied_map = {}
     for l in occupied:
         if l.room:
             type_suffix = f" · {l.lesson_type}" if l.lesson_type else ""
-            occupied_map[l.room.name] = f"{l.group.year} курс · {l.group.name}: {l.subject}{type_suffix}"
+            teacher_name = f" · {l.teacher.name}" if l.teacher else ""
+            group_name = short_group_name(l.group.name) if l.group else ""
+            occupied_map[l.room.name] = (
+                f"{l.group.year} курс · {group_name}: {l.subject}{type_suffix}{teacher_name}"
+            )
 
     result = []
     for room_name in sorted(all_rooms.values()):
