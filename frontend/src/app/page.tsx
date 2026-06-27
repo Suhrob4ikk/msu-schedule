@@ -13,6 +13,11 @@ const DAY_LABELS: Record<string, string> = {
   четверг: "Четверг", пятница: "Пятница", суббота: "Суббота", воскресенье: "Воскресенье",
 };
 
+const DAY_IN: Record<string, string> = {
+  понедельник: "В понедельник", вторник: "Во вторник", среда: "В среду",
+  четверг: "В четверг", пятница: "В пятницу", суббота: "В субботу", воскресенье: "В воскресенье",
+};
+
 const DAY_SHORT: Record<string, string> = {
   понедельник: "Пн", вторник: "Вт", среда: "Ср",
   четверг: "Чт", пятница: "Пт", суббота: "Сб", воскресенье: "Вс",
@@ -354,7 +359,7 @@ export default function HomePage() {
             </svg>
             {selectedDay !== "all" ? (
               <>
-                <p className="font-medium">В {DAY_LABELS[selectedDay].toLowerCase()} занятий нет</p>
+                <p className="font-medium">{DAY_IN[selectedDay]} занятий нет</p>
                 <p className="text-xs mt-1">Выходной или нет пар в этот день</p>
               </>
             ) : (
