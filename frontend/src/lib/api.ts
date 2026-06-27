@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://msu-schedule-backend-production.up.railway.app/api';
 
 // Client-side cache: 3 минуты для списков, 60 сек для расписания
 const _cache = new Map<string, { data: unknown; ts: number }>();
@@ -196,14 +196,21 @@ export const api = {
 };
 
 export function shortGroupName(name: string): string {
-  const n = name.toUpperCase();
+  const trimmed = name?.trim() ?? '';
+  if (!trimmed) return '';
+
+  const n = trimmed.toUpperCase();
   if (n.includes('ПРИКЛАДНАЯ МАТЕМАТИКА') || (n.includes('МАТЕМАТИК') && n.includes('ИНФОРМАТИК'))) return 'ПМиИ';
-  if (n.includes('ХИМИЯ') && (n.includes('ФИЗИКА') || n.includes('МЕХАНИКА'))) return 'ХФММ';
+  if ((n.includes('ХИМИЯ') || n.includes('ФИЗИКА') || n.includes('МЕХАНИКА') || n.includes('МАТЕМАТИКА')) &&
+    (n.includes('ХИМИЯ') || n.includes('ФИЗИКА') || n.includes('МЕХАНИКА') || n.includes('МАТЕМАТИКА'))) {
+    return 'ХФММ';
+  }
   if (n.includes('ГЕОЛОГИЯ')) return 'Геология';
   if (n.includes('МУНИЦИПАЛЬН') || (n.includes('ГОСУДАРСТВЕНН') && n.includes('УПРАВЛЕНИ'))) return 'ГМУ';
   if (n.includes('МЕЖДУНАРОДН') && n.includes('ОТНОШЕНИ')) return 'МО';
   if (n.includes('ЛИНГВИСТИК')) return 'Лингвистика';
-  return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
 }
 
 // Имена дней недели на русском с числовым порядком
@@ -211,11 +218,11 @@ export const DAYS_ORDER = ['понедельник', 'вторник', 'сред
 export const PAIR_NUMBERS = ['I', 'II', 'III', 'IV', 'V'];
 
 export const PAIR_TIMES: Record<string, [string, string]> = {
-  'I':   ['08:00', '09:30'],
-  'II':  ['09:45', '11:15'],
+  'I': ['08:00', '09:30'],
+  'II': ['09:45', '11:15'],
   'III': ['11:30', '13:00'],
-  'IV':  ['14:00', '15:30'],
-  'V':   ['15:45', '17:15'],
+  'IV': ['14:00', '15:30'],
+  'V': ['15:45', '17:15'],
 };
 
 // Генерация уникального session_id для гостевого пользователя

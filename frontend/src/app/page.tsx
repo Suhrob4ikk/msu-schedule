@@ -21,6 +21,12 @@ const DAY_SHORT: Record<string, string> = {
 export default function HomePage() {
   const router = useRouter();
   const [groups, setGroups] = useState<Group[]>([]);
+  const [profileGroupId] = useState<number | null>(() => {
+    if (typeof window === "undefined") return null;
+    const saved = localStorage.getItem("selected_group_id");
+    return saved ? Number(saved) : null;
+  });
+  const [profileGroup, setProfileGroup] = useState<Group | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
   const [selectedDay, setSelectedDay] = useState<string>("all");
   const [lessons, setLessons] = useState<Lesson[]>([]);
@@ -32,28 +38,11 @@ export default function HomePage() {
   const [selectedWeekId, setSelectedWeekId] = useState<number | undefined>(undefined);
   const [selectedWeekStart, setSelectedWeekStart] = useState<string>("");
 
-  useEffect(() => {
-    const savedId = localStorage.getItem("selected_group_id");
-    const deviceId = localStorage.getItem("msu_device_id_v2");
-    // Новый пользователь или ещё не регистрировался — отправляем на страницу настройки
-    if (!savedId || !deviceId) { router.push("/profile"); return; }
-
-    api.getGroups()
-      .then(gs => {
-        setGroups(gs);
-        if (savedId) {
-          const g = gs.find(x => x.id === Number(savedId));
-          if (g) loadGroup(g);
-        }
-      })
-      .catch(() => setError("Нет соединения с сервером"));
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
   const loadGroup = useCallback(async (group: Group, weekId?: number) => {
     setSelectedGroup(group);
     setLoading(true);
     setError(null);
-    localStorage.setItem("selected_group_id", String(group.id));
+    localStorage.setItem("schedule_view_group_id", String(group.id));
 
     try {
       // Сначала загружаем список недель, чтобы найти нужный week_id
@@ -92,6 +81,41 @@ export default function HomePage() {
     }
   }, []);
 
+  useEffect(() => {
+    const savedGroup = localStorage.getItem("selected_group_id");
+    const viewedGroup = localStorage.getItem("schedule_view_group_id");
+    const deviceId = localStorage.getItem("msu_device_id_v2");
+
+    if (!savedGroup || !deviceId) {
+      router.push("/profile");
+      return;
+    }
+
+    const profileId = Number(savedGroup);
+    api.getGroups()
+      .then(gs => {
+        setGroups(gs);
+        const profile = gs.find(x => x.id === profileId) ?? null;
+        setProfileGroup(profile);
+
+        const initialGroupId = Number(viewedGroup ?? savedGroup);
+        const g = gs.find(x => x.id === initialGroupId);
+        if (g) loadGroup(g);
+      })
+      .catch(() => setError("Нет соединения с сервером"));
+  }, [router, loadGroup]);
+
+  const restoreProfileGroup = useCallback(() => {
+    if (profileGroup) {
+      loadGroup(profileGroup);
+      return;
+    }
+
+    if (profileGroupId === null) return;
+    const fallback = groups.find(x => x.id === profileGroupId);
+    if (fallback) loadGroup(fallback);
+  }, [groups, profileGroup, profileGroupId, loadGroup]);
+
   // Обработчик переключения недели из WeekBar
   const handleWeekChange = useCallback((weekStart: string) => {
     setSelectedWeekStart(weekStart);
@@ -123,36 +147,29 @@ export default function HomePage() {
   const currentItem = nowItems.find(i => i.is_current);
   const nextItem = nowItems.find(i => i.is_next);
 
-  // Живой countdown — обновляется каждую секунду
-  const [countdown, setCountdown] = useState<string>("");
+  const [currentTime, setCurrentTime] = useState(() => Date.now());
   useEffect(() => {
-    if (!nextItem) { setCountdown(""); return; }
+    const timer = window.setInterval(() => setCurrentTime(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
-    const tick = () => {
-      const now = new Date();
-      const [h, m] = nextItem.pair_time_start.split(":").map(Number);
-      const target = new Date(now);
-      target.setHours(h, m, 0, 0);
+  const countdown = useMemo(() => {
+    if (!nextItem) return "";
 
-      const diffMs = target.getTime() - now.getTime();
-      if (diffMs <= 0) { setCountdown(""); return; }
+    const [h, m] = nextItem.pair_time_start.split(":").map(Number);
+    const target = new Date(currentTime);
+    target.setHours(h, m, 0, 0);
 
-      const totalMin = Math.floor(diffMs / 60000);
-      const secs = Math.floor((diffMs % 60000) / 1000);
-      const hrs = Math.floor(totalMin / 60);
-      const mins = totalMin % 60;
+    const diffMs = target.getTime() - currentTime;
+    if (diffMs <= 0) return "";
 
-      if (hrs > 0) {
-        setCountdown(`${hrs}ч ${mins}м`);
-      } else {
-        setCountdown(`${mins}:${String(secs).padStart(2, "0")}`);
-      }
-    };
+    const totalMin = Math.floor(diffMs / 60000);
+    const secs = Math.floor((diffMs % 60000) / 1000);
+    const hrs = Math.floor(totalMin / 60);
+    const mins = totalMin % 60;
 
-    tick();
-    const timer = setInterval(tick, 1000);
-    return () => clearInterval(timer);
-  }, [nextItem]);
+    return hrs > 0 ? `${hrs}ч ${mins}м` : `${mins}:${String(secs).padStart(2, "0")}`;
+  }, [currentTime, nextItem]);
 
   return (
     <div className="min-h-screen" style={{ background: "var(--background)" }}>
@@ -191,10 +208,18 @@ export default function HomePage() {
                 download
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
                 Google Calendar
               </a>
+            )}
+            {selectedGroup && profileGroupId !== null && selectedGroup.id !== profileGroupId && (
+              <button
+                onClick={restoreProfileGroup}
+                className="px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--muted)] text-sm hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors"
+              >
+                Вернуться к моему расписанию
+              </button>
             )}
             {selectedGroup && <NotificationToggle />}
           </div>
@@ -273,11 +298,10 @@ export default function HomePage() {
           <div className="flex gap-1.5 lg:gap-3 flex-wrap mb-4 lg:mb-5">
             <button
               onClick={() => setSelectedDay("all")}
-              className={`px-3 lg:px-5 py-1.5 lg:py-2.5 rounded-lg text-xs lg:text-base font-medium transition-colors ${
-                selectedDay === "all"
-                  ? "bg-[var(--primary)] text-white"
-                  : "bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)]"
-              }`}
+              className={`px-3 lg:px-5 py-1.5 lg:py-2.5 rounded-lg text-xs lg:text-base font-medium transition-colors ${selectedDay === "all"
+                ? "bg-[var(--primary)] text-white"
+                : "bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)]"
+                }`}
             >
               Вся неделя
             </button>
@@ -290,13 +314,12 @@ export default function HomePage() {
                 <button
                   key={day}
                   onClick={() => setSelectedDay(day)}
-                  className={`relative flex items-center gap-1 px-3 lg:px-5 min-h-[44px] rounded-lg text-xs lg:text-base font-medium transition-colors ${
-                    isActive
-                      ? "bg-[var(--primary)] text-white"
-                      : showHighlight
-                        ? "bg-[var(--tag-bg)] border border-[var(--primary)] text-[var(--primary)]"
-                        : "bg-[var(--card)] border border-[var(--border)] text-[var(--muted)]"
-                  }`}
+                  className={`relative flex items-center gap-1 px-3 lg:px-5 min-h-[44px] rounded-lg text-xs lg:text-base font-medium transition-colors ${isActive
+                    ? "bg-[var(--primary)] text-white"
+                    : showHighlight
+                      ? "bg-[var(--tag-bg)] border border-[var(--primary)] text-[var(--primary)]"
+                      : "bg-[var(--card)] border border-[var(--border)] text-[var(--muted)]"
+                    }`}
                 >
                   <span className="lg:hidden">{DAY_SHORT[day]}</span>
                   <span className="hidden lg:inline">{DAY_LABELS[day]}</span>
@@ -327,7 +350,7 @@ export default function HomePage() {
         {!loading && !error && selectedGroup && Object.keys(lessonsByDay).length === 0 && (
           <div className="text-center py-16 text-[var(--muted)]">
             <svg className="w-12 h-12 mx-auto mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
             {selectedDay !== "all" ? (
               <>
@@ -346,7 +369,7 @@ export default function HomePage() {
         {!loading && !selectedGroup && !error && (
           <div className="text-center py-16 text-[var(--muted)]">
             <svg className="w-12 h-12 mx-auto mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
             </svg>
             <p className="font-medium">Выберите группу выше</p>
             <p className="text-xs mt-1">Чтобы увидеть расписание</p>

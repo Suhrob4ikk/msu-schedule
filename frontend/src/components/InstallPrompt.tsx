@@ -2,10 +2,12 @@
 import { useState, useEffect } from "react";
 
 function isIOS(): boolean {
+  if (typeof navigator === "undefined") return false;
   return /iphone|ipad|ipod/i.test(navigator.userAgent);
 }
 
 function isInStandaloneMode(): boolean {
+  if (typeof window === "undefined") return false;
   return (
     (window.navigator as { standalone?: boolean }).standalone === true ||
     window.matchMedia("(display-mode: standalone)").matches
@@ -21,28 +23,25 @@ export default function InstallPrompt() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    // Уже установлено — не показываем
-    if (isInStandaloneMode()) return;
-    // Пользователь закрыл баннер менее 7 дней назад
+    const ios = !isInStandaloneMode() && isIOS();
+    setShowIOS(ios);
+
     const dismissed = localStorage.getItem("pwa_install_dismissed");
     if (dismissed && Date.now() - Number(dismissed) < 7 * 24 * 60 * 60 * 1000) return;
 
-    if (isIOS()) {
-      // На iOS нет события beforeinstallprompt — показываем инструкцию вручную
-      setShowIOS(true);
-      setTimeout(() => setVisible(true), 15000);
-      return;
+    if (ios) {
+      const timer = window.setTimeout(() => setVisible(true), 15000);
+      return () => window.clearTimeout(timer);
     }
 
-    // Android / Chrome Desktop
     const handler = (e: Event) => {
       e.preventDefault();
       setAndroidPrompt(e as typeof androidPrompt);
-      setTimeout(() => setVisible(true), 15000);
+      window.setTimeout(() => setVisible(true), 15000);
     };
     window.addEventListener("beforeinstallprompt", handler);
     return () => window.removeEventListener("beforeinstallprompt", handler);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   const dismiss = () => {
     setVisible(false);
@@ -66,8 +65,8 @@ export default function InstallPrompt() {
                 Нажмите{" "}
                 {/* Иконка "Поделиться" из Safari */}
                 <svg className="inline w-4 h-4 mb-0.5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M10 2a1 1 0 011 1v5.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 011.414-1.414L9 8.586V3a1 1 0 011-1z"/>
-                  <path d="M3 10a1 1 0 011-1h1a1 1 0 010 2H5v5h10v-5h-1a1 1 0 010-2h1a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2z"/>
+                  <path d="M10 2a1 1 0 011 1v5.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 011.414-1.414L9 8.586V3a1 1 0 011-1z" />
+                  <path d="M3 10a1 1 0 011-1h1a1 1 0 010 2H5v5h10v-5h-1a1 1 0 010-2h1a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2z" />
                 </svg>{" "}
                 внизу браузера, затем{" "}
                 <strong>«На экран «Домой»»</strong>

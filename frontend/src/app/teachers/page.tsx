@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import Header from "@/components/Header";
 import WeekBar from "@/components/WeekBar";
 import LessonCard from "@/components/LessonCard";
@@ -17,16 +17,27 @@ export default function TeachersPage() {
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingTeachers, setLoadingTeachers] = useState(false);
   const [mobileView, setMobileView] = useState<"list" | "detail">("list");
-  const [selectedWeekStart, setSelectedWeekStart] = useState<string>("");
+  const [selectedWeekStart, setSelectedWeekStart] = useState<string>(() => {
+    if (typeof window === "undefined") return "";
+    return localStorage.getItem("selected_week_start") || "";
+  });
 
-  // Загрузка преподавателей при смене недели
   const loadTeachers = useCallback(async (weekStart: string) => {
-    const data = await api.getTeachers(weekStart || undefined);
-    setTeachers(data);
+    setLoadingTeachers(true);
+    try {
+      const data = await api.getTeachers(weekStart || undefined);
+      setTeachers(data);
+    } finally {
+      setLoadingTeachers(false);
+    }
   }, []);
 
-  // Обработчик WeekBar
+  useEffect(() => {
+    if (selectedWeekStart) loadTeachers(selectedWeekStart);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleWeekChange = useCallback(async (weekStart: string) => {
     setSelectedWeekStart(weekStart);
     setSelected(null);
@@ -80,21 +91,22 @@ export default function TeachersPage() {
           {/* Список преподавателей */}
           <div className={`lg:col-span-1 ${mobileView === "detail" ? "hidden lg:block" : ""}`}>
             <div className="card h-[calc(100vh-320px)] lg:h-[calc(100vh-240px)] overflow-y-auto">
-              {!selectedWeekStart && (
-                <p className="text-[var(--muted)] text-sm text-center py-4">Загрузка...</p>
+              {loadingTeachers && (
+                <div className="flex items-center justify-center py-6">
+                  <div className="w-5 h-5 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
+                </div>
               )}
-              {selectedWeekStart && filtered.length === 0 && (
+              {!loadingTeachers && filtered.length === 0 && (
                 <p className="text-[var(--muted)] text-sm lg:text-base text-center py-4">Нет результатов</p>
               )}
               {filtered.map(t => (
                 <button
                   key={t.id}
                   onClick={() => loadTeacher(t)}
-                  className={`w-full text-left px-3 lg:px-4 py-3 lg:py-2.5 rounded-lg mb-1 text-sm lg:text-base transition-colors ${
-                    selected?.id === t.id
+                  className={`w-full text-left px-3 lg:px-4 py-3 lg:py-2.5 rounded-lg mb-1 text-sm lg:text-base transition-colors ${selected?.id === t.id
                       ? "bg-[var(--primary)] text-white"
                       : "hover:bg-[var(--tag-bg)] text-[var(--foreground)]"
-                  }`}
+                    }`}
                 >
                   {t.name}
                 </button>
@@ -112,7 +124,7 @@ export default function TeachersPage() {
                 className="lg:hidden flex items-center gap-2 text-[var(--primary)] text-sm font-medium mb-4"
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
-                  <path d="M19 12H5M12 5l-7 7 7 7"/>
+                  <path d="M19 12H5M12 5l-7 7 7 7" />
                 </svg>
                 К списку преподавателей
               </button>

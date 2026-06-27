@@ -15,23 +15,36 @@ export default function RoomsPage() {
   const [pair, setPair] = useState("I");
   const [rooms, setRooms] = useState<Array<{ room_name: string; is_free: boolean; occupied_by?: string }>>([]);
   const [loading, setLoading] = useState(false);
-  const [selectedWeekStart, setSelectedWeekStart] = useState<string>("");
-
-  const loadRooms = (d: string, p: string, weekStart: string) => {
-    if (!weekStart) return;
-    setLoading(true);
-    api.getFreeRooms(d, p, weekStart)
-      .then(setRooms)
-      .finally(() => setLoading(false));
-  };
+  const [weekBarReady, setWeekBarReady] = useState(false);
+  const [selectedWeekStart, setSelectedWeekStart] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("selected_week_start") ?? "";
+    }
+    return "";
+  });
 
   // Перезагружаем при смене дня/пары/недели
   useEffect(() => {
-    loadRooms(day, pair, selectedWeekStart);
-  }, [day, pair, selectedWeekStart]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!selectedWeekStart) return;
+    let cancelled = false;
+
+    const fetchRooms = async () => {
+      setLoading(true);
+      try {
+        const result = await api.getFreeRooms(day, pair, selectedWeekStart);
+        if (!cancelled) setRooms(result);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    fetchRooms();
+    return () => { cancelled = true; };
+  }, [day, pair, selectedWeekStart]);
 
   const handleWeekChange = (weekStart: string) => {
     setSelectedWeekStart(weekStart);
+    setWeekBarReady(true);
   };
 
   const freeRooms = rooms.filter(r => r.is_free);
@@ -120,7 +133,14 @@ export default function RoomsPage() {
           </div>
         )}
 
-        {!loading && rooms.length === 0 && selectedWeekStart && (
+        {!weekBarReady && !loading && rooms.length === 0 && (
+          <div className="flex items-center justify-center py-16">
+            <div className="w-6 h-6 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
+            <span className="ml-3 text-sm text-[var(--muted)]">Загружаем данные...</span>
+          </div>
+        )}
+
+        {!loading && rooms.length === 0 && weekBarReady && (
           <div className="text-center py-16 text-[var(--muted)]">
             <p>Данных нет для выбранной недели</p>
           </div>

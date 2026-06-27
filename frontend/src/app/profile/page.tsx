@@ -1,26 +1,28 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { api, Group } from "@/lib/api";
+import { api, Group, shortGroupName } from "@/lib/api";
 import { useRouter } from "next/navigation";
 
 export default function ProfilePage() {
   const router = useRouter();
   const [groups, setGroups] = useState<Group[]>([]);
-  const [name, setName] = useState("");
-  const [selectedGroupId, setSelectedGroupId] = useState<number | "">("");
+  const [name, setName] = useState(() => (typeof window !== "undefined" ? localStorage.getItem("user_name") ?? "" : ""));
+  const [selectedGroupId, setSelectedGroupId] = useState<number | "">(() => {
+    if (typeof window === "undefined") return "";
+    const savedGroup = localStorage.getItem("selected_group_id");
+    return savedGroup ? Number(savedGroup) : "";
+  });
   const [saving, setSaving] = useState(false);
-  const [isSetup, setIsSetup] = useState(false);
-
-  useEffect(() => {
-    api.getGroups().then(setGroups).catch(() => {});
-    const savedName = localStorage.getItem("user_name") ?? "";
+  const [isSetup] = useState(() => {
+    if (typeof window === "undefined") return true;
     const savedGroup = localStorage.getItem("selected_group_id");
     const deviceId = localStorage.getItem("msu_device_id_v2");
-    setName(savedName);
-    if (savedGroup) setSelectedGroupId(Number(savedGroup));
-    // isSetup = true если первый раз ИЛИ ещё не проходил регистрацию
-    setIsSetup(!savedGroup || !deviceId);
+    return !savedGroup || !deviceId;
+  });
+
+  useEffect(() => {
+    api.getGroups().then(setGroups).catch(() => { });
   }, []);
 
   const selectedGroup = groups.find(g => g.id === Number(selectedGroupId));
@@ -80,7 +82,7 @@ export default function ProfilePage() {
       )}
       {selectedGroup && (
         <p className="text-sm mb-8" style={{ color: "var(--muted)" }}>
-          {selectedGroup.year} курс · {selectedGroup.name}
+          {selectedGroup.year} курс · {shortGroupName(selectedGroup.name)}
         </p>
       )}
       {!selectedGroup && <div className="mb-8" />}
@@ -126,7 +128,7 @@ export default function ProfilePage() {
             {["ЕНФ", "ГФ"].map(fac => (
               <optgroup key={fac} label={fac === "ЕНФ" ? "Естественнонаучный факультет" : "Гуманитарный факультет"}>
                 {groups.filter(g => g.faculty_code === fac).map(g => (
-                  <option key={g.id} value={g.id}>{g.year} курс — {g.name}</option>
+                  <option key={g.id} value={g.id}>{g.year} курс — {shortGroupName(g.name)}</option>
                 ))}
               </optgroup>
             ))}

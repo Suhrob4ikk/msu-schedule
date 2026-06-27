@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from "react";
 import Header from "@/components/Header";
-import { api, Change } from "@/lib/api";
+import { api, Change, shortGroupName } from "@/lib/api";
 
 const typeLabels: Record<string, string> = {
-  added:   "Добавлено",
+  added: "Добавлено",
   removed: "Удалено",
   changed: "Изменено",
+  new_week: "Новая неделя",
 };
 
 const DAY_LABELS: Record<string, string> = {
@@ -18,10 +19,17 @@ const DAY_LABELS: Record<string, string> = {
 export default function ChangesPage() {
   const [changes, setChanges] = useState<Change[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
-  useEffect(() => {
-    api.getChanges().then(data => { setChanges(data); setLoading(false); });
-  }, []);
+  const load = () => {
+    setLoading(true);
+    setError(false);
+    api.getChanges()
+      .then(data => { setChanges(data); setLoading(false); })
+      .catch(() => { setError(true); setLoading(false); });
+  };
+
+  useEffect(() => { load(); }, []);
 
   return (
     <div className="min-h-screen">
@@ -40,7 +48,20 @@ export default function ChangesPage() {
           </div>
         )}
 
-        {!loading && changes.length === 0 && (
+        {error && (
+          <div className="text-center py-16 text-[var(--muted)]">
+            <p className="mb-3">Не удалось загрузить историю изменений</p>
+            <button
+              onClick={load}
+              className="px-4 py-2 rounded-lg text-sm font-medium"
+              style={{ background: "var(--primary)", color: "#fff" }}
+            >
+              Повторить
+            </button>
+          </div>
+        )}
+
+        {!loading && !error && changes.length === 0 && (
           <div className="text-center py-16 text-[var(--muted)]">
             <p>Изменений пока нет</p>
             <p className="text-xs mt-1">Они появятся после первого обновления расписания</p>
@@ -56,7 +77,7 @@ export default function ChangesPage() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="lesson-tag">{label}</span>
                     <span className="text-xs font-semibold">{c.faculty_code}</span>
-                    <span className="text-xs text-[var(--muted)]">{c.group_name}</span>
+                    <span className="text-xs text-[var(--muted)]">{shortGroupName(c.group_name ?? "")}</span>
                     {c.day_of_week && c.pair_number && (
                       <span className="text-xs text-[var(--muted)]">
                         {DAY_LABELS[c.day_of_week]} · {c.pair_number} пара
