@@ -5,10 +5,12 @@ import Header from "@/components/Header";
 import WeekBar from "@/components/WeekBar";
 import { api, DAYS_ORDER, PAIR_TIMES } from "@/lib/api";
 
-const DAY_LABELS: Record<string, string> = {
-  понедельник: "Понедельник", вторник: "Вторник", среда: "Среда",
-  четверг: "Четверг", пятница: "Пятница", суббота: "Суббота", воскресенье: "Воскресенье",
+const DAY_SHORT: Record<string, string> = {
+  понедельник: "Пн", вторник: "Вт", среда: "Ср",
+  четверг: "Чт", пятница: "Пт", суббота: "Сб",
 };
+
+const DAYS = DAYS_ORDER.filter(d => d !== "воскресенье");
 
 export default function RoomsPage() {
   const [day, setDay] = useState("понедельник");
@@ -23,22 +25,13 @@ export default function RoomsPage() {
     return "";
   });
 
-  // Перезагружаем при смене дня/пары/недели
   useEffect(() => {
     if (!selectedWeekStart) return;
     let cancelled = false;
-
-    const fetchRooms = async () => {
-      setLoading(true);
-      try {
-        const result = await api.getFreeRooms(day, pair, selectedWeekStart);
-        if (!cancelled) setRooms(result);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-
-    fetchRooms();
+    setLoading(true);
+    api.getFreeRooms(day, pair, selectedWeekStart)
+      .then(result => { if (!cancelled) setRooms(result); })
+      .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [day, pair, selectedWeekStart]);
 
@@ -55,40 +48,49 @@ export default function RoomsPage() {
       <Header />
       <WeekBar onWeekChange={handleWeekChange} selectedWeekStart={selectedWeekStart} />
       <main className="max-w-5xl mx-auto px-4 lg:px-8 py-4 lg:py-6 pb-24 lg:pb-6">
+
+        {/* Фильтры */}
         <div className="card mb-4 lg:mb-5">
-          <h1 className="font-bold text-lg lg:text-2xl mb-2 lg:mb-3">Свободные аудитории</h1>
-          <div className="flex items-start gap-2 rounded-lg bg-[var(--tag-bg)] px-3 py-2 mb-3 lg:mb-4">
-            <svg className="w-4 h-4 shrink-0 mt-0.5 text-[var(--primary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-            <p className="text-xs lg:text-sm text-[var(--muted)]">Выберите день недели и номер пары — увидите какие аудитории свободны, а в каких идут занятия прямо сейчас. Зелёные — свободны, красные — заняты.</p>
+          <h1 className="font-bold text-lg lg:text-2xl mb-3">Свободные аудитории</h1>
+
+          {/* День */}
+          <p className="text-xs font-semibold uppercase tracking-wider text-[var(--muted)] mb-2">День</p>
+          <div className="flex gap-2 overflow-x-auto pb-1 mb-4 scrollbar-hide">
+            {DAYS.map(d => (
+              <button
+                key={d}
+                onClick={() => setDay(d)}
+                className={`shrink-0 px-4 py-2 rounded-xl text-sm font-semibold border transition-colors ${
+                  day === d
+                    ? "bg-[var(--primary)] text-white border-[var(--primary)]"
+                    : "bg-[var(--card)] text-[var(--foreground)] border-[var(--border)]"
+                }`}
+              >
+                {DAY_SHORT[d]}
+              </button>
+            ))}
           </div>
-          <div className="flex flex-wrap gap-3 lg:gap-4">
-            <div className="flex-1 min-w-36">
-              <label className="block text-xs lg:text-sm text-[var(--muted)] mb-1">День недели</label>
-              <select
-                className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 lg:py-3 text-base focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
-                value={day}
-                onChange={e => setDay(e.target.value)}
+
+          {/* Пара */}
+          <p className="text-xs font-semibold uppercase tracking-wider text-[var(--muted)] mb-2">Пара</p>
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+            {Object.entries(PAIR_TIMES).map(([num, [start]]) => (
+              <button
+                key={num}
+                onClick={() => setPair(num)}
+                className={`shrink-0 flex flex-col items-center px-4 py-2 rounded-xl border transition-colors ${
+                  pair === num
+                    ? "bg-[var(--primary)] text-white border-[var(--primary)]"
+                    : "bg-[var(--card)] text-[var(--foreground)] border-[var(--border)]"
+                }`}
               >
-                {DAYS_ORDER.map(d => (
-                  <option key={d} value={d}>{DAY_LABELS[d]}</option>
-                ))}
-              </select>
-            </div>
-            <div className="flex-1 min-w-36">
-              <label className="block text-xs lg:text-sm text-[var(--muted)] mb-1">Номер пары</label>
-              <select
-                className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 lg:py-3 text-base focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
-                value={pair}
-                onChange={e => setPair(e.target.value)}
-              >
-                {Object.entries(PAIR_TIMES).map(([num, [start, end]]) => (
-                  <option key={num} value={num}>{num} пара ({start}–{end})</option>
-                ))}
-              </select>
-            </div>
+                <span className="text-sm font-bold">{num}</span>
+                <span className={`text-xs ${pair === num ? "text-white/75" : "text-[var(--muted)]"}`}>{start}</span>
+              </button>
+            ))}
             {loading && (
-              <div className="flex items-center self-end pb-2">
-                <div className="w-5 h-5 lg:w-6 lg:h-6 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
+              <div className="flex items-center px-2">
+                <div className="w-5 h-5 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
               </div>
             )}
           </div>
@@ -96,39 +98,40 @@ export default function RoomsPage() {
 
         {rooms.length > 0 && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
-            {/* Свободные — на lg занимают 1 колонку с внутренней сеткой */}
+            {/* Свободные — компактные чипы */}
             <div>
-              <h2 className="font-semibold text-base lg:text-lg text-green-600 dark:text-green-400 mb-3 flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-green-500"></span>
+              <h2 className="font-semibold text-base lg:text-lg text-green-600 dark:text-green-400 mb-2 flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-green-500 shrink-0"></span>
                 Свободных: {freeRooms.length}
               </h2>
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
-                {freeRooms.map(r => (
-                  <div key={r.room_name} className="card py-3 lg:py-4 flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-green-400 shrink-0"></span>
-                    <span className="text-sm lg:text-base font-semibold">{r.room_name}</span>
-                  </div>
-                ))}
-                {freeRooms.length === 0 && (
-                  <p className="col-span-2 lg:col-span-3 text-[var(--muted)] text-sm lg:text-base py-4 text-center">Свободных аудиторий нет</p>
-                )}
-              </div>
+              {freeRooms.length === 0 ? (
+                <p className="text-[var(--muted)] text-sm py-2">Нет свободных аудиторий</p>
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {freeRooms.map(r => (
+                    <span
+                      key={r.room_name}
+                      className="px-2.5 py-1 rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 text-sm font-semibold text-green-700 dark:text-green-400"
+                    >
+                      {r.room_name}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
+
             {/* Занятые */}
             <div>
-              <h2 className="font-semibold text-base lg:text-lg text-red-600 dark:text-red-400 mb-3 flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-red-500"></span>
+              <h2 className="font-semibold text-base lg:text-lg text-red-600 dark:text-red-400 mb-2 flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0"></span>
                 Занятых: {busyRooms.length}
               </h2>
               <div className="space-y-2">
                 {busyRooms.map(r => (
-                  <div key={r.room_name} className="card py-3 lg:py-4">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-red-400 shrink-0"></span>
-                      <span className="text-sm lg:text-base font-semibold">{r.room_name}</span>
-                    </div>
+                  <div key={r.room_name} className="rounded-xl border-l-[3px] border-l-red-400 bg-red-50 dark:bg-red-950/20 px-3 py-2.5">
+                    <span className="text-sm font-semibold">{r.room_name}</span>
                     {r.occupied_by && (
-                      <p className="text-xs lg:text-sm text-[var(--muted)] mt-1 pl-4">{r.occupied_by}</p>
+                      <p className="text-xs text-[var(--muted)] mt-0.5">{r.occupied_by}</p>
                     )}
                   </div>
                 ))}
