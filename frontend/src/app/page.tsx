@@ -6,7 +6,8 @@ import Header from "@/components/Header";
 import WeekBar from "@/components/WeekBar";
 import LessonCard from "@/components/LessonCard";
 import NotificationToggle from "@/components/NotificationToggle";
-import { api, Group, Lesson, TodayItem, Stats, WeekInfo, DAYS_ORDER, shortGroupName } from "@/lib/api";
+import { api, Group, Lesson, TodayItem, Stats, WeekInfo, DAYS_ORDER } from "@/lib/api";
+import GroupSelector from "@/components/GroupSelector";
 
 const DAY_LABELS: Record<string, string> = {
   понедельник: "Понедельник", вторник: "Вторник", среда: "Среда",
@@ -189,28 +190,9 @@ export default function HomePage() {
             <svg className="w-4 h-4 shrink-0 mt-0.5 text-[var(--primary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
             <p className="text-xs lg:text-sm text-[var(--muted)]">Выберите свою группу из списка → нажмите на нужный день недели → смотрите пары. Переключайте учебные недели кнопками вверху страницы.</p>
           </div>
-          <div className="flex flex-wrap gap-2 lg:gap-3">
-            <select
-              className="flex-1 min-w-48 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 lg:py-3 text-base focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
-              value={selectedGroup?.id ?? ""}
-              onChange={e => {
-                const g = groups.find(x => x.id === Number(e.target.value));
-                if (g) loadGroup(g);
-              }}
-            >
-              <option value="">— Выберите группу —</option>
-              {["ЕНФ", "ГФ"].map(fac => (
-                <optgroup key={fac} label={fac === "ЕНФ" ? "Естественнонаучный факультет" : "Гуманитарный факультет"}>
-                  {groups.filter(g => g.faculty_code === fac).map(g => (
-                    <option key={g.id} value={g.id}>
-                      {g.year} курс — {shortGroupName(g.name)}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-
-            {selectedGroup && (
+          <GroupSelector groups={groups} value={selectedGroup} onChange={loadGroup} />
+          {selectedGroup && (
+            <div className="flex flex-wrap gap-2 mt-3">
               <a
                 href={api.getIcsUrl(selectedGroup.id)}
                 className="flex items-center gap-1 px-3 py-2 rounded-lg border border-[var(--border)] text-[var(--muted)] text-sm hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors"
@@ -221,17 +203,17 @@ export default function HomePage() {
                 </svg>
                 Google Calendar
               </a>
-            )}
-            {selectedGroup && profileGroupId !== null && selectedGroup.id !== profileGroupId && (
-              <button
-                onClick={restoreProfileGroup}
-                className="px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--muted)] text-sm hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors"
-              >
-                Вернуться к моему расписанию
-              </button>
-            )}
-            {selectedGroup && <NotificationToggle />}
-          </div>
+              {profileGroupId !== null && selectedGroup.id !== profileGroupId && (
+                <button
+                  onClick={restoreProfileGroup}
+                  className="px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--muted)] text-sm hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors"
+                >
+                  Вернуться к моему расписанию
+                </button>
+              )}
+              <NotificationToggle />
+            </div>
+          )}
         </div>
 
         {/* "Что сейчас" виджет */}

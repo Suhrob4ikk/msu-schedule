@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { api, Group, getSessionId } from "@/lib/api";
+import GroupSelector from "@/components/GroupSelector";
 
 interface Props {
   onComplete: (group: Group) => void;
@@ -8,7 +9,7 @@ interface Props {
 
 export default function OnboardingScreen({ onComplete }: Props) {
   const [groups, setGroups] = useState<Group[]>([]);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [selected, setSelected] = useState<Group | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -16,19 +17,12 @@ export default function OnboardingScreen({ onComplete }: Props) {
   }, []);
 
   const handleContinue = () => {
-    const group = groups.find(g => g.id === selectedId);
-    if (!group) return;
-    localStorage.setItem("selected_group_id", String(group.id));
-    // Регистрируем подписку на бэкенде, чтобы профиль её увидел
+    if (!selected) return;
+    localStorage.setItem("selected_group_id", String(selected.id));
     const sid = getSessionId();
-    if (sid) api.subscribe(sid, group.id).catch(() => {});
-    onComplete(group);
+    if (sid) api.subscribe(sid, selected.id).catch(() => {});
+    onComplete(selected);
   };
-
-  const faculties: Array<{ code: string; name: string }> = [
-    { code: "ЕНФ", name: "Естественнонаучный факультет" },
-    { code: "ГФ", name: "Гуманитарный факультет" },
-  ];
 
   return (
     <div className="fixed inset-0 z-[200] bg-[var(--background)] flex flex-col items-center px-6 py-12 overflow-y-auto">
@@ -39,7 +33,7 @@ export default function OnboardingScreen({ onComplete }: Props) {
         </div>
         <h1 className="text-2xl font-bold text-center">Добро пожаловать!</h1>
         <p className="text-[var(--muted)] text-center mt-2 text-sm max-w-xs">
-          Выберите вашу учебную группу, чтобы видеть своё расписание
+          Выберите направление и курс, чтобы видеть своё расписание
         </p>
       </div>
 
@@ -50,47 +44,7 @@ export default function OnboardingScreen({ onComplete }: Props) {
             <div className="w-7 h-7 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
           </div>
         ) : (
-          <div className="space-y-5">
-            {faculties.map(({ code, name }) => {
-              const facGroups = groups.filter(g => g.faculty_code === code);
-              if (facGroups.length === 0) return null;
-              const years = [...new Set(facGroups.map(g => g.year))].sort();
-
-              return (
-                <div key={code}>
-                  <p className="text-xs font-semibold text-[var(--muted)] uppercase tracking-wider mb-3">
-                    {name}
-                  </p>
-                  {years.map(year => {
-                    const yearGroups = facGroups.filter(g => g.year === year);
-                    return (
-                      <div key={year} className="mb-3">
-                        <p className="text-xs text-[var(--muted)] mb-2">{year} курс</p>
-                        <div className="flex flex-wrap gap-2">
-                          {yearGroups.map(g => {
-                            const active = selectedId === g.id;
-                            return (
-                              <button
-                                key={g.id}
-                                onClick={() => setSelectedId(g.id)}
-                                className={`px-4 py-2.5 rounded-xl text-sm font-medium border-2 transition-all duration-150 ${
-                                  active
-                                    ? "bg-[var(--primary)] text-white border-[var(--primary)] shadow-md scale-105"
-                                    : "border-[var(--border)] bg-[var(--card)] hover:border-[var(--primary)] hover:bg-[var(--tag-bg)]"
-                                }`}
-                              >
-                                {g.name}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })}
-          </div>
+          <GroupSelector groups={groups} value={selected} onChange={setSelected} />
         )}
       </div>
 
@@ -98,14 +52,14 @@ export default function OnboardingScreen({ onComplete }: Props) {
       <div className="w-full max-w-sm">
         <button
           onClick={handleContinue}
-          disabled={!selectedId}
+          disabled={!selected}
           className="w-full py-3.5 rounded-2xl bg-[var(--primary)] text-white font-semibold text-base transition-all duration-150 disabled:opacity-30 hover:opacity-90 active:scale-95 shadow-lg"
         >
           Продолжить →
         </button>
-        {!selectedId && (
+        {!selected && (
           <p className="text-center text-xs text-[var(--muted)] mt-3">
-            Сначала выберите группу
+            Сначала выберите направление и курс
           </p>
         )}
       </div>

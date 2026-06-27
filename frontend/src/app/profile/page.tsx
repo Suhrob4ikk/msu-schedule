@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { api, Group, shortGroupName } from "@/lib/api";
+import GroupSelector from "@/components/GroupSelector";
 import { useRouter } from "next/navigation";
 
 export default function ProfilePage() {
@@ -36,6 +37,7 @@ export default function ProfilePage() {
     setSaving(true);
     localStorage.setItem("user_name", name.trim());
     localStorage.setItem("selected_group_id", String(selectedGroupId));
+    localStorage.setItem("schedule_view_group_id", String(selectedGroupId));
 
     // Сохраняем регистрацию на сервер
     let deviceId = localStorage.getItem("msu_device_id_v2");
@@ -120,25 +122,11 @@ export default function ProfilePage() {
           <label className="block text-xs font-semibold mb-1.5 tracking-wider" style={{ color: "var(--muted)", textTransform: "uppercase" }}>
             Группа
           </label>
-          <select
-            className="w-full rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-[var(--primary)] transition-all"
-            style={{
-              background: "var(--card)",
-              border: "0.5px solid var(--border)",
-              color: selectedGroupId ? "var(--foreground)" : "var(--muted)",
-            }}
-            value={selectedGroupId}
-            onChange={e => setSelectedGroupId(Number(e.target.value) || "")}
-          >
-            <option value="">— Выбери группу —</option>
-            {["ЕНФ", "ГФ"].map(fac => (
-              <optgroup key={fac} label={fac === "ЕНФ" ? "Естественнонаучный факультет" : "Гуманитарный факультет"}>
-                {groups.filter(g => g.faculty_code === fac).map(g => (
-                  <option key={g.id} value={g.id}>{g.year} курс — {shortGroupName(g.name)}</option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
+          <GroupSelector
+            groups={groups}
+            value={selectedGroup ?? null}
+            onChange={g => setSelectedGroupId(g.id)}
+          />
         </div>
 
         {/* Кнопка */}
