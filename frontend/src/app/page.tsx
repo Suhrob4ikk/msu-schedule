@@ -184,7 +184,11 @@ export default function HomePage() {
       <main className="max-w-7xl mx-auto px-4 lg:px-8 py-4 lg:py-6 pb-24 lg:pb-6">
         {/* Выбор группы */}
         <div className="card mb-4 lg:mb-5">
-          <h1 className="font-bold text-lg lg:text-2xl mb-3 lg:mb-4">Расписание занятий МГУ Душанбе</h1>
+          <h1 className="font-bold text-lg lg:text-2xl mb-2 lg:mb-3">Расписание занятий МГУ Душанбе</h1>
+          <div className="flex items-start gap-2 rounded-lg bg-[var(--tag-bg)] px-3 py-2 mb-3 lg:mb-4">
+            <svg className="w-4 h-4 shrink-0 mt-0.5 text-[var(--primary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+            <p className="text-xs lg:text-sm text-[var(--muted)]">Выберите свою группу из списка → нажмите на нужный день недели → смотрите пары. Переключайте учебные недели кнопками вверху страницы.</p>
+          </div>
           <div className="flex flex-wrap gap-2 lg:gap-3">
             <select
               className="flex-1 min-w-48 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 lg:py-3 text-base focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"

@@ -56,7 +56,11 @@ export default function RoomsPage() {
       <WeekBar onWeekChange={handleWeekChange} selectedWeekStart={selectedWeekStart} />
       <main className="max-w-5xl mx-auto px-4 lg:px-8 py-4 lg:py-6 pb-24 lg:pb-6">
         <div className="card mb-4 lg:mb-5">
-          <h1 className="font-bold text-lg lg:text-2xl mb-3 lg:mb-4">Свободные аудитории</h1>
+          <h1 className="font-bold text-lg lg:text-2xl mb-2 lg:mb-3">Свободные аудитории</h1>
+          <div className="flex items-start gap-2 rounded-lg bg-[var(--tag-bg)] px-3 py-2 mb-3 lg:mb-4">
+            <svg className="w-4 h-4 shrink-0 mt-0.5 text-[var(--primary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+            <p className="text-xs lg:text-sm text-[var(--muted)]">Выберите день недели и номер пары — увидите какие аудитории свободны, а в каких идут занятия прямо сейчас. Зелёные — свободны, красные — заняты.</p>
+          </div>
           <div className="flex flex-wrap gap-3 lg:gap-4">
             <div className="flex-1 min-w-36">
               <label className="block text-xs lg:text-sm text-[var(--muted)] mb-1">День недели</label>
