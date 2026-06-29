@@ -10,7 +10,17 @@ const DAY_SHORT: Record<string, string> = {
   четверг: "Чт", пятница: "Пт", суббота: "Сб",
 };
 
+const DAY_OFFSET: Record<string, number> = {
+  понедельник: 0, вторник: 1, среда: 2, четверг: 3, пятница: 4, суббота: 5,
+};
+
 const DAYS = DAYS_ORDER.filter(d => d !== "воскресенье");
+
+function getDayDate(dayName: string, weekStart: string): string {
+  const d = new Date(weekStart + "T00:00:00");
+  d.setDate(d.getDate() + (DAY_OFFSET[dayName] ?? 0));
+  return d.getDate().toString();
+}
 
 export default function RoomsPage() {
   const [day, setDay] = useState("понедельник");
@@ -60,13 +70,18 @@ export default function RoomsPage() {
               <button
                 key={d}
                 onClick={() => setDay(d)}
-                className={`shrink-0 px-4 py-2 rounded-xl text-sm font-semibold border transition-colors ${
+                className={`shrink-0 flex flex-col items-center px-4 py-2 rounded-xl border transition-colors ${
                   day === d
                     ? "bg-[var(--primary)] text-white border-[var(--primary)]"
                     : "bg-[var(--card)] text-[var(--foreground)] border-[var(--border)]"
                 }`}
               >
-                {DAY_SHORT[d]}
+                <span className="text-sm font-bold">{DAY_SHORT[d]}</span>
+                {selectedWeekStart && (
+                  <span className={`text-xs leading-tight ${day === d ? "text-white/70" : "text-[var(--muted)]"}`}>
+                    {getDayDate(d, selectedWeekStart)}
+                  </span>
+                )}
               </button>
             ))}
           </div>

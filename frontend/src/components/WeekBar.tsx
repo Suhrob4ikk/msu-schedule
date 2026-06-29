@@ -15,18 +15,28 @@ interface Props {
   selectedWeekStart?: string;
 }
 
-// Метка недели: "Эта неделя", "Следующая · 29 июня" или просто "29 июня"
+const MONTHS = ["янв","фев","мар","апр","май","июн","июл","авг","сен","окт","ноя","дек"];
+
+function weekRangeLabel(weekStart: string): string {
+  const start = new Date(weekStart + "T00:00:00");
+  const end = new Date(start.getTime() + 6 * 24 * 60 * 60 * 1000);
+  const s = `${start.getDate()} ${MONTHS[start.getMonth()]}`;
+  const e = `${end.getDate()} ${MONTHS[end.getMonth()]}`;
+  return `${s} — ${e}`;
+}
+
+// Метка недели: "Эта неделя", "Следующая · 29 июн — 5 июл" или "22 — 28 июн"
 function weekLabel(weekStart: string): string {
   const start = new Date(weekStart + "T00:00:00");
   const end = new Date(start.getTime() + 6 * 24 * 60 * 60 * 1000);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const dateStr = start.toLocaleDateString("ru-RU", { day: "numeric", month: "long" });
   if (today >= start && today <= end) return "Эта неделя";
+  const range = weekRangeLabel(weekStart);
   if (start > today && start.getTime() - today.getTime() <= 8 * 24 * 60 * 60 * 1000)
-    return `Следующая · ${dateStr}`;
-  return dateStr;
+    return `Следующая · ${range}`;
+  return range;
 }
 
 function isCurrentWeek(weekStart: string): boolean {
