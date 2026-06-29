@@ -14,8 +14,10 @@ from app.models import (
     Lesson, ScheduleChange, SyncLog
 )
 from app.services.parser import (
-    download_xls, parse_xls_file, get_remote_last_modified, FACULTY_FILES
+    download_xls, parse_xls_file, get_remote_last_modified,
+    scrape_html_teacher_map, FACULTY_FILES
 )
+import re as _re
 
 logger = logging.getLogger(__name__)
 
@@ -234,7 +236,26 @@ def save_schedule_to_db(db: Session, parsed: dict, file_last_modified: Optional[
     return total_lessons, total_changes, changes_by_group
 
 
-async def sync_faculty(faculty_code: str, force: bool = False) -> dict:
+def _apply_html_teachers(parsed: dict, html_map: dict) -> int:
+    """Заменяет коды кафедр (без инициалов) реальными ФИО из HTML-скрапинга."""
+    fixed = 0
+    for group_data in parsed["groups"]:
+        year = group_data["year"]
+        for lesson in group_data["lessons"]:
+            t = lesson.get("teacher")
+            if t and not _re.search(r"[А-ЯЁ]\.[А-ЯЁ]", t):
+                key = (year, lesson["day_of_week"], lesson["pair_number"],
+                       lesson["subject"].lower())
+                real = html_map.get(key)
+                if real:
+                    logger.info(f"ФИО исправлено: «{t}» → «{real}»")
+                    lesson["teacher"] = real
+                    fixed += 1
+    return fixed
+
+
+async def sync_faculty(faculty_code: str, force: bool = False,
+                       html_teacher_map: Optional[dict] = None) -> dict:
     """
     Полный цикл синхронизации для одного факультета:
     1. HEAD-запрос для проверки изменений
@@ -274,6 +295,15 @@ async def sync_faculty(faculty_code: str, force: bool = False) -> dict:
 
         if not parsed["week_start"]:
             raise ValueError("Не удалось определить дату начала недели из XLS")
+
+        # Заменяем коды кафедр реальными ФИО из HTML msu.tj
+        try:
+            html_map = html_teacher_map if html_teacher_map is not None else await scrape_html_teacher_map()
+            fixed = _apply_html_teachers(parsed, html_map)
+            if fixed:
+                logger.info(f"[{faculty_code}] Исправлено ФИО из HTML: {fixed}")
+        except Exception as e:
+            logger.warning(f"[{faculty_code}] HTML-скрапинг не удался: {e}")
 
         # Сохраняем в БД
         total_lessons, total_changes, changes_by_group = save_schedule_to_db(db, parsed, last_modified)
@@ -324,8 +354,15 @@ async def sync_faculty(faculty_code: str, force: bool = False) -> dict:
 async def sync_all(force: bool = False) -> list[dict]:
     """Синхронизирует оба факультета параллельно."""
     import asyncio
+    # Один раз собираем HTML-данные для обоих факультетов
+    try:
+        html_map = await scrape_html_teacher_map()
+    except Exception as e:
+        logger.warning(f"HTML-скрапинг в sync_all не удался: {e}")
+        html_map = {}
+
     results = await asyncio.gather(
-        sync_faculty("ЕНФ", force=force),
-        sync_faculty("ГФ", force=force),
+        sync_faculty("ЕНФ", force=force, html_teacher_map=html_map),
+        sync_faculty("ГФ", force=force, html_teacher_map=html_map),
     )
     return list(results)

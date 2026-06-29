@@ -14,6 +14,8 @@
 
 import re
 import os
+import asyncio
+import time as _time
 import logging
 from datetime import date, datetime
 from pathlib import Path
@@ -287,3 +289,125 @@ async def get_remote_last_modified(faculty_code: str) -> Optional[str]:
     except Exception as e:
         logger.warning(f"HEAD запрос не удался для {url}: {e}")
         return None
+
+
+# ── HTML-скрапинг реальных ФИО преподавателей ───────────────────────────────
+
+_HTML_TEACHER_CACHE: dict = {}
+_HTML_TEACHER_CACHE_TS: float = 0.0
+_HTML_TEACHER_TTL: float = 3600.0  # 1 час
+
+_DAYS_RU = {"понедельник", "вторник", "среда", "четверг", "пятница", "суббота"}
+_PAIR_NUM = {"1": "I", "2": "II", "3": "III", "4": "IV", "5": "V"}
+
+
+def _parse_html_timetable(html: str, course: int, result: dict) -> None:
+    """Парсит HTML-страницу msu.tj и добавляет найденные ФИО в result."""
+    try:
+        from bs4 import BeautifulSoup
+    except ImportError:
+        return
+
+    soup = BeautifulSoup(html, "html.parser")
+    current_day: Optional[str] = None
+
+    for tag in soup.find_all(True):
+        if not tag.name:
+            continue
+
+        # Определяем день по заголовочным тегам
+        if tag.name in ("h2", "h3", "h4", "b", "strong"):
+            text = tag.get_text().strip().lower()
+            if text in _DAYS_RU:
+                current_day = text
+
+        # Разбираем таблицу расписания
+        elif tag.name == "table" and current_day:
+            for row in tag.find_all("tr"):
+                cells = row.find_all("td")
+                if len(cells) < 5:
+                    continue
+                pair_text = cells[0].get_text(separator=" ").strip()
+                subject = cells[1].get_text().strip()
+                teacher = cells[2].get_text().strip()
+
+                m = re.match(r"(\d)", pair_text)
+                if not m:
+                    continue
+                pair_num = _PAIR_NUM.get(m.group(1))
+
+                # Сохраняем только настоящие ФИО (содержат инициалы вида А.Б.)
+                if pair_num and subject and teacher and re.search(r"[А-ЯЁ]\.[А-ЯЁ]", teacher):
+                    key = (course, current_day, pair_num, subject.lower())
+                    if key not in result:
+                        result[key] = teacher
+
+
+async def scrape_html_teacher_map() -> dict:
+    """
+    Обходит HTML-страницы расписания msu.tj и собирает маппинг:
+      (курс, день_недели, номер_пары, предмет_lower) → ФИО_преподавателя
+
+    Кешируется на 1 час. Вызывается во время синхронизации, чтобы заменить
+    коды кафедр (ИТУ, английский…) реальными ФИО из HTML.
+    """
+    global _HTML_TEACHER_CACHE, _HTML_TEACHER_CACHE_TS
+
+    if _HTML_TEACHER_CACHE and (_time.time() - _HTML_TEACHER_CACHE_TS) < _HTML_TEACHER_TTL:
+        return _HTML_TEACHER_CACHE
+
+    try:
+        from bs4 import BeautifulSoup  # noqa: F401 – проверяем доступность
+    except ImportError:
+        logger.warning("beautifulsoup4 не установлен — HTML-скрапинг преподавателей отключён")
+        return {}
+
+    result: dict = {}
+    seen_hashes: set = set()
+    sem = asyncio.Semaphore(12)
+
+    async def fetch_one(client: httpx.AsyncClient, fac: int, dir_: int, course: int) -> None:
+        url = (
+            f"https://msu.tj/ru/timetable"
+            f"?faculty={fac}&direction={dir_}&course={course}&day=all"
+        )
+        async with sem:
+            try:
+                r = await client.get(url)
+                if r.status_code != 200:
+                    return
+                html = r.text
+                # Страница без расписания — пропускаем
+                if "ДИСЦИПЛИНА" not in html:
+                    return
+                page_hash = hash(html[100:700])
+                if page_hash in seen_hashes:
+                    return
+                seen_hashes.add(page_hash)
+                _parse_html_timetable(html, course, result)
+            except Exception as e:
+                logger.debug(f"HTML scrape {url}: {e}")
+
+    async with httpx.AsyncClient(
+        timeout=httpx.Timeout(8.0),
+        follow_redirects=True,
+        headers={
+            "User-Agent": "Mozilla/5.0 (compatible; MSU-Schedule/2.0)",
+            "Accept-Language": "ru-RU,ru;q=0.9",
+        },
+    ) as client:
+        tasks = [
+            fetch_one(client, fac, dir_, course)
+            for fac in range(1, 6)    # пробуем faculty ID 1-5
+            for dir_ in range(1, 16)  # пробуем direction ID 1-15
+            for course in range(1, 7) # курсы 1-6
+        ]
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+    _HTML_TEACHER_CACHE = result
+    _HTML_TEACHER_CACHE_TS = _time.time()
+    logger.info(
+        f"HTML-скрапинг завершён: {len(result)} записей преподавателей "
+        f"с {len(seen_hashes)} страниц msu.tj"
+    )
+    return result
