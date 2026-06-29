@@ -238,20 +238,37 @@ def get_all_weeks(db: Session = Depends(get_db)):
 
 import re as _re
 
+# Инициал вида «Х.» / «Ю.» / «Дж.» — заглавная (+ возможная строчная) и точка.
+# Настоящее ФИО содержит хотя бы один такой инициал, а коды кафедр
+# («ИТУ», «английский», «кафедра физики») — нет.
+_INITIAL_RE = _re.compile(r'[А-ЯЁ][а-яё]?\.')
+
+
+def is_real_teacher_name(name: str) -> bool:
+    """True, если строка похожа на ФИО преподавателя, а не на код кафедры/предмета."""
+    if not name:
+        return False
+    return bool(_INITIAL_RE.search(name))
+
 
 def _expand_teacher(teacher_id: int, name: str) -> list[dict]:
     """Если в поле преподавателя несколько ФИО через запятую — разделяем на отдельных.
     Каждая часть должна содержать инициалы вида «А.Б.»."""
     if ',' in name:
         parts = [p.strip() for p in name.split(',')]
-        if all(_re.search(r'[А-ЯЁ]\.[А-ЯЁ]', p) for p in parts) and len(parts) >= 2:
+        if all(is_real_teacher_name(p) for p in parts) and len(parts) >= 2:
             return [{"id": teacher_id, "name": p} for p in parts]
     return [{"id": teacher_id, "name": name}]
 
 
 @router.get("/teachers")
 def get_teachers(week_start: Optional[str] = None, db: Session = Depends(get_db)):
-    """Список преподавателей. Если week_start задан — только те, у кого есть занятия в эту неделю."""
+    """Список преподавателей. Если week_start задан — только те, у кого есть занятия в эту неделю.
+
+    В список попадают только настоящие ФИО — коды кафедр/предметов
+    («ИТУ», «английский» и т.п.) отфильтровываются, а одинаковые имена
+    (один и тот же преподаватель в разных совмещённых записях) дедуплицируются.
+    """
     if week_start:
         try:
             ws_date = date.fromisoformat(week_start)
@@ -282,8 +299,16 @@ def get_teachers(week_start: Optional[str] = None, db: Session = Depends(get_db)
         teachers = db.query(Teacher).order_by(Teacher.name).all()
 
     result = []
+    seen_names: set = set()
     for t in teachers:
-        result.extend(_expand_teacher(t.id, t.name))
+        for entry in _expand_teacher(t.id, t.name):
+            # Пропускаем коды кафедр/предметов и дубли по имени
+            if not is_real_teacher_name(entry["name"]):
+                continue
+            if entry["name"] in seen_names:
+                continue
+            seen_names.add(entry["name"])
+            result.append(entry)
     return sorted(result, key=lambda x: x["name"])
 
 
