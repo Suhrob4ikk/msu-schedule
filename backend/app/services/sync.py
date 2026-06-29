@@ -233,6 +233,14 @@ def save_schedule_to_db(db: Session, parsed: dict, file_last_modified: Optional[
             total_lessons += 1
 
     db.commit()
+
+    # Расписание обновилось — сбрасываем кэш свободных аудиторий
+    try:
+        from app.api.routes.schedule import clear_free_rooms_cache
+        clear_free_rooms_cache()
+    except Exception:
+        pass
+
     return total_lessons, total_changes, changes_by_group
 
 

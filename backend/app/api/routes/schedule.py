@@ -23,6 +23,17 @@ DAYS_ORDER = [
     "понедельник", "вторник", "среда", "четверг", "пятница", "суббота"
 ]
 
+# ── Кэш «свободных аудиторий» ─────────────────────────────────────────────
+# Данные меняются только при синхронизации (раз в 2 часа), поэтому результат
+# можно кэшировать. Сбрасывается из sync после обновления расписания.
+import time as _time_mod
+_FREE_ROOMS_CACHE: dict = {}
+_FREE_ROOMS_TTL = 900.0  # 15 минут — страховка, если кэш не сбросили вручную
+
+
+def clear_free_rooms_cache() -> None:
+    _FREE_ROOMS_CACHE.clear()
+
 
 def enrich_lesson(lesson: Lesson) -> dict:
     """Добавляет время пары к объекту урока и возвращает чистый dict."""
@@ -421,6 +432,13 @@ def get_free_rooms(
 ):
     """Свободные аудитории в указанный день и пару. week_start — конкретная неделя."""
     from app.models import Room
+
+    # Кэш: ключ = день|пара|неделя. Результат идентичен для всех пользователей.
+    cache_key = (day_of_week.lower(), pair_number.upper(), week_start or "latest")
+    hit = _FREE_ROOMS_CACHE.get(cache_key)
+    if hit and (_time_mod.time() - hit[1]) < _FREE_ROOMS_TTL:
+        return hit[0]
+
     all_rooms = {r.id: r.name for r in db.query(Room).all()}
 
     # Определяем week_ids — по одной свежей записи на факультет
@@ -483,7 +501,8 @@ def get_free_rooms(
     for l in occupied:
         if l.room:
             type_suffix = f" · {l.lesson_type}" if l.lesson_type else ""
-            teacher_name = f" · {l.teacher.name}" if l.teacher else ""
+            tname = override_teacher_name(l.subject, l.teacher.name) or l.teacher.name if l.teacher else None
+            teacher_name = f" · {tname}" if tname else ""
             group_name = short_group_name(l.group.name) if l.group else ""
             occupied_map[l.room.name] = (
                 f"{l.group.year} курс · {group_name}: {l.subject}{type_suffix}{teacher_name}"
@@ -500,6 +519,7 @@ def get_free_rooms(
         else:
             result.append({"room_name": room_name, "is_free": True})
 
+    _FREE_ROOMS_CACHE[cache_key] = (result, _time_mod.time())
     return result
 
 

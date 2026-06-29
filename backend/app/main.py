@@ -68,6 +68,28 @@ def seed_rooms():
 
         db.flush()
 
+        # Объединяем дубли по регистру: «лабФИЗ» и «лабфиз» → «лабфиз».
+        # Канонической считаем запись в нижнем регистре; уроки переносим, дубль удаляем.
+        from app.models import Lesson
+        by_lower: dict[str, list] = {}
+        for r in db.query(Room).all():
+            by_lower.setdefault(r.name.lower(), []).append(r)
+        for lname, grp in by_lower.items():
+            if len(grp) == 1 and grp[0].name == lname:
+                continue
+            canonical = next((r for r in grp if r.name == lname), None)
+            others = [r for r in grp if r is not canonical]
+            if canonical is None:
+                canonical = others.pop(0)
+            for r in others:
+                db.query(Lesson).filter(Lesson.room_id == r.id).update({"room_id": canonical.id})
+                db.delete(r)
+            db.flush()  # удаляем дубли ДО переименования — иначе конфликт UNIQUE
+            if canonical.name != lname:
+                canonical.name = lname
+
+        db.flush()
+
         # Добавляем недостающие канонические аудитории одним запросом
         existing_names = {r.name for r in db.query(Room.name).all()}
         new_rooms = [
@@ -88,6 +110,18 @@ def seed_rooms():
 async def lifespan(app: FastAPI):
     logger.info("Инициализация БД...")
     Base.metadata.create_all(bind=engine)
+    # create_all не добавляет индексы к уже существующим таблицам — создаём вручную.
+    # CREATE INDEX IF NOT EXISTS работает и в SQLite, и в PostgreSQL.
+    try:
+        from sqlalchemy import text
+        with engine.begin() as conn:
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_lesson_week_day_pair "
+                "ON lessons (week_schedule_id, day_of_week, pair_number)"
+            ))
+        logger.info("Индекс ix_lesson_week_day_pair готов.")
+    except Exception as e:
+        logger.warning(f"Не удалось создать индекс ix_lesson_week_day_pair: {e}")
     logger.info("Таблицы созданы.")
 
     seed_rooms()

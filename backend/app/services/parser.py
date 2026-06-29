@@ -103,10 +103,14 @@ def parse_subject_cell(cell_value: str) -> dict:
 
 
 def parse_room(cell_value) -> Optional[str]:
-    """Нормализует номер аудитории (может быть float или строка)."""
+    """Нормализует номер аудитории (может быть float или строка).
+
+    Приводим к нижнему регистру, чтобы «лабФИЗ» и «лабфиз» считались одной
+    аудиторией (иначе в БД появляются дубли)."""
     if not cell_value or str(cell_value).strip() in ('', '0.0'):
         return None
-    val = str(cell_value).strip()
+    # Нижний регистр сразу — заодно делает дедуп задвоений нечувствительным к регистру
+    val = str(cell_value).strip().lower()
     # Убираем .0 у числовых значений
     if re.match(r'^\d+\.0$', val):
         val = val[:-2]

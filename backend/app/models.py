@@ -119,6 +119,8 @@ class Lesson(Base):
         Index("ix_lesson_week_group", "week_schedule_id", "group_id"),
         Index("ix_lesson_teacher", "teacher_id"),
         Index("ix_lesson_room", "room_id"),
+        # Свободные аудитории: фильтр по неделе + день + пара (был самый медленный запрос)
+        Index("ix_lesson_week_day_pair", "week_schedule_id", "day_of_week", "pair_number"),
     )
 
 
