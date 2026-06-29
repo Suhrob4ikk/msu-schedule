@@ -9,7 +9,7 @@ import { getPushStatus, subscribePush, unsubscribePush, type PushStatus } from "
 // Снять блокировку в сентябре 2026 — поменять на false
 const FEATURES_LOCKED = true;
 
-// ─── Уведомления о зачётах ────────────────────────────────────────────────────
+// ─── Уведомления о зачётах / экзаменах ────────────────────────────────────────────────────
 function NotificationToggle({ sessionId, groupId }: { sessionId: string; groupId: number | "" }) {
   const [status, setStatus] = useState<PushStatus | "loading">("loading");
   const [busy, setBusy] = useState(false);
@@ -44,7 +44,7 @@ function NotificationToggle({ sessionId, groupId }: { sessionId: string; groupId
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
-              Уведомления о зачётах
+              Уведомления о зачётах / экзаменах
             </span>
             {isOn && (
               <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: "#dcfce7", color: "#16a34a" }}>
