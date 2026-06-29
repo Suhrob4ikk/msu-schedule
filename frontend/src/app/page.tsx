@@ -196,11 +196,12 @@ export default function HomePage() {
   const enableNotifFromBanner = async () => {
     const sessionId = localStorage.getItem("msu_device_id_v2");
     const groupId = Number(localStorage.getItem("selected_group_id") || "0");
-    if (!sessionId || !groupId) return;
+    if (!sessionId || !groupId) { dismissNotifBanner(); return; }
     const { subscribePush } = await import("@/lib/push");
-    const status = await subscribePush(sessionId, groupId);
-    if (status === "subscribed") setShowNotifBanner(false);
-    else if (status === "denied") setShowNotifBanner(false);
+    await subscribePush(sessionId, groupId);
+    // Пользователь сделал выбор (разрешил/запретил) — баннер больше не показываем,
+    // независимо от того, настроен ли web-push на сервере.
+    dismissNotifBanner();
   };
 
   const countdown = useMemo(() => {

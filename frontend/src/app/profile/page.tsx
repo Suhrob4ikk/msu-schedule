@@ -332,6 +332,17 @@ export default function ProfilePage() {
           </div>
         )}
 
+        {/* Режим разработчика — открывает скрытую панель /dev (вход по паролю) */}
+        {!isSetup && (
+          <a
+            href="/dev"
+            className="text-center text-xs mt-4 transition-opacity hover:opacity-100"
+            style={{ color: "var(--muted)", opacity: 0.55 }}
+          >
+            Режим разработчика
+          </a>
+        )}
+
       </div>
       </div>
     </div>
