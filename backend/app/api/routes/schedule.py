@@ -236,6 +236,14 @@ def get_all_weeks(db: Session = Depends(get_db)):
     ]
 
 
+import re as _re
+
+def _is_person_name(name: str) -> bool:
+    """Проверяет, что строка — ФИО, а не название кафедры/отдела.
+    Настоящее ФИО всегда содержит инициалы вида «А.Б.»."""
+    return bool(_re.search(r'[А-ЯЁ]\.[А-ЯЁ]', name))
+
+
 @router.get("/teachers")
 def get_teachers(week_start: Optional[str] = None, db: Session = Depends(get_db)):
     """Список преподавателей. Если week_start задан — только те, у кого есть занятия в эту неделю."""
@@ -267,7 +275,7 @@ def get_teachers(week_start: Optional[str] = None, db: Session = Depends(get_db)
         teachers = db.query(Teacher).filter(Teacher.id.in_(active_ids)).order_by(Teacher.name).all()
     else:
         teachers = db.query(Teacher).order_by(Teacher.name).all()
-    return [{"id": t.id, "name": t.name} for t in teachers]
+    return [{"id": t.id, "name": t.name} for t in teachers if _is_person_name(t.name)]
 
 
 @router.get("/now", response_model=list)
