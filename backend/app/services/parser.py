@@ -298,13 +298,28 @@ async def get_remote_last_modified(faculty_code: str) -> Optional[str]:
 # скрапинг ФИО больше не работает — он возвращал 0 записей, но при этом делал
 # ~450 бесполезных HTTP-запросов на каждую синхронизацию. Скрапинг отключён.
 #
-# Реальные ФИО для кодов кафедр (ИТУ, английский …) можно задать вручную здесь:
-#   ключ   = (курс:int, день_недели:str, номер_пары:'I'..'V', предмет.lower():str)
-#   значение = 'Фамилия И.О.'
-TEACHER_NAME_OVERRIDES: dict = {}
+# Реальные ФИО для кодов кафедр/предметов, которые университет вписал в Excel
+# вместо фамилии преподавателя. Настоящие имена взяты со страниц расписания msu.tj.
+#
+# КАК ДОБАВИТЬ НОВОЕ ИСПРАВЛЕНИЕ:
+#   ключ = (предмет.lower(), 'код_как_в_файле')   значение = 'Фамилия И.О.'
+# Например: ("физика", "кафедра физики"): "Иванов А.Б.".
+# Применяется при синхронизации (привязка пары к реальному преподавателю)
+# и сразу при выдаче расписания (подмена подписи на карточке).
+TEACHER_NAME_OVERRIDES: dict = {
+    ("информатика", "ИТУ"): "Джумаев Э.Х.",
+    ("иностранный язык", "английский"): "Фазилова Ш.К.",
+}
 
 # Включать только если msu.tj снимет анти-бот защиту со страниц расписания.
 SCRAPE_HTML_TEACHERS: bool = False
+
+
+def override_teacher_name(subject: Optional[str], teacher: Optional[str]) -> Optional[str]:
+    """Настоящее ФИО для кода кафедры/предмета из TEACHER_NAME_OVERRIDES, иначе None."""
+    if not subject or not teacher:
+        return None
+    return TEACHER_NAME_OVERRIDES.get((subject.strip().lower(), teacher.strip()))
 
 _HTML_TEACHER_CACHE: dict = {}
 _HTML_TEACHER_CACHE_TS: float = 0.0
@@ -371,7 +386,7 @@ async def scrape_html_teacher_map() -> dict:
     global _HTML_TEACHER_CACHE, _HTML_TEACHER_CACHE_TS
 
     if not SCRAPE_HTML_TEACHERS:
-        return dict(TEACHER_NAME_OVERRIDES)
+        return {}
 
     if _HTML_TEACHER_CACHE and (_time.time() - _HTML_TEACHER_CACHE_TS) < _HTML_TEACHER_TTL:
         return _HTML_TEACHER_CACHE

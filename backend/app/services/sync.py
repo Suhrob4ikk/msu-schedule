@@ -15,7 +15,7 @@ from app.models import (
 )
 from app.services.parser import (
     download_xls, parse_xls_file, get_remote_last_modified,
-    scrape_html_teacher_map, FACULTY_FILES
+    scrape_html_teacher_map, override_teacher_name, FACULTY_FILES
 )
 import re as _re
 
@@ -237,20 +237,26 @@ def save_schedule_to_db(db: Session, parsed: dict, file_last_modified: Optional[
 
 
 def _apply_html_teachers(parsed: dict, html_map: dict) -> int:
-    """Заменяет коды кафедр (без инициалов) реальными ФИО из HTML-скрапинга."""
+    """Заменяет коды кафедр (без инициалов) реальными ФИО.
+
+    Источник 1 — ручная карта TEACHER_NAME_OVERRIDES (предмет + код), приоритет.
+    Источник 2 — html_map из скрапинга msu.tj (если он когда-то снова заработает).
+    Замена делается ДО сохранения в БД, поэтому пара привязывается к реальной
+    записи преподавателя (get_or_create_teacher найдёт существующее ФИО)."""
     fixed = 0
     for group_data in parsed["groups"]:
         year = group_data["year"]
         for lesson in group_data["lessons"]:
             t = lesson.get("teacher")
-            if t and not _re.search(r"[А-ЯЁ]\.[А-ЯЁ]", t):
-                key = (year, lesson["day_of_week"], lesson["pair_number"],
-                       lesson["subject"].lower())
-                real = html_map.get(key)
-                if real:
-                    logger.info(f"ФИО исправлено: «{t}» → «{real}»")
-                    lesson["teacher"] = real
-                    fixed += 1
+            if not t or _re.search(r"[А-ЯЁ]\.[А-ЯЁ]", t):
+                continue
+            real = override_teacher_name(lesson["subject"], t) or html_map.get(
+                (year, lesson["day_of_week"], lesson["pair_number"], lesson["subject"].lower())
+            )
+            if real:
+                logger.info(f"ФИО исправлено: «{t}» → «{real}»")
+                lesson["teacher"] = real
+                fixed += 1
     return fixed
 
 

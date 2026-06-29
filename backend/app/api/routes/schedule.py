@@ -15,6 +15,7 @@ from app.models import (
     Lesson, Group, Teacher, Faculty, WeekSchedule, PAIR_TIMES
 )
 from app.schemas import LessonSchema, TodayScheduleItem, StatsSchema
+from app.services.parser import override_teacher_name
 
 router = APIRouter(prefix="/schedule", tags=["schedule"])
 
@@ -26,6 +27,12 @@ DAYS_ORDER = [
 def enrich_lesson(lesson: Lesson) -> dict:
     """Добавляет время пары к объекту урока и возвращает чистый dict."""
     times = PAIR_TIMES.get(lesson.pair_number, ("", ""))
+    teacher = None
+    if lesson.teacher:
+        # Подменяем код кафедры реальным ФИО прямо при выдаче — чтобы карточка
+        # показывала верное имя сразу, не дожидаясь следующей синхронизации.
+        name = override_teacher_name(lesson.subject, lesson.teacher.name) or lesson.teacher.name
+        teacher = {"id": lesson.teacher.id, "name": name}
     return {
         "id": lesson.id,
         "subject": lesson.subject,
@@ -35,7 +42,7 @@ def enrich_lesson(lesson: Lesson) -> dict:
         "pair_number": lesson.pair_number,
         "pair_time_start": times[0],
         "pair_time_end": times[1],
-        "teacher": {"id": lesson.teacher.id, "name": lesson.teacher.name} if lesson.teacher else None,
+        "teacher": teacher,
         "room": {"id": lesson.room.id, "name": lesson.room.name} if lesson.room else None,
         "group": {
             "id": lesson.group.id,
