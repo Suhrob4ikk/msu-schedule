@@ -19,10 +19,9 @@ export default function TeachersPage() {
   const [loading, setLoading] = useState(false);
   const [loadingTeachers, setLoadingTeachers] = useState(false);
   const [mobileView, setMobileView] = useState<"list" | "detail">("list");
-  const [selectedWeekStart, setSelectedWeekStart] = useState<string>(() => {
-    if (typeof window === "undefined") return "";
-    return localStorage.getItem("selected_week_start") || "";
-  });
+  // Пусто на старте (совпадает с SSR), реальную неделю выставит WeekBar после
+  // монтирования — иначе hydration mismatch (#418).
+  const [selectedWeekStart, setSelectedWeekStart] = useState<string>("");
 
   const loadTeachers = useCallback(async (weekStart: string) => {
     setLoadingTeachers(true);

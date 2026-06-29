@@ -28,12 +28,9 @@ export default function RoomsPage() {
   const [rooms, setRooms] = useState<Array<{ room_name: string; is_free: boolean; occupied_by?: string }>>([]);
   const [loading, setLoading] = useState(false);
   const [weekBarReady, setWeekBarReady] = useState(false);
-  const [selectedWeekStart, setSelectedWeekStart] = useState<string>(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("selected_week_start") ?? "";
-    }
-    return "";
-  });
+  // Пусто на старте (совпадает с SSR), реальную неделю выставит WeekBar после
+  // монтирования — иначе первый клиентский рендер расходится с сервером (#418).
+  const [selectedWeekStart, setSelectedWeekStart] = useState<string>("");
 
   useEffect(() => {
     if (!selectedWeekStart) return;
