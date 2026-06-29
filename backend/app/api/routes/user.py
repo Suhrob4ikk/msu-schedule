@@ -43,9 +43,16 @@ def register_user(
         db.add(reg)
     db.commit()
 
-    # Письмо отправляем только при первой регистрации (не при каждом обновлении)
+    # Письмо — только при первой регистрации И только если такой же name+group_id ещё нет
+    # (один человек с разных браузеров не должен слать дубли)
     if is_new:
-        background_tasks.add_task(send_registration_email, name.strip() or "Аноним", group_label)
+        duplicate = db.query(UserRegistration).filter(
+            UserRegistration.name == name.strip(),
+            UserRegistration.group_id == group_id,
+            UserRegistration.device_id != device_id,
+        ).first()
+        if not duplicate:
+            background_tasks.add_task(send_registration_email, name.strip() or "Аноним", group_label)
 
     return {"ok": True}
 
