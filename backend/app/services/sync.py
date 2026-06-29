@@ -284,6 +284,14 @@ async def sync_faculty(faculty_code: str, force: bool = False) -> dict:
             for group_name, count in changes_by_group.items():
                 notify_group_changes(db, group_name, faculty_code, count)
 
+        # Если расписание на следующую неделю — шлём напоминания о зачётах
+        from app.services.push import notify_exam_week_ahead
+        latest_ws = db.query(WeekSchedule).filter_by(
+            faculty_code=faculty_code, is_latest=True
+        ).first()
+        if latest_ws:
+            notify_exam_week_ahead(db, latest_ws)
+
         sync_log.status = "success"
         sync_log.finished_at = datetime.utcnow()
         sync_log.changes_count = total_changes

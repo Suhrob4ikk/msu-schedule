@@ -1,12 +1,91 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { api, Group, shortGroupName } from "@/lib/api";
 import GroupSelector from "@/components/GroupSelector";
 import { useRouter } from "next/navigation";
+import { getPushStatus, subscribePush, unsubscribePush, type PushStatus } from "@/lib/push";
 
 // Снять блокировку в сентябре 2026 — поменять на false
 const FEATURES_LOCKED = true;
+
+// ─── Уведомления о зачётах ────────────────────────────────────────────────────
+function NotificationToggle({ sessionId, groupId }: { sessionId: string; groupId: number | "" }) {
+  const [status, setStatus] = useState<PushStatus | "loading">("loading");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    getPushStatus().then(setStatus);
+  }, []);
+
+  const handleEnable = useCallback(async () => {
+    if (!groupId || busy) return;
+    setBusy(true);
+    const next = await subscribePush(sessionId, Number(groupId));
+    setStatus(next);
+    setBusy(false);
+  }, [sessionId, groupId, busy]);
+
+  const handleDisable = useCallback(async () => {
+    if (busy) return;
+    setBusy(true);
+    await unsubscribePush(sessionId);
+    setStatus("default");
+    setBusy(false);
+  }, [sessionId, busy]);
+
+  if (status === "loading" || status === "unsupported") return null;
+
+  const isOn = status === "subscribed";
+
+  return (
+    <div className="w-full rounded-xl border px-4 py-3" style={{ borderColor: "var(--border)", background: "var(--card)" }}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
+              Уведомления о зачётах
+            </span>
+            {isOn && (
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: "#dcfce7", color: "#16a34a" }}>
+                Включены
+              </span>
+            )}
+          </div>
+          <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>
+            {status === "denied"
+              ? "Заблокированы в браузере — разрешите в настройках"
+              : isOn
+              ? "Придёт напоминание накануне и в день зачёта"
+              : "Напоминания накануне и в день зачёта / экзамена"}
+          </p>
+        </div>
+
+        {status === "denied" ? (
+          <span style={{ color: "var(--muted)", fontSize: 20 }}>🔕</span>
+        ) : isOn ? (
+          <button
+            onClick={handleDisable}
+            disabled={busy}
+            className="relative shrink-0 w-11 h-6 rounded-full transition-colors"
+            style={{ background: "var(--primary)", cursor: busy ? "default" : "pointer" }}
+          >
+            <span className="absolute top-0.5 right-0.5 w-5 h-5 bg-white rounded-full shadow" />
+          </button>
+        ) : (
+          <button
+            onClick={handleEnable}
+            disabled={busy || !groupId}
+            className="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg transition-opacity disabled:opacity-40"
+            style={{ background: "var(--primary)", color: "#fff", cursor: busy ? "default" : "pointer" }}
+          >
+            {busy ? "..." : "Включить"}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function FeatureToggle({ label, description, storageKey }: { label: string; description: string; storageKey: string }) {
   const [enabled, setEnabled] = useState(() =>
@@ -203,6 +282,10 @@ export default function ProfilePage() {
               Дополнительные возможности
             </p>
             <div className="flex flex-col gap-2.5">
+              <NotificationToggle
+                sessionId={typeof window !== "undefined" ? (localStorage.getItem("msu_device_id_v2") ?? "") : ""}
+                groupId={selectedGroupId}
+              />
               <FeatureToggle
                 label="Посещаемость"
                 description="Отмечать был ли на каждой паре"

@@ -1,6 +1,6 @@
 // Версия кеша — меняй при каждом деплое если нужно принудительно сбросить
-const CACHE_STATIC = 'msu-static-v3';
-const CACHE_API    = 'msu-api-v3';
+const CACHE_STATIC = 'msu-static-v4';
+const CACHE_API    = 'msu-api-v4';
 
 // Страницы и ассеты для предварительного кеширования при установке
 const PRECACHE_URLS = [
@@ -117,16 +117,22 @@ self.addEventListener('fetch', e => {
 
 // ─── Push-уведомления ────────────────────────────────────────────────────────
 self.addEventListener('push', e => {
-  let data = { title: 'МГУ Душанбе', body: 'Расписание обновилось', url: '/' };
+  let data = { title: 'МГУ Душанбе', body: '', url: '/', type: 'general' };
   try { data = { ...data, ...e.data.json() }; } catch {}
+
+  // Экзаменационные напоминания получают уникальный тег (чтобы не замещали друг друга),
+  // обычные уведомления об изменениях схлопываются в одно.
+  const isExam = data.type === 'exam';
+  const tag = isExam ? `exam-${data.exam_key ?? Date.now()}` : 'schedule-change';
 
   e.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
       icon: '/icon-192.png',
       badge: '/icon-192.png',
-      tag: 'schedule-change',
+      tag,
       renotify: true,
+      vibrate: isExam ? [200, 100, 200] : [100],
       data: { url: data.url },
     })
   );
@@ -138,7 +144,7 @@ self.addEventListener('notificationclick', e => {
   e.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
       const existing = list.find(c => c.url.includes(self.location.origin));
-      if (existing) return existing.focus();
+      if (existing) { existing.focus(); return; }
       return clients.openWindow(url);
     })
   );

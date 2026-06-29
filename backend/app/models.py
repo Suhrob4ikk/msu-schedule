@@ -194,3 +194,19 @@ class SyncLog(Base):
     status = Column(String(20))   # success / error / no_change
     message = Column(Text)
     changes_count = Column(Integer, default=0)
+
+
+class ExamNotificationLog(Base):
+    """Журнал отправленных напоминаний о зачётах и экзаменах (защита от дублей)."""
+    __tablename__ = "exam_notification_logs"
+    id = Column(Integer, primary_key=True)
+    session_id = Column(String(100), nullable=False)
+    notification_type = Column(String(20), nullable=False)  # week_ahead / day_before / day_of
+    group_id = Column(Integer, ForeignKey("groups.id"), nullable=False)
+    exam_date = Column(Date, nullable=False)
+    subject = Column(String(300), nullable=False)
+    sent_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("session_id", "notification_type", "exam_date", "subject"),
+    )
