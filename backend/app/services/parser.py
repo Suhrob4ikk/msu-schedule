@@ -81,11 +81,16 @@ def parse_subject_cell(cell_value: str) -> dict:
             lesson_type = raw_type
         subject = val[:type_match.start()].strip()
 
-    # Извлекаем преподавателя из (...)
-    teacher_match = re.search(r'\(([^)]+)\)', subject)
-    if teacher_match:
-        teacher = teacher_match.group(1).strip()
-        subject = subject[:teacher_match.start()].strip()
+    # Извлекаем преподавателя из (...). В ячейке может быть НЕСКОЛЬКО скобок,
+    # например: «Информатика (ИТУ) (Джумаев Э.Х.)» — сначала код кафедры,
+    # затем настоящее ФИО. Берём ту скобку, где есть инициалы (Фамилия И.О.);
+    # если такой нет — берём последнюю (для совместимости со старым форматом).
+    paren_groups = [g.strip() for g in re.findall(r'\(([^)]+)\)', subject)]
+    if paren_groups:
+        named = [g for g in paren_groups if re.search(r'[А-ЯЁ]\.', g)]
+        teacher = named[-1] if named else paren_groups[-1]
+        # Удаляем ВСЕ скобочные группы из названия предмета
+        subject = re.sub(r'\([^)]*\)', '', subject)
 
     # Очищаем от лишних символов
     subject = re.sub(r'\s+', ' ', subject).strip(' .,')
