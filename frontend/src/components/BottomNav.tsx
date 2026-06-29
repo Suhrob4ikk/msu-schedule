@@ -55,8 +55,8 @@ export default function BottomNav() {
     setRegistered(!!localStorage.getItem("msu_device_id_v2"));
   }, []);
 
-  // Профиль — самостоятельная полноэкранная страница, навбар не нужен
-  if (pathname === "/profile") return null;
+  // Профиль — скрываем навбар только для новых пользователей (принудительная регистрация)
+  if (pathname === "/profile" && !registered) return null;
 
   return (
     <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-[var(--background)] border-t border-[var(--border)]"

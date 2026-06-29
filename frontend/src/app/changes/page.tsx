@@ -11,6 +11,13 @@ const typeLabels: Record<string, string> = {
   new_week: "Новая неделя",
 };
 
+const typeTagClass: Record<string, string> = {
+  added: "lesson-tag lesson-tag-added",
+  removed: "lesson-tag lesson-tag-removed",
+  changed: "lesson-tag lesson-tag-changed",
+  new_week: "lesson-tag lesson-tag-new-week",
+};
+
 const DAY_LABELS: Record<string, string> = {
   понедельник: "Пн", вторник: "Вт", среда: "Ср",
   четверг: "Чт", пятница: "Пт", суббота: "Сб",
@@ -38,7 +45,7 @@ export default function ChangesPage() {
         <div className="card mb-4">
           <h1 className="font-bold text-lg">История изменений расписания</h1>
           <p className="text-sm text-[var(--muted)] mt-1">
-            Автоматически фиксируются при каждой синхронизации с msu.tj
+            Здесь видно что изменилось в расписании с последнего обновления.
           </p>
         </div>
 
@@ -71,11 +78,12 @@ export default function ChangesPage() {
         <div className="space-y-2">
           {changes.map(c => {
             const label = typeLabels[c.change_type] || c.change_type;
+            const tagClass = typeTagClass[c.change_type] ?? "lesson-tag";
             return (
               <div key={c.id} className="card">
                 <div className="flex items-start justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="lesson-tag">{label}</span>
+                    <span className={tagClass}>{label}</span>
                     <span className="text-xs font-semibold">{c.faculty_code}</span>
                     <span className="text-xs text-[var(--muted)]">{shortGroupName(c.group_name ?? "")}</span>
                     {c.day_of_week && c.pair_number && (

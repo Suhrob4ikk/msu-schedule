@@ -1,14 +1,25 @@
 import type { Metadata, Viewport } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import BottomNav from "@/components/BottomNav";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import InstallPrompt from "@/components/InstallPrompt";
+
+const inter = Inter({
+  subsets: ["latin", "cyrillic"],
+  variable: "--font-inter",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "МГУ Душанбе — Расписание занятий",
   description: "Расписание занятий МГУ филиал в городе Душанбе. Просмотр, уведомления, экспорт в Google Calendar.",
   manifest: "/manifest.json",
   keywords: ["МГУ", "Душанбе", "расписание", "занятия", "msu.tj"],
+  icons: {
+    icon: "/icon.png",
+    apple: "/apple-icon.png",
+  },
   openGraph: {
     title: "МГУ Душанбе — Расписание занятий",
     description: "Расписание занятий МГУ филиал в городе Душанбе",
@@ -38,7 +49,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="min-h-full flex flex-col antialiased">
+      <body className={`${inter.variable} min-h-full flex flex-col antialiased`}>
         {children}
         <BottomNav />
         <InstallPrompt />

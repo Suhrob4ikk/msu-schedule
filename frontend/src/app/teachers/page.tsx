@@ -79,7 +79,7 @@ export default function TeachersPage() {
           <h1 className="font-bold text-lg lg:text-2xl mb-2 lg:mb-3">Расписание преподавателей</h1>
           <div className="flex items-start gap-2 rounded-lg bg-[var(--tag-bg)] px-3 py-2 mb-3 lg:mb-4">
             <svg className="w-4 h-4 shrink-0 mt-0.5 text-[var(--primary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-            <p className="text-xs lg:text-sm text-[var(--muted)]">Найдите преподавателя по фамилии в поиске слева, нажмите на имя — справа появится его расписание. На мобильном: нажмите на имя, затем стрелку «назад» для возврата к списку.</p>
+            <p className="text-xs lg:text-sm text-[var(--muted)]">Введите фамилию и нажмите на имя — откроется расписание преподавателя.</p>
           </div>
           <input
             type="search"

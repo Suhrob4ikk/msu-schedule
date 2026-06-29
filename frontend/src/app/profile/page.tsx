@@ -5,6 +5,38 @@ import { api, Group, shortGroupName } from "@/lib/api";
 import GroupSelector from "@/components/GroupSelector";
 import { useRouter } from "next/navigation";
 
+function FeatureToggle({ label, description, storageKey }: { label: string; description: string; storageKey: string }) {
+  const [enabled, setEnabled] = useState(() =>
+    typeof window !== "undefined" ? localStorage.getItem(storageKey) === "1" : false
+  );
+  const toggle = () => {
+    const next = !enabled;
+    setEnabled(next);
+    localStorage.setItem(storageKey, next ? "1" : "0");
+  };
+  return (
+    <button
+      onClick={toggle}
+      className="flex items-center justify-between w-full py-3 px-4 rounded-xl border transition-colors text-left"
+      style={{ background: "var(--card)", borderColor: "var(--border)" }}
+    >
+      <div>
+        <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{label}</p>
+        <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>{description}</p>
+      </div>
+      <div
+        className="relative shrink-0 ml-3 w-11 h-6 rounded-full transition-colors"
+        style={{ background: enabled ? "var(--primary)" : "var(--border)" }}
+      >
+        <span
+          className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform"
+          style={{ transform: enabled ? "translateX(20px)" : "translateX(2px)" }}
+        />
+      </div>
+    </button>
+  );
+}
+
 export default function ProfilePage() {
   const router = useRouter();
   const [groups, setGroups] = useState<Group[]>([]);
@@ -149,6 +181,27 @@ export default function ProfilePage() {
           >
             Отмена
           </button>
+        )}
+
+        {/* Дополнительные возможности — только после регистрации */}
+        {!isSetup && (
+          <div className="pt-6 mt-2 border-t" style={{ borderColor: "var(--border)" }}>
+            <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: "var(--muted)" }}>
+              Дополнительные возможности
+            </p>
+            <div className="flex flex-col gap-2.5">
+              <FeatureToggle
+                label="Посещаемость"
+                description="Отмечать был ли на каждой паре"
+                storageKey="feature_attendance"
+              />
+              <FeatureToggle
+                label="Заметки к парам"
+                description="Добавлять текстовые заметки к занятиям"
+                storageKey="feature_notes"
+              />
+            </div>
+          </div>
         )}
 
       </div>

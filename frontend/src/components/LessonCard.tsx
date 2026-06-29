@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 import { Lesson, shortGroupName } from "@/lib/api";
 
 const typeLabels: Record<string, string> = {
@@ -20,10 +21,44 @@ const typeTagClass: Record<string, string> = {
 interface Props {
   lesson: Lesson;
   showGroup?: boolean;
+  showAttendance?: boolean;
+  showNotes?: boolean;
 }
 
-export default function LessonCard({ lesson, showGroup }: Props) {
+export default function LessonCard({ lesson, showGroup, showAttendance, showNotes }: Props) {
   const shortGroup = lesson.group ? shortGroupName(lesson.group.name) : null;
+
+  const [attended, setAttended] = useState<boolean | null>(() => {
+    if (typeof window === "undefined") return null;
+    const v = localStorage.getItem(`att_${lesson.id}`);
+    if (v === "1") return true;
+    if (v === "0") return false;
+    return null;
+  });
+
+  const [note, setNote] = useState(() =>
+    typeof window !== "undefined" ? localStorage.getItem(`note_${lesson.id}`) ?? "" : ""
+  );
+  const [editingNote, setEditingNote] = useState(false);
+
+  const markAttendance = (value: boolean) => {
+    if (attended === value) {
+      setAttended(null);
+      localStorage.removeItem(`att_${lesson.id}`);
+    } else {
+      setAttended(value);
+      localStorage.setItem(`att_${lesson.id}`, value ? "1" : "0");
+    }
+  };
+
+  const saveNote = (text: string) => {
+    setNote(text);
+    if (text.trim()) {
+      localStorage.setItem(`note_${lesson.id}`, text);
+    } else {
+      localStorage.removeItem(`note_${lesson.id}`);
+    }
+  };
 
   return (
     <div className="card mb-2 lg:mb-2.5">
@@ -72,6 +107,65 @@ export default function LessonCard({ lesson, showGroup }: Props) {
           </span>
         )}
       </div>
+
+      {/* Посещаемость */}
+      {showAttendance && (
+        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[var(--border)]">
+          <span className="text-xs text-[var(--muted)] mr-1">Был?</span>
+          <button
+            onClick={() => markAttendance(true)}
+            className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-colors ${
+              attended === true
+                ? "bg-green-500 text-white border-green-500"
+                : "border-[var(--border)] text-[var(--muted)] hover:border-green-400 hover:text-green-600"
+            }`}
+          >
+            ✓ Был
+          </button>
+          <button
+            onClick={() => markAttendance(false)}
+            className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-colors ${
+              attended === false
+                ? "bg-red-500 text-white border-red-500"
+                : "border-[var(--border)] text-[var(--muted)] hover:border-red-400 hover:text-red-600"
+            }`}
+          >
+            ✗ Не был
+          </button>
+        </div>
+      )}
+
+      {/* Заметки */}
+      {showNotes && (
+        <div className="mt-3 pt-3 border-t border-[var(--border)]">
+          {editingNote || note ? (
+            <textarea
+              autoFocus={editingNote && !note}
+              rows={2}
+              placeholder="Заметка к паре..."
+              className="w-full text-xs rounded-lg px-2.5 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
+              style={{
+                background: "var(--tag-bg)",
+                border: "1px solid var(--border)",
+                color: "var(--foreground)",
+              }}
+              value={note}
+              onChange={e => saveNote(e.target.value)}
+              onBlur={() => { if (!note.trim()) setEditingNote(false); }}
+            />
+          ) : (
+            <button
+              onClick={() => setEditingNote(true)}
+              className="text-xs text-[var(--muted)] hover:text-[var(--primary)] transition-colors flex items-center gap-1"
+            >
+              <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+              </svg>
+              Добавить заметку
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

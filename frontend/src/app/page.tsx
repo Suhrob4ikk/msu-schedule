@@ -27,6 +27,12 @@ const DAY_SHORT: Record<string, string> = {
 export default function HomePage() {
   const router = useRouter();
   const [groups, setGroups] = useState<Group[]>([]);
+  const [featureAttendance] = useState(() =>
+    typeof window !== "undefined" ? localStorage.getItem("feature_attendance") === "1" : false
+  );
+  const [featureNotes] = useState(() =>
+    typeof window !== "undefined" ? localStorage.getItem("feature_notes") === "1" : false
+  );
   const [profileGroupId] = useState<number | null>(() => {
     if (typeof window === "undefined") return null;
     const saved = localStorage.getItem("selected_group_id");
@@ -34,7 +40,11 @@ export default function HomePage() {
   });
   const [profileGroup, setProfileGroup] = useState<Group | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
-  const [selectedDay, setSelectedDay] = useState<string>("all");
+  const [selectedDay, setSelectedDay] = useState<string>(() => {
+    const jsDay = new Date().getDay(); // 0=вс, 1=пн, ..., 6=сб
+    if (jsDay === 0) return "all"; // воскресенье — показываем всю неделю
+    return DAYS_ORDER[(jsDay + 6) % 7]; // пн-сб → русское название
+  });
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [nowItems, setNowItems] = useState<TodayItem[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
@@ -186,10 +196,12 @@ export default function HomePage() {
         {/* Выбор группы */}
         <div className="card mb-4 lg:mb-5">
           <h1 className="font-bold text-lg lg:text-2xl mb-2 lg:mb-3">Расписание занятий МГУ Душанбе</h1>
-          <div className="flex items-start gap-2 rounded-lg bg-[var(--tag-bg)] px-3 py-2 mb-3 lg:mb-4">
-            <svg className="w-4 h-4 shrink-0 mt-0.5 text-[var(--primary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-            <p className="text-xs lg:text-sm text-[var(--muted)]">Выберите свою группу из списка → нажмите на нужный день недели → смотрите пары. Переключайте учебные недели кнопками вверху страницы.</p>
-          </div>
+          {!profileGroupId && (
+            <div className="flex items-start gap-2 rounded-lg bg-[var(--tag-bg)] px-3 py-2 mb-3 lg:mb-4">
+              <svg className="w-4 h-4 shrink-0 mt-0.5 text-[var(--primary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              <p className="text-xs lg:text-sm text-[var(--muted)]">Выберите группу ниже, затем нажмите на нужный день недели.</p>
+            </div>
+          )}
           <GroupSelector groups={groups} value={selectedGroup} onChange={loadGroup} />
           {selectedGroup && (
             <div className="flex flex-wrap gap-2 mt-3">
@@ -217,9 +229,9 @@ export default function HomePage() {
         </div>
 
         {/* "Что сейчас" виджет */}
-        {(currentItem || nextItem) && (
+        {selectedGroup && !loading && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:gap-4 mb-4 lg:mb-5">
-            {currentItem && (
+            {currentItem ? (
               <div className="card lesson-now">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="w-2 h-2 rounded-full bg-[var(--primary)] animate-pulse"></span>
@@ -232,6 +244,11 @@ export default function HomePage() {
                   {currentItem.teacher && ` · ${currentItem.teacher}`}
                   {currentItem.room && ` · ауд. ${currentItem.room}`}
                 </p>
+              </div>
+            ) : (
+              <div className="card flex items-center gap-3">
+                <span className="w-2 h-2 rounded-full bg-[var(--border)] shrink-0"></span>
+                <span className="text-sm text-[var(--muted)]">Сейчас занятий нет</span>
               </div>
             )}
             {nextItem && (
@@ -381,6 +398,8 @@ export default function HomePage() {
                 <LessonCard
                   key={lesson.id}
                   lesson={lesson}
+                  showAttendance={featureAttendance}
+                  showNotes={featureNotes}
                 />
               ))}
             </div>
