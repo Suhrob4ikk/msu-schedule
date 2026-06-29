@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     # Секретный ключ для admin-эндпоинтов. Передаётся в заголовке X-Admin-Secret.
     # Если не задан — admin-эндпоинты недоступны.
     ADMIN_SECRET: str = ""
+    # Пароль скрытой панели разработчика (/dev). ТОЛЬКО из переменной окружения.
+    # Если пусто — панель полностью отключена (все /api/dev/* отвечают 404).
+    DEV_PANEL_PASSWORD: str = ""
     # Email-уведомления при регистрации (Resend API)
     RESEND_API_KEY: str = ""  # ключ из resend.com/api-keys
     NOTIFY_EMAIL: str = "davlatovsurob@gmail.com"

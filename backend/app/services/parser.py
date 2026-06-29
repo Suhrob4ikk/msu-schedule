@@ -315,20 +315,39 @@ async def get_remote_last_modified(faculty_code: str) -> Optional[str]:
 # Например: ("физика", "кафедра физики"): "Иванов А.Б.".
 # Применяется при синхронизации (привязка пары к реальному преподавателю)
 # и сразу при выдаче расписания (подмена подписи на карточке).
+# Сид-значения по умолчанию. При первом запуске переносятся в БД (таблица
+# teacher_overrides), дальше карта редактируется через панель /dev без редеплоя.
 TEACHER_NAME_OVERRIDES: dict = {
     ("информатика", "ИТУ"): "Джумаев Э.Х.",
     ("иностранный язык", "английский"): "Фазилова Ш.К.",
 }
+
+# Активная карта в памяти — заполняется из БД при старте и при правках в /dev.
+_ACTIVE_OVERRIDES: dict = dict(TEACHER_NAME_OVERRIDES)
 
 # Включать только если msu.tj снимет анти-бот защиту со страниц расписания.
 SCRAPE_HTML_TEACHERS: bool = False
 
 
 def override_teacher_name(subject: Optional[str], teacher: Optional[str]) -> Optional[str]:
-    """Настоящее ФИО для кода кафедры/предмета из TEACHER_NAME_OVERRIDES, иначе None."""
+    """Настоящее ФИО для кода кафедры/предмета, иначе None."""
     if not subject or not teacher:
         return None
-    return TEACHER_NAME_OVERRIDES.get((subject.strip().lower(), teacher.strip()))
+    return _ACTIVE_OVERRIDES.get((subject.strip().lower(), teacher.strip()))
+
+
+def set_active_overrides(items) -> None:
+    """Заменяет активную карту замен. items: список (предмет_lower, код, ФИО)."""
+    global _ACTIVE_OVERRIDES
+    _ACTIVE_OVERRIDES = {
+        (str(s).strip().lower(), str(c).strip()): str(n).strip()
+        for (s, c, n) in items
+    }
+
+
+def get_active_overrides() -> dict:
+    """Текущая активная карта замен (для панели /dev)."""
+    return dict(_ACTIVE_OVERRIDES)
 
 _HTML_TEACHER_CACHE: dict = {}
 _HTML_TEACHER_CACHE_TS: float = 0.0

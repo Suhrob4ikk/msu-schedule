@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import engine
 from app.models import Base
-from app.api.routes import schedule, export, user, admin
+from app.api.routes import schedule, export, user, admin, dev
 from app.services.scheduler import start_scheduler, stop_scheduler
 
 logging.basicConfig(
@@ -106,6 +106,28 @@ def seed_rooms():
         db.close()
 
 
+def load_teacher_overrides():
+    """Сидит таблицу замен ФИО значениями по умолчанию (если пусто) и
+    загружает все замены в активную карту в памяти."""
+    from app.database import SessionLocal
+    from app.models import TeacherOverride
+    from app.services.parser import TEACHER_NAME_OVERRIDES, set_active_overrides
+
+    db = SessionLocal()
+    try:
+        if db.query(TeacherOverride).count() == 0:
+            for (subject, code), real in TEACHER_NAME_OVERRIDES.items():
+                db.add(TeacherOverride(subject=subject, code=code, real_name=real))
+            db.commit()
+        rows = db.query(TeacherOverride).all()
+        set_active_overrides([(r.subject, r.code, r.real_name) for r in rows])
+        logger.info(f"Замены ФИО загружены: {len(rows)}")
+    except Exception as e:
+        logger.warning(f"Не удалось загрузить замены ФИО: {e}")
+    finally:
+        db.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Инициализация БД...")
@@ -125,6 +147,7 @@ async def lifespan(app: FastAPI):
     logger.info("Таблицы созданы.")
 
     seed_rooms()
+    load_teacher_overrides()
 
     start_scheduler()
 
@@ -162,6 +185,7 @@ app.include_router(schedule.router, prefix="/api")
 app.include_router(export.router, prefix="/api")
 app.include_router(user.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
+app.include_router(dev.router, prefix="/api")
 
 
 @app.get("/")

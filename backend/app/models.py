@@ -186,6 +186,18 @@ class UserRegistration(Base):
     group = relationship("Group")
 
 
+class TeacherOverride(Base):
+    """Ручная замена кода кафедры на реальное ФИО (редактируется в панели /dev)."""
+    __tablename__ = "teacher_overrides"
+    id = Column(Integer, primary_key=True)
+    subject = Column(String(300), nullable=False)   # предмет в нижнем регистре
+    code = Column(String(200), nullable=False)      # как в Excel: «ИТУ», «английский»
+    real_name = Column(String(200), nullable=False) # «Джумаев Э.Х.»
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (UniqueConstraint("subject", "code"),)
+
+
 class SyncLog(Base):
     """Журнал синхронизации."""
     __tablename__ = "sync_logs"
