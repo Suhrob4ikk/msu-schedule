@@ -128,24 +128,26 @@ function FeatureToggle({ label, description, storageKey }: { label: string; desc
 export default function ProfilePage() {
   const router = useRouter();
   const [groups, setGroups] = useState<Group[]>([]);
-  const [name, setName] = useState(() => (typeof window !== "undefined" ? localStorage.getItem("user_name") ?? "" : ""));
-  const [selectedGroupId, setSelectedGroupId] = useState<number | "">(() => {
-    if (typeof window === "undefined") return "";
-    const savedGroup = localStorage.getItem("selected_group_id");
-    return savedGroup ? Number(savedGroup) : "";
-  });
+  // Значения из localStorage инициализируем серверно-нейтрально и заполняем
+  // после монтирования — иначе первый клиентский рендер расходится с SSR (#418).
+  const [hydrated, setHydrated] = useState(false);
+  const [name, setName] = useState("");
+  const [selectedGroupId, setSelectedGroupId] = useState<number | "">("");
   const [saving, setSaving] = useState(false);
-  const [isSetup] = useState(() => {
-    if (typeof window === "undefined") return true;
-    const savedGroup = localStorage.getItem("selected_group_id");
-    const deviceId = localStorage.getItem("msu_device_id_v2");
-    return !savedGroup || !deviceId;
-  });
-  // Режим редактирования: только при первой установке, потом — read-only
-  const [isEditing, setIsEditing] = useState(() => isSetup);
+  const [isSetup, setIsSetup] = useState(true);
+  const [isEditing, setIsEditing] = useState(true);
 
   useEffect(() => {
     api.getGroups().then(setGroups).catch(() => { });
+    const savedName = localStorage.getItem("user_name") ?? "";
+    const savedGroup = localStorage.getItem("selected_group_id");
+    const deviceId = localStorage.getItem("msu_device_id_v2");
+    const setup = !savedGroup || !deviceId;
+    setName(savedName);
+    setSelectedGroupId(savedGroup ? Number(savedGroup) : "");
+    setIsSetup(setup);
+    setIsEditing(setup);
+    setHydrated(true);
   }, []);
 
   const selectedGroup = groups.find(g => g.id === Number(selectedGroupId));
@@ -180,6 +182,15 @@ export default function ProfilePage() {
       setIsEditing(true);
     }
   };
+
+  // До монтирования отдаём нейтральный экран — совпадает с SSR, убирает #418.
+  if (!hydrated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--background)" }}>
+        <div className="w-6 h-6 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: "var(--background)" }}>
