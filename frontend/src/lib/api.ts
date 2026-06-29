@@ -173,9 +173,9 @@ export const api = {
       headers: { 'X-Admin-Secret': adminSecret },
     }).then(r => r.json()),
 
-  // Web Push
+  // Web Push (public_key=null если пуш не настроен на сервере)
   getVapidKey: () =>
-    fetchApi<{ public_key: string }>('/user/vapid-key'),
+    fetchApi<{ public_key: string | null }>('/user/vapid-key'),
 
   savePushSubscription: (sessionId: string, groupId: number, sub: PushSubscriptionJSON) =>
     fetch(`${API_BASE}/user/push-subscribe`, {

@@ -32,6 +32,7 @@ export async function subscribePush(sessionId: string, groupId: number): Promise
 
   try {
     const { public_key } = await api.getVapidKey();
+    if (!public_key) return "unsupported"; // пуш не настроен на сервере — тихо выходим
     const reg = await navigator.serviceWorker.ready;
     const existing = await reg.pushManager.getSubscription();
     if (existing) await existing.unsubscribe();

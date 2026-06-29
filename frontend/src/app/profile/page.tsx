@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { api, Group, shortGroupName } from "@/lib/api";
 import GroupSelector from "@/components/GroupSelector";
+import Header from "@/components/Header";
 import { useRouter } from "next/navigation";
 import { getPushStatus, subscribePush, unsubscribePush, type PushStatus } from "@/lib/push";
 
@@ -181,10 +182,12 @@ export default function ProfilePage() {
   };
 
   return (
-    <div
-      className="min-h-screen flex flex-col items-center justify-center px-6"
-      style={{ background: "var(--background)" }}
-    >
+    <div className="min-h-screen flex flex-col" style={{ background: "var(--background)" }}>
+      {/* Шапка с навигацией — для зарегистрированных (на десктопе видно меню,
+          на мобиле работает нижняя панель). Во время первичной настройки прячем. */}
+      {!isSetup && <Header />}
+
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 pb-24 lg:pb-8">
       {/* Лого вверху */}
       <div className="flex items-center gap-2 mb-10">
         <div
@@ -318,6 +321,7 @@ export default function ProfilePage() {
           </div>
         )}
 
+      </div>
       </div>
     </div>
   );

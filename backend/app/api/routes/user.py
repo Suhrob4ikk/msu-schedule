@@ -167,10 +167,11 @@ def get_subscription(session_id: str, db: Session = Depends(get_db)):
 
 @router.get("/vapid-key")
 def get_vapid_key():
-    """Возвращает публичный VAPID-ключ для Web Push подписки."""
-    if not settings.VAPID_PUBLIC_KEY:
-        raise HTTPException(503, "Push уведомления не настроены")
-    return {"public_key": settings.VAPID_PUBLIC_KEY}
+    """Возвращает публичный VAPID-ключ для Web Push подписки.
+
+    Если ключи не настроены — отдаём 200 с public_key=null (а не 503),
+    чтобы клиент тихо скрыл пуш-кнопку без ошибок в консоли/сети."""
+    return {"public_key": settings.VAPID_PUBLIC_KEY or None}
 
 
 class PushSubscriptionBody(BaseModel):

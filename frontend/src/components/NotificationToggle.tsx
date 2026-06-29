@@ -43,6 +43,7 @@ export default function NotificationToggle() {
       if (perm !== "granted") { setStatus("denied"); return; }
 
       const { public_key } = await api.getVapidKey();
+      if (!public_key) { setStatus("unsupported"); return; } // пуш не настроен — прячем кнопку
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
