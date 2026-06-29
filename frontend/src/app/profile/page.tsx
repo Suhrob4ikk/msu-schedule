@@ -42,15 +42,10 @@ function NotificationToggle({ sessionId, groupId }: { sessionId: string; groupId
     <div className="w-full rounded-xl border px-4 py-3" style={{ borderColor: "var(--border)", background: "var(--card)" }}>
       <div className="flex items-center justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
             <span className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
               Уведомления о зачётах / экзаменах
             </span>
-            {isOn && (
-              <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: "#dcfce7", color: "#16a34a" }}>
-                Включены
-              </span>
-            )}
           </div>
           <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>
             {status === "denied"
@@ -145,6 +140,8 @@ export default function ProfilePage() {
     const deviceId = localStorage.getItem("msu_device_id_v2");
     return !savedGroup || !deviceId;
   });
+  // Режим редактирования: только при первой установке, потом — read-only
+  const [isEditing, setIsEditing] = useState(() => isSetup);
 
   useEffect(() => {
     api.getGroups().then(setGroups).catch(() => { });
@@ -173,7 +170,14 @@ export default function ProfilePage() {
 
     await new Promise(r => setTimeout(r, 300));
     setSaving(false);
+    setIsEditing(false);
     router.push("/");
+  };
+
+  const handleChangeGroup = () => {
+    if (confirm("Изменить имя или группу? Например при переходе на новый курс.")) {
+      setIsEditing(true);
+    }
   };
 
   return (
@@ -213,65 +217,79 @@ export default function ProfilePage() {
       )}
       {!selectedGroup && <div className="mb-8" />}
 
-      {/* Подсказка */}
-      <div className="flex items-start gap-2 rounded-lg px-3 py-2 mb-4 w-full max-w-sm" style={{ background: "var(--tag-bg)" }}>
-        <svg className="w-4 h-4 shrink-0 mt-0.5" style={{ color: "var(--primary)" }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-        <p className="text-xs" style={{ color: "var(--muted)" }}>Укажи имя и группу — расписание будет открываться сразу на твою группу.</p>
-      </div>
+      {/* Подсказка — только в режиме редактирования */}
+      {isEditing && (
+        <div className="flex items-start gap-2 rounded-lg px-3 py-2 mb-4 w-full max-w-sm" style={{ background: "var(--tag-bg)" }}>
+          <svg className="w-4 h-4 shrink-0 mt-0.5" style={{ color: "var(--primary)" }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+          <p className="text-xs" style={{ color: "var(--muted)" }}>Укажи имя и группу — расписание будет открываться сразу на твою группу.</p>
+        </div>
+      )}
 
-      {/* Форма */}
+      {/* Форма или кнопка изменения */}
       <div className="w-full max-w-sm flex flex-col gap-3">
-        {/* Имя */}
-        <div>
-          <label className="block text-xs font-semibold mb-1.5 tracking-wider" style={{ color: "var(--muted)", textTransform: "uppercase" }}>
-            Имя
-          </label>
-          <input
-            type="text"
-            placeholder="Введи своё имя..."
-            autoFocus={isSetup}
-            className="w-full rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-[var(--primary)] transition-all"
-            style={{
-              background: "var(--card)",
-              border: "0.5px solid var(--border)",
-              color: "var(--foreground)",
-            }}
-            value={name}
-            onChange={e => setName(e.target.value)}
-          />
-        </div>
+        {isEditing ? (
+          <>
+            {/* Имя */}
+            <div>
+              <label className="block text-xs font-semibold mb-1.5 tracking-wider" style={{ color: "var(--muted)", textTransform: "uppercase" }}>
+                Имя
+              </label>
+              <input
+                type="text"
+                placeholder="Введи своё имя..."
+                autoFocus={isSetup}
+                className="w-full rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-[var(--primary)] transition-all"
+                style={{
+                  background: "var(--card)",
+                  border: "0.5px solid var(--border)",
+                  color: "var(--foreground)",
+                }}
+                value={name}
+                onChange={e => setName(e.target.value)}
+              />
+            </div>
 
-        {/* Группа */}
-        <div>
-          <label className="block text-xs font-semibold mb-1.5 tracking-wider" style={{ color: "var(--muted)", textTransform: "uppercase" }}>
-            Группа
-          </label>
-          <GroupSelector
-            groups={groups}
-            value={selectedGroup ?? null}
-            onChange={g => setSelectedGroupId(g.id)}
-          />
-        </div>
+            {/* Группа */}
+            <div>
+              <label className="block text-xs font-semibold mb-1.5 tracking-wider" style={{ color: "var(--muted)", textTransform: "uppercase" }}>
+                Группа
+              </label>
+              <GroupSelector
+                groups={groups}
+                value={selectedGroup ?? null}
+                onChange={g => setSelectedGroupId(g.id)}
+              />
+            </div>
 
-        {/* Кнопка */}
-        <button
-          onClick={handleSave}
-          disabled={!selectedGroupId || saving}
-          className="w-full py-3.5 rounded-xl text-base font-semibold text-white mt-2 transition-opacity disabled:opacity-40"
-          style={{ background: "var(--primary)" }}
-        >
-          {saving ? "Сохраняем..." : isSetup ? "Начать" : "Сохранить"}
-        </button>
+            {/* Кнопка сохранить */}
+            <button
+              onClick={handleSave}
+              disabled={!selectedGroupId || saving}
+              className="w-full py-3.5 rounded-xl text-base font-semibold text-white mt-2 transition-opacity disabled:opacity-40"
+              style={{ background: "var(--primary)" }}
+            >
+              {saving ? "Сохраняем..." : isSetup ? "Начать" : "Сохранить"}
+            </button>
 
-
-        {/* При редактировании — кнопка назад */}
-        {!isSetup && (
+            {/* Отмена — только если уже зарегистрирован */}
+            {!isSetup && (
+              <button
+                onClick={() => setIsEditing(false)}
+                className="w-full py-2 text-sm transition-colors"
+                style={{ color: "var(--muted)" }}
+              >
+                Отмена
+              </button>
+            )}
+          </>
+        ) : (
+          /* Кнопка перехода в режим редактирования */
           <button
-            onClick={() => router.back()}
-            className="w-full py-2 text-sm transition-colors"
-            style={{ color: "var(--muted)" }}
+            onClick={handleChangeGroup}
+            className="w-full py-3 rounded-xl text-sm font-medium border transition-colors hover:border-[var(--primary)] hover:text-[var(--primary)]"
+            style={{ background: "var(--card)", borderColor: "var(--border)", color: "var(--muted)" }}
           >
-            Отмена
+            ✏ Изменить имя или группу
           </button>
         )}
 
