@@ -80,12 +80,9 @@ def parse_subject_cell(cell_value: str) -> dict:
         subject = val[:type_match.start()].strip()
 
     # Извлекаем преподавателя из (...)
-    # Настоящее ФИО всегда содержит инициалы вида «А.Б.» — иначе это кафедра/отдел
     teacher_match = re.search(r'\(([^)]+)\)', subject)
     if teacher_match:
-        candidate = teacher_match.group(1).strip()
-        if re.search(r'[А-ЯЁ]\.[А-ЯЁ]', candidate):
-            teacher = candidate
+        teacher = teacher_match.group(1).strip()
         subject = subject[:teacher_match.start()].strip()
 
     # Очищаем от лишних символов

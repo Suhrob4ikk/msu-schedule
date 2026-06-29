@@ -238,10 +238,15 @@ def get_all_weeks(db: Session = Depends(get_db)):
 
 import re as _re
 
-def _is_person_name(name: str) -> bool:
-    """Проверяет, что строка — ФИО, а не название кафедры/отдела.
-    Настоящее ФИО всегда содержит инициалы вида «А.Б.»."""
-    return bool(_re.search(r'[А-ЯЁ]\.[А-ЯЁ]', name))
+
+def _expand_teacher(teacher_id: int, name: str) -> list[dict]:
+    """Если в поле преподавателя несколько ФИО через запятую — разделяем на отдельных.
+    Каждая часть должна содержать инициалы вида «А.Б.»."""
+    if ',' in name:
+        parts = [p.strip() for p in name.split(',')]
+        if all(_re.search(r'[А-ЯЁ]\.[А-ЯЁ]', p) for p in parts) and len(parts) >= 2:
+            return [{"id": teacher_id, "name": p} for p in parts]
+    return [{"id": teacher_id, "name": name}]
 
 
 @router.get("/teachers")
@@ -275,7 +280,11 @@ def get_teachers(week_start: Optional[str] = None, db: Session = Depends(get_db)
         teachers = db.query(Teacher).filter(Teacher.id.in_(active_ids)).order_by(Teacher.name).all()
     else:
         teachers = db.query(Teacher).order_by(Teacher.name).all()
-    return [{"id": t.id, "name": t.name} for t in teachers if _is_person_name(t.name)]
+
+    result = []
+    for t in teachers:
+        result.extend(_expand_teacher(t.id, t.name))
+    return sorted(result, key=lambda x: x["name"])
 
 
 @router.get("/now", response_model=list)
