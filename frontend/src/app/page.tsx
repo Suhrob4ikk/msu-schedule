@@ -34,18 +34,19 @@ export default function HomePage() {
   const [featureNotes] = useState(() =>
     !FEATURES_LOCKED && typeof window !== "undefined" ? localStorage.getItem("feature_notes") === "1" : false
   );
-  const [profileGroupId] = useState<number | null>(() => {
-    if (typeof window === "undefined") return null;
-    const saved = localStorage.getItem("selected_group_id");
-    return saved ? Number(saved) : null;
-  });
+  // Значения, зависящие от localStorage / текущей даты, инициализируем
+  // серверно-нейтрально (null / "all") и заполняем уже после монтирования —
+  // иначе первый клиентский рендер расходится с SSR (React hydration error #418).
+  const [profileGroupId, setProfileGroupId] = useState<number | null>(null);
   const [profileGroup, setProfileGroup] = useState<Group | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
-  const [selectedDay, setSelectedDay] = useState<string>(() => {
+  const [selectedDay, setSelectedDay] = useState<string>("all");
+
+  // После монтирования выставляем день недели по локальному времени пользователя.
+  useEffect(() => {
     const jsDay = new Date().getDay(); // 0=вс, 1=пн, ..., 6=сб
-    if (jsDay === 0) return "all"; // воскресенье — показываем всю неделю
-    return DAYS_ORDER[(jsDay + 6) % 7]; // пн-сб → русское название
-  });
+    if (jsDay !== 0) setSelectedDay(DAYS_ORDER[(jsDay + 6) % 7]); // пн-сб → русское название
+  }, []);
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [nowItems, setNowItems] = useState<TodayItem[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
@@ -109,6 +110,7 @@ export default function HomePage() {
     }
 
     const profileId = Number(savedGroup);
+    setProfileGroupId(profileId);
     api.getGroups()
       .then(gs => {
         setGroups(gs);

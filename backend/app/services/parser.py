@@ -293,6 +293,19 @@ async def get_remote_last_modified(faculty_code: str) -> Optional[str]:
 
 # ── HTML-скрапинг реальных ФИО преподавателей ───────────────────────────────
 
+# ВАЖНО: msu.tj закрыл HTML-страницы расписания анти-бот защитой Hostia
+# (отдаёт HTTP 416 + JS-челлендж на каждый запрос), поэтому автоматический
+# скрапинг ФИО больше не работает — он возвращал 0 записей, но при этом делал
+# ~450 бесполезных HTTP-запросов на каждую синхронизацию. Скрапинг отключён.
+#
+# Реальные ФИО для кодов кафедр (ИТУ, английский …) можно задать вручную здесь:
+#   ключ   = (курс:int, день_недели:str, номер_пары:'I'..'V', предмет.lower():str)
+#   значение = 'Фамилия И.О.'
+TEACHER_NAME_OVERRIDES: dict = {}
+
+# Включать только если msu.tj снимет анти-бот защиту со страниц расписания.
+SCRAPE_HTML_TEACHERS: bool = False
+
 _HTML_TEACHER_CACHE: dict = {}
 _HTML_TEACHER_CACHE_TS: float = 0.0
 _HTML_TEACHER_TTL: float = 3600.0  # 1 час
@@ -350,8 +363,15 @@ async def scrape_html_teacher_map() -> dict:
 
     Кешируется на 1 час. Вызывается во время синхронизации, чтобы заменить
     коды кафедр (ИТУ, английский…) реальными ФИО из HTML.
+
+    ОТКЛЮЧЕНО: msu.tj закрыл страницы расписания анти-бот защитой (HTTP 416),
+    поэтому сетевой скрапинг не работает. Возвращаем только ручную карту
+    TEACHER_NAME_OVERRIDES. Сетевые запросы включаются флагом SCRAPE_HTML_TEACHERS.
     """
     global _HTML_TEACHER_CACHE, _HTML_TEACHER_CACHE_TS
+
+    if not SCRAPE_HTML_TEACHERS:
+        return dict(TEACHER_NAME_OVERRIDES)
 
     if _HTML_TEACHER_CACHE and (_time.time() - _HTML_TEACHER_CACHE_TS) < _HTML_TEACHER_TTL:
         return _HTML_TEACHER_CACHE

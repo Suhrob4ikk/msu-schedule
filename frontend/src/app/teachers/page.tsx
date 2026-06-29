@@ -105,9 +105,9 @@ export default function TeachersPage() {
               )}
               {filtered.map(t => (
                 <button
-                  key={t.id}
+                  key={t.name}
                   onClick={() => loadTeacher(t)}
-                  className={`w-full text-left px-3 lg:px-4 py-3 lg:py-2.5 rounded-lg mb-1 text-sm lg:text-base transition-colors ${selected?.id === t.id
+                  className={`w-full text-left px-3 lg:px-4 py-3 lg:py-2.5 rounded-lg mb-1 text-sm lg:text-base transition-colors ${selected?.name === t.name
                       ? "bg-[var(--primary)] text-white"
                       : "hover:bg-[var(--tag-bg)] text-[var(--foreground)]"
                     }`}
