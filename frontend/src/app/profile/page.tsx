@@ -5,11 +5,15 @@ import { api, Group, shortGroupName } from "@/lib/api";
 import GroupSelector from "@/components/GroupSelector";
 import { useRouter } from "next/navigation";
 
+// Снять блокировку в сентябре 2026 — поменять на false
+const FEATURES_LOCKED = true;
+
 function FeatureToggle({ label, description, storageKey }: { label: string; description: string; storageKey: string }) {
   const [enabled, setEnabled] = useState(() =>
     typeof window !== "undefined" ? localStorage.getItem(storageKey) === "1" : false
   );
   const toggle = () => {
+    if (FEATURES_LOCKED) return;
     const next = !enabled;
     setEnabled(next);
     localStorage.setItem(storageKey, next ? "1" : "0");
@@ -17,20 +21,29 @@ function FeatureToggle({ label, description, storageKey }: { label: string; desc
   return (
     <button
       onClick={toggle}
-      className="flex items-center justify-between w-full py-3 px-4 rounded-xl border transition-colors text-left"
-      style={{ background: "var(--card)", borderColor: "var(--border)" }}
+      className="flex items-center justify-between w-full py-3 px-4 rounded-xl border text-left"
+      style={{ background: "var(--card)", borderColor: "var(--border)", opacity: FEATURES_LOCKED ? 0.6 : 1, cursor: FEATURES_LOCKED ? "default" : "pointer" }}
     >
       <div>
-        <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{label}</p>
-        <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>{description}</p>
+        <div className="flex items-center gap-2">
+          <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{label}</p>
+          {FEATURES_LOCKED && (
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: "var(--tag-bg)", color: "var(--muted)" }}>
+              С сентября
+            </span>
+          )}
+        </div>
+        <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>
+          {FEATURES_LOCKED ? "Функция откроется в сентябре 2026" : description}
+        </p>
       </div>
       <div
-        className="relative shrink-0 ml-3 w-11 h-6 rounded-full transition-colors"
-        style={{ background: enabled ? "var(--primary)" : "var(--border)" }}
+        className="relative shrink-0 ml-3 w-11 h-6 rounded-full"
+        style={{ background: (!FEATURES_LOCKED && enabled) ? "var(--primary)" : "var(--border)" }}
       >
         <span
-          className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform"
-          style={{ transform: enabled ? "translateX(20px)" : "translateX(2px)" }}
+          className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow"
+          style={{ transform: (!FEATURES_LOCKED && enabled) ? "translateX(20px)" : "translateX(2px)" }}
         />
       </div>
     </button>

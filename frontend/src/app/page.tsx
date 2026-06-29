@@ -27,11 +27,12 @@ const DAY_SHORT: Record<string, string> = {
 export default function HomePage() {
   const router = useRouter();
   const [groups, setGroups] = useState<Group[]>([]);
+  const FEATURES_LOCKED = true; // Снять в сентябре 2026
   const [featureAttendance] = useState(() =>
-    typeof window !== "undefined" ? localStorage.getItem("feature_attendance") === "1" : false
+    !FEATURES_LOCKED && typeof window !== "undefined" ? localStorage.getItem("feature_attendance") === "1" : false
   );
   const [featureNotes] = useState(() =>
-    typeof window !== "undefined" ? localStorage.getItem("feature_notes") === "1" : false
+    !FEATURES_LOCKED && typeof window !== "undefined" ? localStorage.getItem("feature_notes") === "1" : false
   );
   const [profileGroupId] = useState<number | null>(() => {
     if (typeof window === "undefined") return null;
