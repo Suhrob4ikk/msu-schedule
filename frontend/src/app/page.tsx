@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import WeekBar from "@/components/WeekBar";
 import LessonCard from "@/components/LessonCard";
-import NotificationToggle from "@/components/NotificationToggle";
 import { api, Group, Lesson, TodayItem, Stats, WeekInfo, DAYS_ORDER } from "@/lib/api";
 import GroupSelector from "@/components/GroupSelector";
 
@@ -172,37 +171,8 @@ export default function HomePage() {
     return () => window.clearInterval(timer);
   }, []);
 
-  // Баннер «Включите уведомления о зачётах»
-  const [showNotifBanner, setShowNotifBanner] = useState(false);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (!("Notification" in window) || !("serviceWorker" in navigator)) return;
-    if (Notification.permission !== "default") return;
-    if (localStorage.getItem("push_subscribed") === "1") return;
-    const until = localStorage.getItem("notif_banner_dismissed_until");
-    if (until && new Date(until) > new Date()) return;
-    const registered = localStorage.getItem("msu_device_id_v2");
-    if (!registered) return;
-    setShowNotifBanner(true);
-  }, []);
-
-  const dismissNotifBanner = () => {
-    const d = new Date();
-    d.setDate(d.getDate() + 7);
-    localStorage.setItem("notif_banner_dismissed_until", d.toISOString());
-    setShowNotifBanner(false);
-  };
-
-  const enableNotifFromBanner = async () => {
-    const sessionId = localStorage.getItem("msu_device_id_v2");
-    const groupId = Number(localStorage.getItem("selected_group_id") || "0");
-    if (!sessionId || !groupId) { dismissNotifBanner(); return; }
-    const { subscribePush } = await import("@/lib/push");
-    await subscribePush(sessionId, groupId);
-    // Пользователь сделал выбор (разрешил/запретил) — баннер больше не показываем,
-    // независимо от того, настроен ли web-push на сервере.
-    dismissNotifBanner();
-  };
+  // Управление уведомлениями вынесено в одно место — «Мой кабинет» (профиль),
+  // чтобы не дублировать кнопку на главной.
 
   const countdown = useMemo(() => {
     if (!nextItem) return "";
@@ -226,27 +196,6 @@ export default function HomePage() {
     <div className="min-h-screen" style={{ background: "var(--background)" }}>
       <Header />
       <WeekBar onWeekChange={handleWeekChange} selectedWeekStart={selectedWeekStart} />
-
-      {/* Баннер «Включи уведомления» — показывается один раз для зарегистрированных */}
-      {showNotifBanner && (
-        <div className="max-w-7xl mx-auto px-4 lg:px-8 pt-3 lg:pt-4">
-          <div className="flex items-center gap-3 rounded-xl px-4 py-3 border" style={{ background: "var(--card)", borderColor: "var(--primary)", borderWidth: 1.5 }}>
-            <span className="text-xl shrink-0">🔔</span>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>Напоминания о зачётах и экзаменах</p>
-              <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>Предупредим накануне и в день — не забудешь подготовиться</p>
-            </div>
-            <button
-              onClick={enableNotifFromBanner}
-              className="shrink-0 text-xs font-bold px-3 py-2 rounded-lg text-white transition-opacity hover:opacity-90"
-              style={{ background: "var(--primary)" }}
-            >
-              Включить
-            </button>
-            <button onClick={dismissNotifBanner} className="shrink-0 text-lg leading-none" style={{ color: "var(--muted)" }}>✕</button>
-          </div>
-        </div>
-      )}
 
       <main className="max-w-7xl mx-auto px-4 lg:px-8 py-4 lg:py-6 pb-24 lg:pb-6">
         {/* Выбор группы */}
@@ -279,7 +228,6 @@ export default function HomePage() {
                   Вернуться к моему расписанию
                 </button>
               )}
-              <NotificationToggle />
             </div>
           )}
         </div>
