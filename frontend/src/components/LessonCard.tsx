@@ -18,6 +18,13 @@ const typeTagClass: Record<string, string> = {
   ПРАКТИКА: "lesson-tag-practice", Практика: "lesson-tag-practice", ПЗ: "lesson-tag-practice",
 };
 
+// Тип пары → цвет левого акцента карточки (делает расписание сканируемым)
+const typeKind: Record<string, string> = {
+  ЭКЗАМЕН: "exam", Экзамен: "exam", ЗАЧЕТ: "exam", Зачёт: "exam",
+  ПРАКТИКА: "practice", Практика: "practice", ПЗ: "practice",
+  ЛЕКЦИЯ: "lecture", Лекция: "lecture",
+};
+
 interface Props {
   lesson: Lesson;
   showGroup?: boolean;
@@ -27,6 +34,7 @@ interface Props {
 
 export default function LessonCard({ lesson, showGroup, showAttendance, showNotes }: Props) {
   const shortGroup = lesson.group ? shortGroupName(lesson.group.name) : null;
+  const kind = lesson.lesson_type ? (typeKind[lesson.lesson_type] || "default") : "default";
 
   const [attended, setAttended] = useState<boolean | null>(() => {
     if (typeof window === "undefined") return null;
@@ -61,7 +69,7 @@ export default function LessonCard({ lesson, showGroup, showAttendance, showNote
   };
 
   return (
-    <div className="card mb-2 lg:mb-2.5">
+    <div className="card lesson-accent mb-2 lg:mb-2.5" data-kind={kind}>
       {/* Номер пары + время + тип */}
       <div className="flex items-center justify-between gap-2 mb-2">
         <span className="lesson-tag">

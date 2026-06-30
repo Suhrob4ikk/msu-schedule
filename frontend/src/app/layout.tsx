@@ -1,13 +1,13 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Manrope } from "next/font/google";
 import "./globals.css";
 import BottomNav from "@/components/BottomNav";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import InstallPrompt from "@/components/InstallPrompt";
 
-const inter = Inter({
+const manrope = Manrope({
   subsets: ["latin", "cyrillic"],
-  variable: "--font-inter",
+  variable: "--font-manrope",
   display: "swap",
 });
 
@@ -49,7 +49,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${inter.variable} min-h-full flex flex-col antialiased`}>
+      <body className={`${manrope.variable} min-h-full flex flex-col antialiased`}>
         {children}
         <BottomNav />
         <InstallPrompt />
