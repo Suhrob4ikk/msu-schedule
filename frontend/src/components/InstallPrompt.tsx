@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
 
 function isIOS(): boolean {
   if (typeof navigator === "undefined") return false;
@@ -15,6 +16,7 @@ function isInStandaloneMode(): boolean {
 }
 
 export default function InstallPrompt() {
+  const pathname = usePathname();
   const [androidPrompt, setAndroidPrompt] = useState<(Event & {
     prompt: () => Promise<void>;
     userChoice: Promise<{ outcome: string }>;
@@ -48,7 +50,7 @@ export default function InstallPrompt() {
     localStorage.setItem("pwa_install_dismissed", String(Date.now()));
   };
 
-  if (!visible) return null;
+  if (!visible || pathname?.startsWith("/dev")) return null;
 
   // Инструкция для iOS: "Поделиться → На экран Домой"
   if (showIOS) {

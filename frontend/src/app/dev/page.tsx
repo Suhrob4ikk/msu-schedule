@@ -166,7 +166,7 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
   const fmt = (s?: string) => s ? new Date(s).toLocaleString("ru-RU") : "—";
 
   return (
-    <div style={{ ...full, padding: 20, gap: 16 }}>
+    <div style={{ ...full, padding: 20, paddingBottom: 64, gap: 16, height: "auto" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ fontFamily: mono, fontSize: 14, color: c.accent }}>dev panel</div>
         <button onClick={onLogout} style={{ ...btn, fontSize: 12 }}>выйти</button>

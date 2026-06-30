@@ -55,6 +55,8 @@ export default function BottomNav() {
     setRegistered(!!localStorage.getItem("msu_device_id_v2"));
   }, []);
 
+  // На панели разработчика своя верстка — нижняя навигация не нужна
+  if (pathname?.startsWith("/dev")) return null;
   // Профиль — скрываем навбар только для новых пользователей (принудительная регистрация)
   if (pathname === "/profile" && !registered) return null;
 
