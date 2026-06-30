@@ -72,7 +72,7 @@ export default function LessonCard({ lesson, showGroup, showAttendance, showNote
     <div className="card lesson-accent mb-2 lg:mb-2.5" data-kind={kind}>
       {/* Номер пары + время + тип */}
       <div className="flex items-center justify-between gap-2 mb-2">
-        <span className="lesson-tag">
+        <span className="lesson-tag lesson-time">
           {lesson.pair_number} пара
           {lesson.pair_time_start && ` · ${lesson.pair_time_start}–${lesson.pair_time_end}`}
         </span>
@@ -84,12 +84,12 @@ export default function LessonCard({ lesson, showGroup, showAttendance, showNote
       </div>
 
       {/* Название предмета */}
-      <p className="font-medium text-sm lg:text-base leading-snug mb-2" style={{ color: "var(--foreground)" }}>
+      <p className="font-semibold text-base lg:text-lg leading-snug mb-2" style={{ color: "var(--foreground)" }}>
         {lesson.subject}
       </p>
 
       {/* Преподаватель, аудитория, группа */}
-      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs lg:text-sm" style={{ color: "var(--muted)" }}>
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm lg:text-base" style={{ color: "var(--muted)" }}>
         {lesson.teacher && (
           <span className="flex items-center gap-1">
             <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor">

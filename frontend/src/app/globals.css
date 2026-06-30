@@ -7,41 +7,41 @@
    Те же значения продублированы в мобильном приложении (src/theme.ts).
    ───────────────────────────────────────────────────────────────────────── */
 :root {
-  --background: #f4f6f9;   /* чистый прохладный фон (не «бежевая бумага») */
-  --foreground: #0f172a;   /* slate-900 — мягче чистого чёрного */
+  --background: #f3f5f8;   /* чистый прохладный фон */
+  --foreground: #14181c;   /* почти-чёрный slate, мягче чистого чёрного */
   --card: #ffffff;
-  --card-2: #f8fafc;       /* вложенный/второстепенный фон */
-  --border: #e6eaf1;       /* прохладная светлая граница */
-  --primary: #0d9488;      /* фирменный тил */
-  --primary-strong: #0b7d72;
+  --card-2: #f7f9fb;       /* вложенный/второстепенный фон */
+  --border: #e6e9ee;       /* прохладная светлая граница */
+  --primary: #0e9b72;      /* фирменный изумруд (academic emerald) */
+  --primary-strong: #0c8763;
   --primary-fg: #ffffff;
-  --primary-soft: #e6f6f4; /* мягкая подложка под акцент */
+  --primary-soft: #e5f4f0; /* мягкая подложка под акцент */
   --muted: #5b6677;        /* вторичный текст, AA на светлом фоне */
-  --tag-bg: #eef1f7;
+  --tag-bg: #eef1f6;
   --tag-text: #475569;
-  --tag-border: #e1e6ef;
-  --ring: rgba(13, 148, 136, 0.35);
+  --tag-border: #e3e7ee;
+  --ring: rgba(14, 155, 114, 0.35);
   --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06);
   --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.06), 0 2px 4px rgba(15, 23, 42, 0.04);
 }
 
 .dark {
-  --background: #0b1220;   /* глубокий сине-сланцевый, тёплее GitHub-серого */
-  --foreground: #e8edf5;
-  --card: #151d2e;         /* приподнятая поверхность */
-  --card-2: #1b2538;
-  --border: #28324a;
-  --primary: #0d9488;      /* тот же фирменный тил — белый текст читается (AA) */
-  --primary-strong: #2dd4bf;
+  --background: #0b0d10;   /* нейтральный почти-чёрный (не сине-сланцевый) */
+  --foreground: #e7eaee;
+  --card: #14171b;         /* приподнятая поверхность, нейтральный графит */
+  --card-2: #1b1f25;
+  --border: #262b32;
+  --primary: #0e9b72;      /* тот же изумруд — белый текст проходит контраст (UI 3:1) */
+  --primary-strong: #2dd4a7; /* ярче — для точек/колец/акцентов (не текст) */
   --primary-fg: #ffffff;
-  --primary-soft: #102e2a;
-  --muted: #94a1b8;
-  --tag-bg: #1c2538;
-  --tag-text: #9aa6bd;
-  --tag-border: #2c3650;
-  --ring: rgba(45, 212, 191, 0.4);
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.4);
+  --primary-soft: #0e2a22;
+  --muted: #8b94a3;
+  --tag-bg: #1b2026;
+  --tag-text: #9aa3b2;
+  --tag-border: #2a3038;
+  --ring: rgba(27, 185, 139, 0.4);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.45);
 }
 
 * { box-sizing: border-box; }
@@ -91,9 +91,9 @@ h1, h2 { letter-spacing: -0.015em; }
   .lesson-tag {
     display: inline-flex;
     align-items: center;
-    padding: 3px 9px;
-    border-radius: 7px;
-    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 13px;
     font-weight: 600;
     letter-spacing: 0.01em;
     background-color: var(--tag-bg);
@@ -103,11 +103,11 @@ h1, h2 { letter-spacing: -0.015em; }
 }
 
 /* Гармоничная палитра типов занятий (светлая / тёмная) */
-.lesson-tag-exam      { background: #fff1f3; color: #be123c; border-color: #fecdd3; }
-.dark .lesson-tag-exam{ background: rgba(244,63,94,0.15); color: #fb7185; border-color: rgba(251,113,133,0.28); }
+.lesson-tag-exam      { background: #fdeaeb; color: #c5303a; border-color: #f4c9cc; }
+.dark .lesson-tag-exam{ background: rgba(255,97,102,0.16); color: #ff8a8e; border-color: rgba(255,97,102,0.30); }
 
-.lesson-tag-practice      { background: #eef2ff; color: #4338ca; border-color: #c7d2fe; }
-.dark .lesson-tag-practice{ background: rgba(99,102,241,0.16); color: #a5b4fc; border-color: rgba(129,140,248,0.28); }
+.lesson-tag-practice      { background: #ecebfb; color: #4a44c9; border-color: #d3d0fa; }
+.dark .lesson-tag-practice{ background: rgba(140,135,243,0.18); color: #b6b2f7; border-color: rgba(140,135,243,0.32); }
 
 .lesson-tag-added      { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
 .dark .lesson-tag-added{ background: rgba(16,185,129,0.15); color: #6ee7b7; border-color: rgba(52,211,153,0.28); }
@@ -128,11 +128,20 @@ h1, h2 { letter-spacing: -0.015em; }
 }
 
 /* Цветной левый акцент карточки занятия по типу (задаётся data-атрибутом) */
-.lesson-accent { border-left: 3px solid var(--border); }
-.lesson-accent[data-kind="exam"]     { border-left-color: #f43f5e; }
-.lesson-accent[data-kind="practice"] { border-left-color: #6366f1; }
+.lesson-accent { border-left: 4px solid var(--border); }
+.lesson-accent[data-kind="exam"]     { border-left-color: #d43a40; }
+.lesson-accent[data-kind="practice"] { border-left-color: #5650d6; }
 .lesson-accent[data-kind="lecture"]  { border-left-color: var(--primary); }
 .lesson-accent[data-kind="default"]  { border-left-color: #94a3b8; }
+.dark .lesson-accent[data-kind="exam"]     { border-left-color: #ff6166; }
+.dark .lesson-accent[data-kind="practice"] { border-left-color: #8c87f3; }
+.dark .lesson-accent[data-kind="default"]  { border-left-color: #4b5563; }
+
+/* Время пары — моноширинный «билетный» стиль */
+.lesson-time {
+  font-family: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", monospace;
+  letter-spacing: -0.01em;
+}
 
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
