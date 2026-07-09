@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import WeekBar from "@/components/WeekBar";
@@ -54,6 +54,8 @@ export default function HomePage() {
   const [weeks, setWeeks] = useState<WeekInfo[]>([]);
   const [selectedWeekId, setSelectedWeekId] = useState<number | undefined>(undefined);
   const [selectedWeekStart, setSelectedWeekStart] = useState<string>("");
+  const selectedWeekStartRef = useRef(selectedWeekStart);
+  useEffect(() => { selectedWeekStartRef.current = selectedWeekStart; }, [selectedWeekStart]);
 
   const loadGroup = useCallback(async (group: Group, weekId?: number) => {
     setSelectedGroup(group);
@@ -67,6 +69,11 @@ export default function HomePage() {
       setWeeks(wks);
 
       let targetWeekId = weekId;
+      if (!targetWeekId && selectedWeekStartRef.current) {
+        const matchingWeek = wks.find(w => w.week_start === selectedWeekStartRef.current);
+        if (matchingWeek) targetWeekId = matchingWeek.id;
+      }
+
       if (!targetWeekId) {
         // Ищем неделю, содержащую сегодняшнюю дату
         const today = new Date().toISOString().slice(0, 10);
