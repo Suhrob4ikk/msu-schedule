@@ -6,6 +6,7 @@ import Header from "@/components/Header";
 import WeekBar from "@/components/WeekBar";
 import LessonCard from "@/components/LessonCard";
 import { api, Group, Lesson, TodayItem, Stats, WeekInfo, DAYS_ORDER } from "@/lib/api";
+import { featuresUnlocked } from "@/lib/features";
 import GroupSelector from "@/components/GroupSelector";
 
 const DAY_LABELS: Record<string, string> = {
@@ -26,13 +27,15 @@ const DAY_SHORT: Record<string, string> = {
 export default function HomePage() {
   const router = useRouter();
   const [groups, setGroups] = useState<Group[]>([]);
-  const FEATURES_LOCKED = true; // Снять в сентябре 2026
-  const [featureAttendance] = useState(() =>
-    !FEATURES_LOCKED && typeof window !== "undefined" ? localStorage.getItem("feature_attendance") === "1" : false
-  );
-  const [featureNotes] = useState(() =>
-    !FEATURES_LOCKED && typeof window !== "undefined" ? localStorage.getItem("feature_notes") === "1" : false
-  );
+  // Посещаемость/заметки: откроются автоматически 1 сентября 2026 (см. lib/features.ts).
+  // Флаги читаем после монтирования — SSR-безопасно (иначе hydration #418).
+  const [featureAttendance, setFeatureAttendance] = useState(false);
+  const [featureNotes, setFeatureNotes] = useState(false);
+  useEffect(() => {
+    if (!featuresUnlocked()) return;
+    setFeatureAttendance(localStorage.getItem("feature_attendance") === "1");
+    setFeatureNotes(localStorage.getItem("feature_notes") === "1");
+  }, []);
   // Значения, зависящие от localStorage / текущей даты, инициализируем
   // серверно-нейтрально (null / "all") и заполняем уже после монтирования —
   // иначе первый клиентский рендер расходится с SSR (React hydration error #418).

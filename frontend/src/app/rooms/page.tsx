@@ -24,6 +24,12 @@ function getDayDate(dayName: string, weekStart: string): string {
 
 export default function RoomsPage() {
   const [day, setDay] = useState("понедельник");
+  // После монтирования — сегодняшний день (вс → понедельник). В useEffect,
+  // чтобы первый клиентский рендер совпадал с SSR (иначе hydration #418).
+  useEffect(() => {
+    const jsDay = new Date().getDay();
+    if (jsDay >= 1 && jsDay <= 6) setDay(DAYS_ORDER[jsDay - 1]);
+  }, []);
   const [pair, setPair] = useState("I");
   const [rooms, setRooms] = useState<Array<{ room_name: string; is_free: boolean; occupied_by?: string }>>([]);
   const [loading, setLoading] = useState(false);

@@ -7,8 +7,10 @@ import Header from "@/components/Header";
 import { useRouter } from "next/navigation";
 import { getPushStatus, subscribePush, unsubscribePush, type PushStatus } from "@/lib/push";
 
-// Снять блокировку в сентябре 2026 — поменять на false
-const FEATURES_LOCKED = true;
+import { featuresUnlocked } from "@/lib/features";
+
+// Автооткрытие 1 сентября 2026 — см. lib/features.ts
+const FEATURES_LOCKED = !featuresUnlocked();
 
 // ─── Уведомления о зачётах / экзаменах ────────────────────────────────────────────────────
 function NotificationToggle({ sessionId, groupId }: { sessionId: string; groupId: number | "" }) {
@@ -104,12 +106,12 @@ function FeatureToggle({ label, description, storageKey }: { label: string; desc
           <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{label}</p>
           {FEATURES_LOCKED && (
             <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: "var(--tag-bg)", color: "var(--muted)" }}>
-              С сентября
+              с 1 сентября
             </span>
           )}
         </div>
         <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>
-          {FEATURES_LOCKED ? "Функция откроется в сентябре 2026" : description}
+          {FEATURES_LOCKED ? `${description} · откроется 1 сентября` : description}
         </p>
       </div>
       <div
@@ -320,12 +322,12 @@ export default function ProfilePage() {
               />
               <FeatureToggle
                 label="Посещаемость"
-                description="Отмечать был ли на каждой паре"
+                description="Отмечай, был ли ты на паре, и следи за статистикой семестра"
                 storageKey="feature_attendance"
               />
               <FeatureToggle
                 label="Заметки к парам"
-                description="Добавлять текстовые заметки к занятиям"
+                description="Записывай задания и важное к каждой паре"
                 storageKey="feature_notes"
               />
             </div>

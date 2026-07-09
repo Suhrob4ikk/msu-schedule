@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Lesson, shortGroupName } from "@/lib/api";
 
 const typeLabels: Record<string, string> = {
@@ -36,35 +36,41 @@ export default function LessonCard({ lesson, showGroup, showAttendance, showNote
   const shortGroup = lesson.group ? shortGroupName(lesson.group.name) : null;
   const kind = lesson.lesson_type ? (typeKind[lesson.lesson_type] || "default") : "default";
 
-  const [attended, setAttended] = useState<boolean | null>(() => {
-    if (typeof window === "undefined") return null;
-    const v = localStorage.getItem(`att_${lesson.id}`);
-    if (v === "1") return true;
-    if (v === "0") return false;
-    return null;
-  });
+  // Ключи НЕ по lesson.id (он меняется при каждой синхронизации), а по стабильным
+  // признакам: посещаемость — на конкретную дату, заметка — к слоту день+пара.
+  const gid = lesson.group?.id ?? "g";
+  const attKey = `att2_${gid}_${lesson.lesson_date ?? lesson.day_of_week}_${lesson.pair_number}`;
+  const noteKey = `note2_${gid}_${lesson.day_of_week}_${lesson.pair_number}`;
 
-  const [note, setNote] = useState(() =>
-    typeof window !== "undefined" ? localStorage.getItem(`note_${lesson.id}`) ?? "" : ""
-  );
+  // Читаем после монтирования (SSR-безопасно; карточки рендерятся и на сервере)
+  const [attended, setAttended] = useState<boolean | null>(null);
+  const [note, setNote] = useState("");
   const [editingNote, setEditingNote] = useState(false);
+
+  useEffect(() => {
+    if (showAttendance) {
+      const v = localStorage.getItem(attKey);
+      setAttended(v === "1" ? true : v === "0" ? false : null);
+    }
+    if (showNotes) setNote(localStorage.getItem(noteKey) ?? "");
+  }, [attKey, noteKey, showAttendance, showNotes]);
 
   const markAttendance = (value: boolean) => {
     if (attended === value) {
       setAttended(null);
-      localStorage.removeItem(`att_${lesson.id}`);
+      localStorage.removeItem(attKey);
     } else {
       setAttended(value);
-      localStorage.setItem(`att_${lesson.id}`, value ? "1" : "0");
+      localStorage.setItem(attKey, value ? "1" : "0");
     }
   };
 
   const saveNote = (text: string) => {
     setNote(text);
     if (text.trim()) {
-      localStorage.setItem(`note_${lesson.id}`, text);
+      localStorage.setItem(noteKey, text);
     } else {
-      localStorage.removeItem(`note_${lesson.id}`);
+      localStorage.removeItem(noteKey);
     }
   };
 
