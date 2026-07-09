@@ -6,12 +6,15 @@ interface Props {
   groups: Group[];
   value: Group | null;
   onChange: (group: Group) => void;
+  /** Компактный режим: когда группа выбрана — одна строка, чипы раскрываются по клику */
+  collapsible?: boolean;
 }
 
 const DIR_ORDER = ["ПМиИ", "ХФММ", "Геология", "МО", "Лингвистика", "ГМУ"];
 
-export default function GroupSelector({ groups, value, onChange }: Props) {
+export default function GroupSelector({ groups, value, onChange, collapsible }: Props) {
   const [pendingDir, setPendingDir] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
 
   const directions = useMemo(() => {
     const dirs = new Set<string>();
@@ -31,21 +34,29 @@ export default function GroupSelector({ groups, value, onChange }: Props) {
 
   const activeYear = (pendingDir == null || pendingDir === valueDir) ? value?.year : undefined;
 
+  // После выбора группы в компактном режиме — сворачиваемся
+  const pick = (g: Group) => {
+    onChange(g);
+    setPendingDir(null);
+    if (collapsible) setExpanded(false);
+  };
+
   const onDir = (dir: string) => {
     if (dir === valueDir) {
       setPendingDir(null);
+      if (collapsible) setExpanded(false); // клик по своему направлению — просто свернуть
     } else {
       setPendingDir(dir);
       const ys = [...new Set(groups.filter(g => shortGroupName(g.name) === dir).map(g => g.year))];
-      
+
       if (value?.year && ys.includes(value.year)) {
         const g = groups.find(g => shortGroupName(g.name) === dir && g.year === value.year);
-        if (g) { onChange(g); setPendingDir(null); return; }
+        if (g) { pick(g); return; }
       }
 
       if (ys.length === 1) {
         const g = groups.find(g => shortGroupName(g.name) === dir && g.year === ys[0]);
-        if (g) { onChange(g); setPendingDir(null); }
+        if (g) pick(g);
       }
     }
   };
@@ -54,13 +65,49 @@ export default function GroupSelector({ groups, value, onChange }: Props) {
     const dir = activeDir;
     if (!dir) return;
     const g = groups.find(g => shortGroupName(g.name) === dir && g.year === year);
-    if (g) { onChange(g); setPendingDir(null); }
+    if (g) pick(g);
   };
+
+  // ── Компактная строка (группа выбрана, чипы спрятаны) ──
+  if (collapsible && value && !expanded) {
+    return (
+      <button
+        onClick={() => setExpanded(true)}
+        className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl border-2 border-[var(--border)] bg-[var(--card)] hover:border-[var(--primary)] transition-colors text-left"
+      >
+        <span className="min-w-0">
+          <span className="block text-xs font-semibold text-[var(--muted)] uppercase tracking-wider">Группа</span>
+          <span className="block font-bold text-base lg:text-lg truncate" style={{ color: "var(--foreground)" }}>
+            {valueDir} · {value.year} курс
+          </span>
+        </span>
+        <span className="flex items-center gap-1.5 shrink-0 text-sm text-[var(--muted)]">
+          изменить
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </span>
+      </button>
+    );
+  }
 
   return (
     <div className="space-y-3">
       <div>
-        <p className="text-xs font-semibold text-[var(--muted)] uppercase tracking-wider mb-2">Направление</p>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs font-semibold text-[var(--muted)] uppercase tracking-wider">Направление</p>
+          {collapsible && value && (
+            <button
+              onClick={() => { setPendingDir(null); setExpanded(false); }}
+              className="flex items-center gap-1 text-xs text-[var(--muted)] hover:text-[var(--primary)] transition-colors"
+            >
+              Свернуть
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 15l-6-6-6 6" />
+              </svg>
+            </button>
+          )}
+        </div>
         <div className="flex flex-wrap gap-2">
           {directions.map(dir => (
             <button

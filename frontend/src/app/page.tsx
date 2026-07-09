@@ -214,7 +214,7 @@ export default function HomePage() {
               <p className="text-xs lg:text-sm text-[var(--muted)]">Выберите группу ниже, затем нажмите на нужный день недели.</p>
             </div>
           )}
-          <GroupSelector groups={groups} value={selectedGroup} onChange={loadGroup} />
+          <GroupSelector groups={groups} value={selectedGroup} onChange={loadGroup} collapsible />
           {selectedGroup && (
             <div className="flex flex-wrap gap-2 mt-3">
               <a
@@ -239,10 +239,10 @@ export default function HomePage() {
           )}
         </div>
 
-        {/* "Что сейчас" виджет */}
-        {selectedGroup && !loading && (
+        {/* "Что сейчас" виджет — показываем только когда есть текущая или следующая пара */}
+        {selectedGroup && !loading && (currentItem || nextItem) && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:gap-4 mb-4 lg:mb-5">
-            {currentItem ? (
+            {currentItem && (
               <div className="card lesson-now">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="w-2 h-2 rounded-full bg-[var(--primary)] animate-pulse"></span>
@@ -255,11 +255,6 @@ export default function HomePage() {
                   {currentItem.teacher && ` · ${currentItem.teacher}`}
                   {currentItem.room && ` · ауд. ${currentItem.room}`}
                 </p>
-              </div>
-            ) : (
-              <div className="card flex items-center gap-3">
-                <span className="w-2 h-2 rounded-full bg-[var(--border)] shrink-0"></span>
-                <span className="text-sm text-[var(--muted)]">Сейчас занятий нет</span>
               </div>
             )}
             {nextItem && (
