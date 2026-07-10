@@ -35,6 +35,8 @@ interface Props {
 export default function LessonCard({ lesson, showGroup, showAttendance, showNotes }: Props) {
   const shortGroup = lesson.group ? shortGroupName(lesson.group.name) : null;
   const kind = lesson.lesson_type ? (typeKind[lesson.lesson_type] || "default") : "default";
+  // На экзаменах/зачётах/консультациях посещаемость не отмечают — кнопки не показываем
+  const attendanceApplicable = !/экзамен|зач|конс/i.test(lesson.lesson_type ?? "");
 
   // Ключи НЕ по lesson.id (он меняется при каждой синхронизации), а по стабильным
   // признакам: посещаемость — на конкретную дату, заметка — к слоту день+пара.
@@ -123,7 +125,7 @@ export default function LessonCard({ lesson, showGroup, showAttendance, showNote
       </div>
 
       {/* Посещаемость */}
-      {showAttendance && (
+      {showAttendance && attendanceApplicable && (
         <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[var(--border)]">
           <span className="text-xs text-[var(--muted)] mr-1">Был?</span>
           <button

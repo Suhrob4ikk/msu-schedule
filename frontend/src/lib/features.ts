@@ -6,9 +6,13 @@ export const FEATURES_UNLOCK_AT = new Date("2026-09-01T00:00:00");
 
 export function featuresUnlocked(): boolean {
   if (Date.now() >= FEATURES_UNLOCK_AT.getTime()) return true;
-  // Скрытый предпросмотр для разработчика: localStorage.features_preview = "1"
+  // Предпросмотр до сентября: открыть сайт с ?preview=features (выключить — ?preview=off)
   try {
-    return typeof window !== "undefined" && localStorage.getItem("features_preview") === "1";
+    if (typeof window === "undefined") return false;
+    const q = new URLSearchParams(window.location.search).get("preview");
+    if (q === "features") localStorage.setItem("features_preview", "1");
+    if (q === "off") localStorage.removeItem("features_preview");
+    return localStorage.getItem("features_preview") === "1";
   } catch {
     return false;
   }
