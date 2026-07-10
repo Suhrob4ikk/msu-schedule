@@ -151,17 +151,15 @@ async def lifespan(app: FastAPI):
     # week_start в истории изменений нужен, чтобы показывать точную дату («Пн, 08.09»).
     global MIGRATION_STATUS
     try:
-        from sqlalchemy import text
-        with engine.begin() as conn:
-            exists = conn.execute(text(
-                "SELECT 1 FROM information_schema.columns "
-                "WHERE table_name = 'schedule_changes' AND column_name = 'week_start'"
-            )).fetchone()
-            if not exists:
+        from sqlalchemy import text, inspect as sa_inspect
+        # Инспектор работает одинаково в SQLite и PostgreSQL
+        cols = [c["name"] for c in sa_inspect(engine).get_columns("schedule_changes")]
+        if "week_start" not in cols:
+            with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE schedule_changes ADD COLUMN week_start DATE"))
-                MIGRATION_STATUS = "week_start: добавлена"
-            else:
-                MIGRATION_STATUS = "week_start: уже есть"
+            MIGRATION_STATUS = "week_start: добавлена"
+        else:
+            MIGRATION_STATUS = "week_start: уже есть"
         logger.info(f"Миграция: {MIGRATION_STATUS}")
     except Exception as e:
         MIGRATION_STATUS = f"week_start: ошибка — {e}"
