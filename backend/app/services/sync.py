@@ -203,6 +203,7 @@ def save_schedule_to_db(db: Session, parsed: dict, file_last_modified: Optional[
             db.add(ScheduleChange(
                 faculty_code=faculty_code,
                 group_name=group.name,
+                week_start=week_start,  # неделя изменения — для точной даты на фронте
                 **change,
             ))
         if changes:

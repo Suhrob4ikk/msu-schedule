@@ -23,6 +23,18 @@ const DAY_LABELS: Record<string, string> = {
   четверг: "Чт", пятница: "Пт", суббота: "Сб",
 };
 
+const DAY_OFFSET: Record<string, number> = {
+  понедельник: 0, вторник: 1, среда: 2, четверг: 3, пятница: 4, суббота: 5, воскресенье: 6,
+};
+
+// Точная дата изменения: начало недели + день («08.09»)
+function changeDate(c: Change): string {
+  if (!c.week_start || !c.day_of_week) return "";
+  const d = new Date(c.week_start + "T00:00:00");
+  d.setDate(d.getDate() + (DAY_OFFSET[c.day_of_week] ?? 0));
+  return `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
 export default function ChangesPage() {
   const [changes, setChanges] = useState<Change[]>([]);
   const [loading, setLoading] = useState(true);
@@ -88,7 +100,7 @@ export default function ChangesPage() {
                     <span className="text-xs text-[var(--muted)]">{shortGroupName(c.group_name ?? "")}</span>
                     {c.day_of_week && c.pair_number && (
                       <span className="text-xs text-[var(--muted)]">
-                        {DAY_LABELS[c.day_of_week]} · {c.pair_number} пара
+                        {DAY_LABELS[c.day_of_week]}{changeDate(c) ? `, ${changeDate(c)}` : ""} · {c.pair_number} пара
                       </span>
                     )}
                   </div>

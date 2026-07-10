@@ -92,6 +92,7 @@ export interface Change {
   pair_number: string | null;
   old_value: string | null;
   new_value: string | null;
+  week_start: string | null;
 }
 
 export const api = {

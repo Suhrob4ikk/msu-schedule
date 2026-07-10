@@ -136,6 +136,8 @@ class ScheduleChange(Base):
     pair_number = Column(String(5))
     old_value = Column(Text)
     new_value = Column(Text)
+    # Начало недели, к которой относится изменение — чтобы показывать точную дату
+    week_start = Column(Date, nullable=True)
 
 
 class UserSubscription(Base):

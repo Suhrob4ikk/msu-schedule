@@ -53,10 +53,11 @@ export default function WeekBar({ onWeekChange, selectedWeekStart }: Props) {
   useEffect(() => {
     api.getAllWeeks().then(ws => {
       setWeeks(ws);
-      // Если родитель ещё не выбрал неделю — уведомляем о дефолтной
+      // Если родитель ещё не выбрал неделю — по умолчанию ВСЕГДА текущая
+      // (не восстанавливаем прошлый выбор между визитами)
       if (!selectedWeekStart && ws.length > 0) {
-        const saved = localStorage.getItem("selected_week_start");
-        const initial = saved && ws.find(w => w.week_start === saved) ? saved : ws[0].week_start;
+        const current = ws.find(w => isCurrentWeek(w.week_start));
+        const initial = (current ?? ws.find(w => w.is_latest) ?? ws[0]).week_start;
         onWeekChange(initial);
       }
     });

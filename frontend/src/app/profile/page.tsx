@@ -7,7 +7,7 @@ import Header from "@/components/Header";
 import { useRouter } from "next/navigation";
 import { getPushStatus, subscribePush, unsubscribePush, type PushStatus } from "@/lib/push";
 
-import { featuresUnlocked } from "@/lib/features";
+import { featuresUnlocked, daysUntilUnlock } from "@/lib/features";
 
 // Автооткрытие 1 сентября 2026 — см. lib/features.ts
 const FEATURES_LOCKED = !featuresUnlocked();
@@ -111,7 +111,7 @@ function FeatureToggle({ label, description, storageKey }: { label: string; desc
           )}
         </div>
         <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>
-          {FEATURES_LOCKED ? `${description} · откроется 1 сентября` : description}
+          {FEATURES_LOCKED ? `${description} · откроется 1 сентября, осталось ${daysUntilUnlock()} дн.` : description}
         </p>
       </div>
       <div
@@ -423,8 +423,14 @@ export default function ProfilePage() {
                 onClick={exportMyData}
                 className="w-full py-3 rounded-xl text-sm font-medium border transition-colors hover:border-[var(--primary)] hover:text-[var(--primary)]"
                 style={{ background: "var(--card)", borderColor: "var(--border)", color: "var(--muted)" }}
+                
               >
-                📤 Поделиться заметками и посещаемостью
+                <span className="inline-flex items-center justify-center gap-2">
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4 12v7a2 2 0 002 2h12a2 2 0 002-2v-7M16 6l-4-4-4 4M12 2v13" />
+                  </svg>
+                  Поделиться заметками и посещаемостью
+                </span>
               </button>
             )}
             <a
@@ -432,7 +438,12 @@ export default function ProfilePage() {
               className="w-full py-3 rounded-xl text-sm font-medium border text-center transition-colors hover:border-[var(--primary)] hover:text-[var(--primary)]"
               style={{ background: "var(--card)", borderColor: "var(--border)", color: "var(--muted)" }}
             >
-              🕓 История изменений расписания
+              <span className="inline-flex items-center justify-center gap-2">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" />
+                </svg>
+                История изменений расписания
+              </span>
             </a>
           </div>
         )}

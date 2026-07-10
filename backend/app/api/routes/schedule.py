@@ -600,6 +600,7 @@ def get_changes(
             "pair_number": c.pair_number,
             "old_value": c.old_value,
             "new_value": c.new_value,
+            "week_start": str(c.week_start) if c.week_start else None,
         }
         for c in changes
     ]

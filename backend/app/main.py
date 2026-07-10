@@ -144,6 +144,17 @@ async def lifespan(app: FastAPI):
         logger.info("Индекс ix_lesson_week_day_pair готов.")
     except Exception as e:
         logger.warning(f"Не удалось создать индекс ix_lesson_week_day_pair: {e}")
+    # create_all не добавляет колонки к существующим таблицам — добавляем вручную.
+    # week_start в истории изменений нужен, чтобы показывать точную дату («Пн, 08.09»).
+    try:
+        from sqlalchemy import text
+        with engine.begin() as conn:
+            conn.execute(text(
+                "ALTER TABLE schedule_changes ADD COLUMN IF NOT EXISTS week_start DATE"
+            ))
+        logger.info("Колонка schedule_changes.week_start готова.")
+    except Exception as e:
+        logger.warning(f"Не удалось добавить колонку week_start: {e}")
     logger.info("Таблицы созданы.")
 
     seed_rooms()

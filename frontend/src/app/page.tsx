@@ -389,9 +389,12 @@ export default function HomePage() {
 
         {!loading && !error && selectedGroup && Object.keys(lessonsByDay).length === 0 && (
           <div className="text-center py-16 text-[var(--muted)]">
-            {isVacation ? (
+            {isVacation && lessons.length === 0 ? (
               <>
-                <p className="text-4xl mb-3">🏖</p>
+                <svg className="w-12 h-12 mx-auto mb-3 text-[var(--primary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="4" />
+                  <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+                </svg>
                 <p className="font-semibold text-base" style={{ color: "var(--foreground)" }}>Каникулы!</p>
                 <p className="text-xs mt-1">Занятий нет — отдыхаем. Расписание появится ближе к 1 сентября.</p>
               </>

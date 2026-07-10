@@ -159,10 +159,13 @@ export default function LessonCard({ lesson, showGroup, showAttendance, showNote
             /* Компактная строка-индикатор: заметка видна, клик — редактирование */
             <button
               onClick={() => setEditingNote(true)}
-              className="w-full text-left text-xs leading-relaxed hover:opacity-80 transition-opacity"
+              className="w-full flex items-start gap-1.5 text-left text-xs leading-relaxed hover:opacity-80 transition-opacity"
               style={{ color: "var(--foreground)" }}
             >
-              📝 {note}
+              <svg className="w-3.5 h-3.5 shrink-0 mt-0.5 text-[var(--primary)]" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+              </svg>
+              <span>{note}</span>
             </button>
           ) : editingNote ? (
             <textarea
