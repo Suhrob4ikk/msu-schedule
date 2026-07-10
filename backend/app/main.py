@@ -16,6 +16,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Статус миграции колонки week_start — виден в /health для диагностики
+MIGRATION_STATUS = "не запускалась"
+
 
 CANONICAL_ROOMS = [
     "стадион", "лабхим", "лабфиз", "лабгеол",
@@ -146,15 +149,23 @@ async def lifespan(app: FastAPI):
         logger.warning(f"Не удалось создать индекс ix_lesson_week_day_pair: {e}")
     # create_all не добавляет колонки к существующим таблицам — добавляем вручную.
     # week_start в истории изменений нужен, чтобы показывать точную дату («Пн, 08.09»).
+    global MIGRATION_STATUS
     try:
         from sqlalchemy import text
         with engine.begin() as conn:
-            conn.execute(text(
-                "ALTER TABLE schedule_changes ADD COLUMN IF NOT EXISTS week_start DATE"
-            ))
-        logger.info("Колонка schedule_changes.week_start готова.")
+            exists = conn.execute(text(
+                "SELECT 1 FROM information_schema.columns "
+                "WHERE table_name = 'schedule_changes' AND column_name = 'week_start'"
+            )).fetchone()
+            if not exists:
+                conn.execute(text("ALTER TABLE schedule_changes ADD COLUMN week_start DATE"))
+                MIGRATION_STATUS = "week_start: добавлена"
+            else:
+                MIGRATION_STATUS = "week_start: уже есть"
+        logger.info(f"Миграция: {MIGRATION_STATUS}")
     except Exception as e:
-        logger.warning(f"Не удалось добавить колонку week_start: {e}")
+        MIGRATION_STATUS = f"week_start: ошибка — {e}"
+        logger.warning(MIGRATION_STATUS)
     logger.info("Таблицы созданы.")
 
     seed_rooms()
@@ -206,4 +217,4 @@ def root():
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {"status": "ok", "migration": MIGRATION_STATUS}
