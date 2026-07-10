@@ -31,7 +31,10 @@ export default function HomePage() {
   // Флаги читаем после монтирования — SSR-безопасно (иначе hydration #418).
   const [featureAttendance, setFeatureAttendance] = useState(false);
   const [featureNotes, setFeatureNotes] = useState(false);
+  // Июль–август = каникулы. Вычисляем после монтирования (SSR-безопасно, иначе #418)
+  const [isVacation, setIsVacation] = useState(false);
   useEffect(() => {
+    setIsVacation([6, 7].includes(new Date().getMonth()));
     if (!featuresUnlocked()) return;
     setFeatureAttendance(localStorage.getItem("feature_attendance") === "1");
     setFeatureNotes(localStorage.getItem("feature_notes") === "1");
@@ -160,6 +163,9 @@ export default function HomePage() {
     [hasSunday]
   );
 
+  // Отметки и заметки — только на расписании СВОЕЙ группы (на чужих не нужны)
+  const isMyGroup = selectedGroup != null && profileGroupId != null && selectedGroup.id === profileGroupId;
+
   const lessonsByDay = useMemo(() => {
     const filtered = selectedDay === "all"
       ? lessons
@@ -258,6 +264,23 @@ export default function HomePage() {
                   {currentItem.teacher && ` · ${currentItem.teacher}`}
                   {currentItem.room && ` · ауд. ${currentItem.room}`}
                 </p>
+                {(() => {
+                  // Прогресс пары: сколько прошло из 90 минут
+                  const [sh, sm] = currentItem.pair_time_start.split(":").map(Number);
+                  const [eh, em] = currentItem.pair_time_end.split(":").map(Number);
+                  const st = new Date(currentTime); st.setHours(sh, sm, 0, 0);
+                  const en = new Date(currentTime); en.setHours(eh, em, 0, 0);
+                  const p = Math.min(1, Math.max(0, (currentTime - st.getTime()) / (en.getTime() - st.getTime())));
+                  const left = Math.max(0, Math.ceil((en.getTime() - currentTime) / 60000));
+                  return (
+                    <div className="mt-2.5">
+                      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--tag-bg)" }}>
+                        <div className="h-full rounded-full transition-all" style={{ width: `${p * 100}%`, background: "var(--primary)" }} />
+                      </div>
+                      <p className="text-[11px] mt-1 text-right text-[var(--muted)]">осталось {left} мин</p>
+                    </div>
+                  );
+                })()}
               </div>
             )}
             {nextItem && (
@@ -366,18 +389,28 @@ export default function HomePage() {
 
         {!loading && !error && selectedGroup && Object.keys(lessonsByDay).length === 0 && (
           <div className="text-center py-16 text-[var(--muted)]">
-            <svg className="w-12 h-12 mx-auto mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            {selectedDay !== "all" ? (
+            {isVacation ? (
               <>
-                <p className="font-medium">{DAY_IN[selectedDay]} занятий нет</p>
-                <p className="text-xs mt-1">Выходной или нет пар в этот день</p>
+                <p className="text-4xl mb-3">🏖</p>
+                <p className="font-semibold text-base" style={{ color: "var(--foreground)" }}>Каникулы!</p>
+                <p className="text-xs mt-1">Занятий нет — отдыхаем. Расписание появится ближе к 1 сентября.</p>
               </>
             ) : (
               <>
-                <p className="font-medium">На этой неделе занятий нет</p>
-                <p className="text-xs mt-1">Идёт сессия или каникулы</p>
+                <svg className="w-12 h-12 mx-auto mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                {selectedDay !== "all" ? (
+                  <>
+                    <p className="font-medium">{DAY_IN[selectedDay]} занятий нет</p>
+                    <p className="text-xs mt-1">Выходной или нет пар в этот день</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-medium">На этой неделе занятий нет</p>
+                    <p className="text-xs mt-1">Идёт сессия или каникулы</p>
+                  </>
+                )}
               </>
             )}
           </div>
@@ -407,8 +440,8 @@ export default function HomePage() {
                 <LessonCard
                   key={lesson.id}
                   lesson={lesson}
-                  showAttendance={featureAttendance}
-                  showNotes={featureNotes}
+                  showAttendance={featureAttendance && isMyGroup}
+                  showNotes={featureNotes && isMyGroup}
                 />
               ))}
             </div>

@@ -52,7 +52,7 @@ export default function LessonCard({ lesson, showGroup, showAttendance, showNote
   useEffect(() => {
     if (showAttendance) {
       const v = localStorage.getItem(attKey);
-      setAttended(v === "1" ? true : v === "0" ? false : null);
+      setAttended(v?.startsWith("1") ? true : v?.startsWith("0") ? false : null);
     }
     if (showNotes) setNote(localStorage.getItem(noteKey) ?? "");
   }, [attKey, noteKey, showAttendance, showNotes]);
@@ -63,7 +63,8 @@ export default function LessonCard({ lesson, showGroup, showAttendance, showNote
       localStorage.removeItem(attKey);
     } else {
       setAttended(value);
-      localStorage.setItem(attKey, value ? "1" : "0");
+      // В значении храним и предмет — пригодится для статистики в кабинете
+      localStorage.setItem(attKey, `${value ? "1" : "0"}|${lesson.subject}`);
     }
   };
 
@@ -154,9 +155,18 @@ export default function LessonCard({ lesson, showGroup, showAttendance, showNote
       {/* Заметки */}
       {showNotes && (
         <div className="mt-3 pt-3 border-t border-[var(--border)]">
-          {editingNote || note ? (
+          {!editingNote && note ? (
+            /* Компактная строка-индикатор: заметка видна, клик — редактирование */
+            <button
+              onClick={() => setEditingNote(true)}
+              className="w-full text-left text-xs leading-relaxed hover:opacity-80 transition-opacity"
+              style={{ color: "var(--foreground)" }}
+            >
+              📝 {note}
+            </button>
+          ) : editingNote ? (
             <textarea
-              autoFocus={editingNote && !note}
+              autoFocus
               rows={2}
               placeholder="Заметка к паре..."
               className="w-full text-xs rounded-lg px-2.5 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
@@ -167,7 +177,7 @@ export default function LessonCard({ lesson, showGroup, showAttendance, showNote
               }}
               value={note}
               onChange={e => saveNote(e.target.value)}
-              onBlur={() => { if (!note.trim()) setEditingNote(false); }}
+              onBlur={() => setEditingNote(false)}
             />
           ) : (
             <button

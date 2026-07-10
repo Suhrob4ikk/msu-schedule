@@ -127,6 +127,86 @@ function FeatureToggle({ label, description, storageKey }: { label: string; desc
   );
 }
 
+// --- Статистика посещаемости (считается из локальных отметок) ---
+function collectAttendance() {
+  let attended = 0, missed = 0;
+  const bySubj = new Map<string, number>(); // предмет -> пропуски
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i)!;
+    if (!k.startsWith("att2_")) continue;
+    const v = localStorage.getItem(k) ?? "";
+    const subj = v.includes("|") ? v.slice(v.indexOf("|") + 1) : "";
+    if (v.startsWith("1")) attended++;
+    else if (v.startsWith("0")) {
+      missed++;
+      if (subj) bySubj.set(subj, (bySubj.get(subj) ?? 0) + 1);
+    }
+  }
+  const topMissed = [...bySubj.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
+  return { attended, missed, total: attended + missed, topMissed };
+}
+
+function collectNotes(): Array<{ slot: string; text: string }> {
+  const out: Array<{ slot: string; text: string }> = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i)!;
+    if (!k.startsWith("note2_")) continue;
+    const text = localStorage.getItem(k) ?? "";
+    if (!text.trim()) continue;
+    const parts = k.split("_"); // note2, id группы, день, пара
+    out.push({ slot: (parts[2] ?? "") + ", " + (parts[3] ?? "") + " пара", text });
+  }
+  return out;
+}
+
+function AttendanceStats() {
+  const [st, setSt] = useState<ReturnType<typeof collectAttendance> | null>(null);
+  useEffect(() => { setSt(collectAttendance()); }, []);
+  if (!st || st.total === 0) return null;
+  const pct = Math.round((st.attended / st.total) * 100);
+  return (
+    <div className="w-full rounded-xl border px-4 py-3" style={{ borderColor: "var(--border)", background: "var(--card)" }}>
+      <p className="text-sm font-semibold mb-1" style={{ color: "var(--foreground)" }}>Моя посещаемость</p>
+      <p className="text-xs" style={{ color: "var(--muted)" }}>
+        Был на {st.attended} из {st.total} отмеченных пар · <span style={{ color: pct >= 75 ? "var(--primary)" : "#d43a40", fontWeight: 700 }}>{pct}%</span>
+      </p>
+      <div className="h-1.5 rounded-full mt-2 overflow-hidden" style={{ background: "var(--tag-bg)" }}>
+        <div className="h-full rounded-full" style={{ width: pct + "%", background: pct >= 75 ? "var(--primary)" : "#d43a40" }} />
+      </div>
+      {st.topMissed.length > 0 && (
+        <p className="text-xs mt-2" style={{ color: "var(--muted)" }}>
+          Чаще пропускаю: {st.topMissed.map(([s2, n]) => s2 + " (" + n + ")").join(", ")}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// Экспорт заметок и посещаемости — поделиться или скопировать текстом
+async function exportMyData() {
+  const st = collectAttendance();
+  const notes = collectNotes();
+  const lines: string[] = ["МГУ Расписание — мои данные", ""];
+  if (st.total > 0) {
+    lines.push("Посещаемость: был на " + st.attended + " из " + st.total + " пар (" + Math.round((st.attended / st.total) * 100) + "%)");
+    if (st.topMissed.length) lines.push("Чаще пропускаю: " + st.topMissed.map(([s2, n]) => s2 + " (" + n + ")").join(", "));
+    lines.push("");
+  }
+  if (notes.length > 0) {
+    lines.push("Заметки к парам:");
+    notes.forEach(n => lines.push("• " + n.slot + ": " + n.text));
+  }
+  if (st.total === 0 && notes.length === 0) lines.push("Пока нет ни отметок, ни заметок.");
+  const text = lines.join("\n");
+  try {
+    if (navigator.share) { await navigator.share({ text }); return; }
+  } catch { /* пользователь отменил шаринг — не страшно */ }
+  try {
+    await navigator.clipboard.writeText(text);
+    alert("Скопировано в буфер обмена — вставь в Telegram или заметки.");
+  } catch { alert(text); }
+}
+
 export default function ProfilePage() {
   const router = useRouter();
   const [groups, setGroups] = useState<Group[]>([]);
@@ -331,6 +411,29 @@ export default function ProfilePage() {
                 storageKey="feature_notes"
               />
             </div>
+          </div>
+        )}
+
+        {/* Статистика, экспорт и история изменений */}
+        {!isSetup && (
+          <div className="flex flex-col gap-2.5 mt-2">
+            {!FEATURES_LOCKED && <AttendanceStats />}
+            {!FEATURES_LOCKED && (
+              <button
+                onClick={exportMyData}
+                className="w-full py-3 rounded-xl text-sm font-medium border transition-colors hover:border-[var(--primary)] hover:text-[var(--primary)]"
+                style={{ background: "var(--card)", borderColor: "var(--border)", color: "var(--muted)" }}
+              >
+                📤 Поделиться заметками и посещаемостью
+              </button>
+            )}
+            <a
+              href="/changes"
+              className="w-full py-3 rounded-xl text-sm font-medium border text-center transition-colors hover:border-[var(--primary)] hover:text-[var(--primary)]"
+              style={{ background: "var(--card)", borderColor: "var(--border)", color: "var(--muted)" }}
+            >
+              🕓 История изменений расписания
+            </a>
           </div>
         )}
 
