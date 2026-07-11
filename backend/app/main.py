@@ -160,6 +160,28 @@ async def lifespan(app: FastAPI):
             MIGRATION_STATUS = "week_start: добавлена"
         else:
             MIGRATION_STATUS = "week_start: уже есть"
+
+        # Дозаполняем старые записи без week_start. Файл с расписанием новой недели
+        # приходит в конце текущей (пт–вс) — тогда изменение относится к СЛЕДУЮЩЕМУ
+        # понедельнику; правки в пн–чт относятся к текущей неделе.
+        from datetime import timedelta
+        from app.database import SessionLocal
+        from app.models import ScheduleChange
+        db = SessionLocal()
+        try:
+            rows = db.query(ScheduleChange).filter(ScheduleChange.week_start.is_(None)).all()
+            for r in rows:
+                if not r.detected_at:
+                    continue
+                d = r.detected_at.date()
+                wd = d.weekday()  # 0=пн … 6=вс
+                monday = d - timedelta(days=wd) if wd <= 3 else d + timedelta(days=7 - wd)
+                r.week_start = monday
+            if rows:
+                db.commit()
+                MIGRATION_STATUS += f", дозаполнено записей: {len(rows)}"
+        finally:
+            db.close()
         logger.info(f"Миграция: {MIGRATION_STATUS}")
     except Exception as e:
         MIGRATION_STATUS = f"week_start: ошибка — {e}"

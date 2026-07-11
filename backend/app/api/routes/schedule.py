@@ -592,7 +592,9 @@ def get_changes(
     return [
         {
             "id": c.id,
-            "detected_at": c.detected_at.isoformat() if c.detected_at else None,
+            # detected_at хранится в UTC — помечаем «Z», чтобы клиенты показывали
+            # время в своём часовом поясе (Душанбе +5), а не сырое UTC
+            "detected_at": (c.detected_at.isoformat() + "Z") if c.detected_at else None,
             "faculty_code": c.faculty_code,
             "change_type": c.change_type,
             "group_name": c.group_name,
