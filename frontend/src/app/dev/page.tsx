@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback, CSSProperties } from "react";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "https://msu-schedule-backend-production.up.railway.app/api";
+// URL бэкенда — единственный источник правды в next.config.ts (там же fallback).
+const API = process.env.NEXT_PUBLIC_API_URL!;
 const TOKEN_KEY = "dev_panel_token";
 
 // ── собственная палитра, не связанная со стилями основного приложения ──

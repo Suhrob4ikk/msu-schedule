@@ -1,4 +1,5 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://msu-schedule-backend-production.up.railway.app/api';
+// URL бэкенда — единственный источник правды в next.config.ts (там же fallback).
+const API_BASE = process.env.NEXT_PUBLIC_API_URL!;
 
 // Client-side cache: 3 минуты для списков, 60 сек для расписания
 const _cache = new Map<string, { data: unknown; ts: number }>();
