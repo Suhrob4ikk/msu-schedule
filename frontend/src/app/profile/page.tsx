@@ -8,9 +8,12 @@ import { useRouter } from "next/navigation";
 import { getPushStatus, subscribePush, unsubscribePush, type PushStatus } from "@/lib/push";
 
 import { featuresUnlocked, daysUntilUnlock } from "@/lib/features";
+import { collectSkips, collectNotes, type SkipStats as SkipStatsType } from "@/lib/studyData";
 
-// Автооткрытие 1 сентября 2026 — см. lib/features.ts
-const FEATURES_LOCKED = !featuresUnlocked();
+// Автооткрытие 1 сентября 2026 — см. lib/features.ts.
+// ВАЖНО: не выносить в константу модуля — она вычислялась бы один раз при
+// загрузке страницы, и вкладка, открытая до полуночи 1 сентября, продолжала бы
+// показывать «закрыто» до обновления. Проверяем на каждый рендер.
 
 // ─── Уведомления о зачётах / экзаменах ────────────────────────────────────────────────────
 function NotificationToggle({ sessionId, groupId }: { sessionId: string; groupId: number | "" }) {
@@ -89,8 +92,9 @@ function FeatureToggle({ label, description, storageKey }: { label: string; desc
   const [enabled, setEnabled] = useState(() =>
     typeof window !== "undefined" ? localStorage.getItem(storageKey) === "1" : false
   );
+  const locked = !featuresUnlocked();
   const toggle = () => {
-    if (FEATURES_LOCKED) return;
+    if (locked) return;
     const next = !enabled;
     setEnabled(next);
     localStorage.setItem(storageKey, next ? "1" : "0");
@@ -99,104 +103,93 @@ function FeatureToggle({ label, description, storageKey }: { label: string; desc
     <button
       onClick={toggle}
       className="flex items-center justify-between w-full py-3 px-4 rounded-xl border text-left"
-      style={{ background: "var(--card)", borderColor: "var(--border)", opacity: FEATURES_LOCKED ? 0.6 : 1, cursor: FEATURES_LOCKED ? "default" : "pointer" }}
+      style={{ background: "var(--card)", borderColor: "var(--border)", opacity: locked ? 0.6 : 1, cursor: locked ? "default" : "pointer" }}
     >
       <div>
         <div className="flex items-center gap-2">
           <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{label}</p>
-          {FEATURES_LOCKED && (
+          {locked && (
             <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: "var(--tag-bg)", color: "var(--muted)" }}>
               с 1 сентября
             </span>
           )}
         </div>
         <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>
-          {FEATURES_LOCKED ? `${description} · откроется 1 сентября, осталось ${daysUntilUnlock()} дн.` : description}
+          {locked ? `${description} · откроется 1 сентября, осталось ${daysUntilUnlock()} дн.` : description}
         </p>
       </div>
       <div
         className="relative shrink-0 ml-3 w-11 h-6 rounded-full"
-        style={{ background: (!FEATURES_LOCKED && enabled) ? "var(--primary)" : "var(--border)" }}
+        style={{ background: (!locked && enabled) ? "var(--primary)" : "var(--border)" }}
       >
         <span
           className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow"
-          style={{ transform: (!FEATURES_LOCKED && enabled) ? "translateX(20px)" : "translateX(2px)" }}
+          style={{ transform: (!locked && enabled) ? "translateX(20px)" : "translateX(2px)" }}
         />
       </div>
     </button>
   );
 }
 
-// --- Статистика посещаемости (считается из локальных отметок) ---
-function collectAttendance() {
-  let attended = 0, missed = 0;
-  const bySubj = new Map<string, number>(); // предмет -> пропуски
-  for (let i = 0; i < localStorage.length; i++) {
-    const k = localStorage.key(i)!;
-    if (!k.startsWith("att2_")) continue;
-    const v = localStorage.getItem(k) ?? "";
-    const subj = v.includes("|") ? v.slice(v.indexOf("|") + 1) : "";
-    if (v.startsWith("1")) attended++;
-    else if (v.startsWith("0")) {
-      missed++;
-      if (subj) bySubj.set(subj, (bySubj.get(subj) ?? 0) + 1);
-    }
-  }
-  const topMissed = [...bySubj.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
-  return { attended, missed, total: attended + missed, topMissed };
+/** Склонение: 1 пара, 2 пары, 5 пар */
+function pluralPairs(n: number): string {
+  const d10 = n % 10, d100 = n % 100;
+  if (d10 === 1 && d100 !== 11) return "пара";
+  if (d10 >= 2 && d10 <= 4 && (d100 < 12 || d100 > 14)) return "пары";
+  return "пар";
 }
 
-function collectNotes(): Array<{ slot: string; text: string }> {
-  const out: Array<{ slot: string; text: string }> = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const k = localStorage.key(i)!;
-    if (!k.startsWith("note2_")) continue;
-    const text = localStorage.getItem(k) ?? "";
-    if (!text.trim()) continue;
-    const parts = k.split("_"); // note2, id группы, день, пара
-    out.push({ slot: (parts[2] ?? "") + ", " + (parts[3] ?? "") + " пара", text });
-  }
-  return out;
-}
+function SkipStats() {
+  const [st, setSt] = useState<SkipStatsType | null>(null);
+  useEffect(() => { setSt(collectSkips()); }, []);
 
-function AttendanceStats() {
-  const [st, setSt] = useState<ReturnType<typeof collectAttendance> | null>(null);
-  useEffect(() => { setSt(collectAttendance()); }, []);
-  if (!st || st.total === 0) return null;
-  const pct = Math.round((st.attended / st.total) * 100);
+  if (!st) return null;
+
+  // Пропусков нет — это хорошая новость, показываем её, а не пустоту
+  if (st.total === 0) {
+    return (
+      <div className="w-full rounded-xl border px-4 py-3" style={{ borderColor: "var(--border)", background: "var(--card)" }}>
+        <p className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>Пропуски</p>
+        <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>
+          Пока ни одного пропуска. Отмечай пропущенные пары в расписании — здесь будет видно, сколько их по каждому предмету.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full rounded-xl border px-4 py-3" style={{ borderColor: "var(--border)", background: "var(--card)" }}>
-      <p className="text-sm font-semibold mb-1" style={{ color: "var(--foreground)" }}>Моя посещаемость</p>
-      <p className="text-xs" style={{ color: "var(--muted)" }}>
-        Был на {st.attended} из {st.total} отмеченных пар · <span style={{ color: pct >= 75 ? "var(--primary)" : "#d43a40", fontWeight: 700 }}>{pct}%</span>
+      <p className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>Пропуски</p>
+      <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>
+        Всего пропущено: <span style={{ color: "#d43a40", fontWeight: 700 }}>{st.total} {pluralPairs(st.total)}</span>
       </p>
-      <div className="h-1.5 rounded-full mt-2 overflow-hidden" style={{ background: "var(--tag-bg)" }}>
-        <div className="h-full rounded-full" style={{ width: pct + "%", background: pct >= 75 ? "var(--primary)" : "#d43a40" }} />
+      <div className="flex flex-col gap-1 mt-2.5">
+        {st.bySubject.map(([subject, n]) => (
+          <div key={subject} className="flex items-center justify-between gap-3 text-xs">
+            <span className="truncate" style={{ color: "var(--foreground)" }}>{subject}</span>
+            <span className="shrink-0 tabular-nums" style={{ color: "var(--muted)" }}>{n}</span>
+          </div>
+        ))}
       </div>
-      {st.topMissed.length > 0 && (
-        <p className="text-xs mt-2" style={{ color: "var(--muted)" }}>
-          Чаще пропускаю: {st.topMissed.map(([s2, n]) => s2 + " (" + n + ")").join(", ")}
-        </p>
-      )}
     </div>
   );
 }
 
-// Экспорт заметок и посещаемости — поделиться или скопировать текстом
+// Экспорт заметок и пропусков — поделиться или скопировать текстом
 async function exportMyData() {
-  const st = collectAttendance();
+  const st = collectSkips();
   const notes = collectNotes();
   const lines: string[] = ["МГУ Расписание — мои данные", ""];
   if (st.total > 0) {
-    lines.push("Посещаемость: был на " + st.attended + " из " + st.total + " пар (" + Math.round((st.attended / st.total) * 100) + "%)");
-    if (st.topMissed.length) lines.push("Чаще пропускаю: " + st.topMissed.map(([s2, n]) => s2 + " (" + n + ")").join(", "));
+    lines.push(`Пропущено: ${st.total} ${pluralPairs(st.total)}`);
+    st.bySubject.forEach(([s, n]) => lines.push(`  ${s} — ${n}`));
     lines.push("");
   }
   if (notes.length > 0) {
     lines.push("Заметки к парам:");
     notes.forEach(n => lines.push("• " + n.slot + ": " + n.text));
   }
-  if (st.total === 0 && notes.length === 0) lines.push("Пока нет ни отметок, ни заметок.");
+  if (st.total === 0 && notes.length === 0) lines.push("Пока нет ни пропусков, ни заметок.");
   const text = lines.join("\n");
   try {
     if (navigator.share) { await navigator.share({ text }); return; }
@@ -218,6 +211,9 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [isSetup, setIsSetup] = useState(true);
   const [isEditing, setIsEditing] = useState(true);
+  // Считаем на каждый рендер, а не один раз при загрузке модуля — см. комментарий
+  // у импорта featuresUnlocked.
+  const featuresLocked = !featuresUnlocked();
 
   useEffect(() => {
     api.getGroups().then(setGroups).catch(() => { });
@@ -401,13 +397,13 @@ export default function ProfilePage() {
                 groupId={selectedGroupId}
               />
               <FeatureToggle
-                label="Посещаемость"
-                description="Отмечай, был ли ты на паре, и следи за статистикой семестра"
+                label="Пропуски"
+                description="Отмечай только пары, которые пропустил. Здесь будет видно, сколько пропусков накопилось по каждому предмету"
                 storageKey="feature_attendance"
               />
               <FeatureToggle
                 label="Заметки к парам"
-                description="Записывай задания и важное к каждой паре"
+                description="Домашка и что принести. Заметку можно закрепить за парой — тогда она появится в этот день каждую неделю"
                 storageKey="feature_notes"
               />
             </div>
@@ -417,8 +413,8 @@ export default function ProfilePage() {
         {/* Статистика, экспорт и история изменений */}
         {!isSetup && (
           <div className="flex flex-col gap-2.5 mt-2">
-            {!FEATURES_LOCKED && <AttendanceStats />}
-            {!FEATURES_LOCKED && (
+            {!featuresLocked && <SkipStats />}
+            {!featuresLocked && (
               <button
                 onClick={exportMyData}
                 className="w-full py-3 rounded-xl text-sm font-medium border transition-colors hover:border-[var(--primary)] hover:text-[var(--primary)]"

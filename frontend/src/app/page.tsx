@@ -8,6 +8,7 @@ import LessonCard from "@/components/LessonCard";
 import { api, Group, Lesson, TodayItem, Stats, WeekInfo, DAYS_ORDER } from "@/lib/api";
 import { featuresUnlocked } from "@/lib/features";
 import GroupSelector from "@/components/GroupSelector";
+import FeatureHint from "@/components/FeatureHint";
 
 const DAY_LABELS: Record<string, string> = {
   понедельник: "Понедельник", вторник: "Вторник", среда: "Среда",
@@ -331,6 +332,11 @@ export default function HomePage() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Одноразовая подсказка — только когда функции включены и только своей группе */}
+        {isMyGroup && (featureAttendance || featureNotes) && (
+          <FeatureHint skips={featureAttendance} notes={featureNotes} />
         )}
 
         {/* Фильтр по дню */}
