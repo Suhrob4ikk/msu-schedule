@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import WeekBar from "@/components/WeekBar";
 import LessonCard from "@/components/LessonCard";
-import { api, Group, Lesson, TodayItem, Stats, WeekInfo, DAYS_ORDER, breakLabel } from "@/lib/api";
+import { api, Group, Lesson, TodayItem, Stats, WeekInfo, DAYS_ORDER, breakLabel, gapBetween, humanDuration } from "@/lib/api";
 import { featuresUnlocked } from "@/lib/features";
 import GroupSelector from "@/components/GroupSelector";
 import FeatureHint from "@/components/FeatureHint";
@@ -356,6 +356,22 @@ export default function HomePage() {
                     {nextItem.teacher && ` · ${nextItem.teacher}`}
                   </span>
                 </div>
+                {/* Прогресс перемены — видно, сколько от неё осталось */}
+                {nextItem.break_minutes != null && nextItem.break_minutes > 0 && (() => {
+                  const [h, m] = nextItem.pair_time_start.split(":").map(Number);
+                  const start = new Date(currentTime);
+                  start.setHours(h, m, 0, 0);
+                  const leftMs = start.getTime() - currentTime;
+                  const totalMs = nextItem.break_minutes * 60_000;
+                  const p = Math.min(1, Math.max(0, 1 - leftMs / totalMs));
+                  return (
+                    <div className="mt-2.5">
+                      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--tag-bg)" }}>
+                        <div className="h-full rounded-full" style={{ width: `${p * 100}%`, background: "var(--primary)" }} />
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>
@@ -498,14 +514,30 @@ export default function HomePage() {
                     new Date(dayLessons[0].lesson_date).toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}
                 </span>
               </h2>
-              {dayLessons.map(lesson => (
-                <LessonCard
-                  key={lesson.id}
-                  lesson={lesson}
-                  showAttendance={featureAttendance && isMyGroup}
-                  showNotes={featureNotes && isMyGroup}
-                />
-              ))}
+              {dayLessons.map((lesson, i) => {
+                // Окно = пропущенный слот пары. Обычный перерыв между соседними
+                // парами (включая обед III→IV) окном не считается.
+                const gap = i > 0 ? gapBetween(dayLessons[i - 1].pair_number, lesson.pair_number) : null;
+                return (
+                  <div key={lesson.id}>
+                    {gap && (
+                      <div className="flex items-center gap-2 my-2 px-1" aria-label="Окно в расписании">
+                        <span className="h-px flex-1" style={{ background: "var(--border)" }} />
+                        <span className="text-[11px] lg:text-xs shrink-0" style={{ color: "var(--muted)" }}>
+                          окно {humanDuration(gap.minutes)} · свободн{gap.pairs.length > 1 ? "ы" : "а"}{" "}
+                          {gap.pairs.join(", ")} пар{gap.pairs.length > 1 ? "ы" : "а"}
+                        </span>
+                        <span className="h-px flex-1" style={{ background: "var(--border)" }} />
+                      </div>
+                    )}
+                    <LessonCard
+                      lesson={lesson}
+                      showAttendance={featureAttendance && isMyGroup}
+                      showNotes={featureNotes && isMyGroup}
+                    />
+                  </div>
+                );
+              })}
             </div>
           ))}
         </div>
