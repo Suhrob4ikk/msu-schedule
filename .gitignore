@@ -36,3 +36,5 @@ Thumbs.db
 npm-out.txt
 npm-err.txt
 frontend-dev.log
+
+.vercel
