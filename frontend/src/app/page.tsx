@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import WeekBar from "@/components/WeekBar";
 import LessonCard from "@/components/LessonCard";
-import { api, Group, Lesson, TodayItem, Stats, WeekInfo, DAYS_ORDER } from "@/lib/api";
+import { api, Group, Lesson, TodayItem, Stats, WeekInfo, DAYS_ORDER, breakLabel } from "@/lib/api";
 import { featuresUnlocked } from "@/lib/features";
 import GroupSelector from "@/components/GroupSelector";
 import FeatureHint from "@/components/FeatureHint";
@@ -288,7 +288,12 @@ export default function HomePage() {
               <div className="card lesson-now">
                 <div className="flex items-center justify-between gap-2 mb-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs lg:text-sm font-semibold text-[var(--primary)]">СЛЕДУЮЩАЯ</span>
+                    {/* Во время перемены важнее сказать «идёт перемена», чем «следующая» */}
+                    <span className="text-xs lg:text-sm font-semibold text-[var(--primary)]">
+                      {nextItem.break_minutes != null
+                        ? breakLabel(nextItem.break_minutes).toUpperCase()
+                        : "СЛЕДУЮЩАЯ"}
+                    </span>
                     <span className="lesson-tag">{nextItem.pair_number} пара</span>
                   </div>
                   {countdown && (
@@ -297,6 +302,13 @@ export default function HomePage() {
                     </span>
                   )}
                 </div>
+                {nextItem.break_minutes != null && (
+                  <p className="text-xs text-[var(--muted)] mb-1.5">
+                    {nextItem.break_minutes <= 20
+                      ? "Не уходи далеко — скоро начнётся:"
+                      : "Дальше по расписанию:"}
+                  </p>
+                )}
                 <p className="font-semibold text-sm lg:text-base">{nextItem.subject}</p>
                 <p className="text-xs lg:text-sm text-[var(--muted)] mt-1">
                   {nextItem.pair_time_start}–{nextItem.pair_time_end}

@@ -62,6 +62,17 @@ export interface TodayItem {
   is_current: boolean;
   is_next: boolean;
   minutes_until: number | null;
+  /** Длина идущей сейчас перемены в минутах. null — перемены нет. */
+  break_minutes: number | null;
+}
+
+/** Как назвать перерыв между парами: 15 минут, обед или «окно» на пол-дня. */
+export function breakLabel(minutes: number): string {
+  if (minutes <= 20) return `Перемена · ${minutes} мин`;
+  if (minutes <= 90) return `Большой перерыв · ${minutes} мин`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return `Окно · ${h} ч${m ? ` ${m} мин` : ""}`;
 }
 
 export interface Stats {
@@ -115,8 +126,9 @@ export const api = {
   getTeacherSchedule: (teacherId: number, weekStart?: string) =>
     fetchApi<Lesson[]>(`/schedule/teacher/${teacherId}${buildQuery({ week_start: weekStart })}`),
 
+  // 60 сек, а не 3 минуты по умолчанию: «идёт сейчас / перемена» устаревает быстро
   getNow: (groupId: number) =>
-    fetchApi<TodayItem[]>(`/schedule/now?group_id=${groupId}`),
+    fetchApi<TodayItem[]>(`/schedule/now?group_id=${groupId}`, 60_000),
 
   getFreeRooms: (day: string, pair: string, weekStart?: string) =>
     fetchApi<Array<{ room_name: string; is_free: boolean; occupied_by?: string }>>(

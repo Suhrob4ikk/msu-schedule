@@ -133,6 +133,9 @@ class TodayScheduleItem(BaseModel):
     is_current: bool = False
     is_next: bool = False
     minutes_until: Optional[int] = None
+    # Длина идущей сейчас перемены в минутах (у следующей пары).
+    # None — значит перемены нет: либо идёт пара, либо занятия ещё не начинались.
+    break_minutes: Optional[int] = None
 
 
 class RoomAvailabilityItem(BaseModel):

@@ -376,6 +376,21 @@ def get_current_and_next(
         key=lambda l: PAIR_ORDER.index(l.pair_number) if l.pair_number in PAIR_ORDER else 99
     )
 
+    # Идёт ли сейчас какая-то пара — нужно, чтобы отличить перемену от «идёт пара»
+    def _bounds(l):
+        t = PAIR_TIMES.get(l.pair_number)
+        if not t:
+            return None
+        return (time(*map(int, t[0].split(":"))), time(*map(int, t[1].split(":"))))
+
+    any_current = any(
+        b and b[0] <= current_time <= b[1]
+        for b in (_bounds(l) for l in sorted_lessons)
+    )
+    # Конец последней уже закончившейся пары — начало перемены
+    ended = [b[1] for b in (_bounds(l) for l in sorted_lessons) if b and b[1] < current_time]
+    last_end = max(ended) if ended else None
+
     found_next = False  # берём только одну "следующую" пару
     for lesson in sorted_lessons:
         times = PAIR_TIMES.get(lesson.pair_number)
@@ -405,6 +420,15 @@ def get_current_and_next(
             # Считаем разницу в том же часовом поясе
             target = datetime.combine(today, t_start, tzinfo=TZ_DUSHANBE)
             mins = int((target - now).total_seconds() // 60)
+
+            # Сейчас перемена, если пара не идёт, но сегодня уже была предыдущая.
+            # Длина перемены статична (конец прошлой пары → начало этой), поэтому
+            # её безопасно кэшировать на клиенте — обратный отсчёт клиент считает сам.
+            break_minutes = None
+            if not any_current and last_end is not None:
+                gap = datetime.combine(today, t_start) - datetime.combine(today, last_end)
+                break_minutes = int(gap.total_seconds() // 60)
+
             result.append(TodayScheduleItem(
                 pair_number=lesson.pair_number,
                 pair_time_start=times[0],
@@ -417,6 +441,7 @@ def get_current_and_next(
                 is_current=False,
                 is_next=True,
                 minutes_until=mins,
+                break_minutes=break_minutes,
             ))
             found_next = True  # больше "следующих" не добавляем
 
