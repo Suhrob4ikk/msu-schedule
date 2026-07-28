@@ -136,6 +136,9 @@ class TodayScheduleItem(BaseModel):
     # Длина идущей сейчас перемены в минутах (у следующей пары).
     # None — значит перемены нет: либо идёт пара, либо занятия ещё не начинались.
     break_minutes: Optional[int] = None
+    # Пара уже не сегодня: на сегодня занятия кончились, это ближайший учебный день.
+    is_tomorrow: bool = False
+    day_label: Optional[str] = None   # «Завтра» / «В понедельник»
 
 
 class RoomAvailabilityItem(BaseModel):

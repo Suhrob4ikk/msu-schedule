@@ -64,6 +64,9 @@ export interface TodayItem {
   minutes_until: number | null;
   /** Длина идущей сейчас перемены в минутах. null — перемены нет. */
   break_minutes: number | null;
+  /** Пара не сегодня: на сегодня занятия кончились. */
+  is_tomorrow: boolean;
+  day_label: string | null;   // «Завтра» / «В понедельник»
 }
 
 /** Как назвать перерыв между парами: 15 минут, обед или «окно» на пол-дня. */

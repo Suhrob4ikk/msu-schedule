@@ -1,6 +1,6 @@
 """Основные эндпоинты расписания."""
 
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from typing import Optional, List
 from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends, Query, HTTPException
@@ -355,16 +355,18 @@ def get_current_and_next(
     if not latest_week:
         return []
 
-    lessons = (
+    # Берём всю неделю: сегодняшние пары нужны для «идёт сейчас», а остальные —
+    # чтобы после последней пары показать, когда следующий учебный день.
+    week_lessons = (
         db.query(Lesson)
         .options(joinedload(Lesson.teacher), joinedload(Lesson.room))
         .filter(
             Lesson.week_schedule_id == latest_week.id,
             Lesson.group_id == group_id,
-            Lesson.day_of_week == today_name,
         )
         .all()
     )
+    lessons = [l for l in week_lessons if l.day_of_week == today_name]
 
     result = []
     current_time = now.time()
@@ -444,6 +446,49 @@ def get_current_and_next(
                 break_minutes=break_minutes,
             ))
             found_next = True  # больше "следующих" не добавляем
+
+    # На сегодня пары закончились — показываем ближайшую пару следующего
+    # учебного дня, чтобы экран не оставался пустым.
+    if not result:
+        DAY_IN = {
+            "понедельник": "В понедельник", "вторник": "Во вторник", "среда": "В среду",
+            "четверг": "В четверг", "пятница": "В пятницу", "суббота": "В субботу",
+            "воскресенье": "В воскресенье",
+        }
+        # Только до конца ТЕКУЩЕЙ недели: расписание хранится понедельно, и пары
+        # понедельника в этой записи — это прошедший понедельник, а не будущий.
+        # Расписание на следующую неделю появится отдельной записью — тогда
+        # она станет актуальной и этот же код покажет её дни.
+        days_left = 6 - today.weekday()   # пн=0 … вс=6
+        for offset in range(1, days_left + 1):
+            d = today + timedelta(days=offset)
+            dname = day_names[d.weekday()]
+            day_lessons = sorted(
+                (l for l in week_lessons if l.day_of_week == dname),
+                key=lambda l: PAIR_ORDER.index(l.pair_number) if l.pair_number in PAIR_ORDER else 99,
+            )
+            if not day_lessons:
+                continue
+            first = day_lessons[0]
+            times = PAIR_TIMES.get(first.pair_number)
+            if not times:
+                continue
+            result.append(TodayScheduleItem(
+                pair_number=first.pair_number,
+                pair_time_start=times[0],
+                pair_time_end=times[1],
+                subject=first.subject,
+                lesson_type=first.lesson_type,
+                teacher=first.teacher.name if first.teacher else None,
+                room=first.room.name if first.room else None,
+                group_name=group.name,
+                is_current=False,
+                is_next=False,
+                minutes_until=None,
+                is_tomorrow=True,
+                day_label="Завтра" if offset == 1 else DAY_IN.get(dname, dname.capitalize()),
+            ))
+            break
 
     return result
 

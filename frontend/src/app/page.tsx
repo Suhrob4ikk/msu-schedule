@@ -181,12 +181,17 @@ export default function HomePage() {
 
   const currentItem = nowItems.find(i => i.is_current);
   const nextItem = nowItems.find(i => i.is_next);
+  // На сегодня всё — бэкенд прислал первую пару следующего учебного дня
+  const tomorrowItem = nowItems.find(i => i.is_tomorrow);
 
   const [currentTime, setCurrentTime] = useState(() => Date.now());
   useEffect(() => {
+    // Таймер нужен только для обратного отсчёта и прогресса идущей пары.
+    // Без них он молотил бы вхолостую, перерисовывая всю страницу раз в секунду.
+    if (!currentItem && !nextItem) return;
     const timer = window.setInterval(() => setCurrentTime(Date.now()), 1000);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [currentItem, nextItem]);
 
   // Управление уведомлениями вынесено в одно место — «Мой кабинет» (профиль),
   // чтобы не дублировать кнопку на главной.
@@ -249,6 +254,34 @@ export default function HomePage() {
           )}
         </div>
 
+        {/* На сегодня занятия кончились — показываем ближайший учебный день */}
+        {selectedGroup && !loading && tomorrowItem && (
+          <div className="card lesson-now mb-4 lg:mb-5">
+            <div className="flex items-center gap-2 mb-2">
+              <svg className="w-4 h-4 text-[var(--primary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 6L9 17l-5-5" />
+              </svg>
+              <span className="text-xs lg:text-sm font-semibold text-[var(--primary)]">НА СЕГОДНЯ ВСЁ</span>
+              <span className="lesson-tag ml-auto">{tomorrowItem.pair_number} пара</span>
+            </div>
+            <p className="text-xs text-[var(--muted)] mb-1.5">
+              {tomorrowItem.day_label} в {tomorrowItem.pair_time_start} — первая пара:
+            </p>
+            <p className="font-semibold text-sm lg:text-base">{tomorrowItem.subject}</p>
+            <div className="flex flex-wrap items-center gap-2 mt-2">
+              {tomorrowItem.room && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-sm font-bold"
+                  style={{ background: "var(--primary-soft)", color: "var(--primary)" }}>
+                  ауд. {tomorrowItem.room}
+                </span>
+              )}
+              {tomorrowItem.teacher && (
+                <span className="text-xs lg:text-sm text-[var(--muted)]">{tomorrowItem.teacher}</span>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* "Что сейчас" виджет — показываем только когда есть текущая или следующая пара */}
         {selectedGroup && !loading && (currentItem || nextItem) && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:gap-4 mb-4 lg:mb-5">
@@ -310,11 +343,19 @@ export default function HomePage() {
                   </p>
                 )}
                 <p className="font-semibold text-sm lg:text-base">{nextItem.subject}</p>
-                <p className="text-xs lg:text-sm text-[var(--muted)] mt-1">
-                  {nextItem.pair_time_start}–{nextItem.pair_time_end}
-                  {nextItem.teacher && ` · ${nextItem.teacher}`}
-                  {nextItem.room && ` · ауд. ${nextItem.room}`}
-                </p>
+                {/* Аудиторию — отдельно и крупно: на перемене это главный вопрос */}
+                <div className="flex flex-wrap items-center gap-2 mt-2">
+                  {nextItem.room && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-sm font-bold"
+                      style={{ background: "var(--primary-soft)", color: "var(--primary)" }}>
+                      ауд. {nextItem.room}
+                    </span>
+                  )}
+                  <span className="text-xs lg:text-sm text-[var(--muted)]">
+                    {nextItem.pair_time_start}–{nextItem.pair_time_end}
+                    {nextItem.teacher && ` · ${nextItem.teacher}`}
+                  </span>
+                </div>
               </div>
             )}
           </div>
