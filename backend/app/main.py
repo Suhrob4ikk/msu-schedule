@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import engine
 from app.models import Base
-from app.api.routes import schedule, export, user, admin, dev
+from app.api.routes import schedule, export, user, admin, dev, app_update
 from app.services.scheduler import start_scheduler, stop_scheduler
 
 logging.basicConfig(
@@ -228,6 +228,7 @@ app.include_router(export.router, prefix="/api")
 app.include_router(user.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
 app.include_router(dev.router, prefix="/api")
+app.include_router(app_update.router, prefix="/api")
 
 
 @app.get("/")
