@@ -74,17 +74,26 @@ def get_or_create_room(db: Session, name: str) -> Room:
 
 def detect_changes(db: Session, week_schedule: WeekSchedule, new_lessons: list[dict],
                    group: Group) -> list[dict]:
-    """Сравнивает новое расписание с предыдущей неделей и фиксирует изменения."""
+    """Сравнивает новое расписание с предыдущей ВЕРСИЕЙ ТОЙ ЖЕ НЕДЕЛИ
+    (например, если msu.tj поправил файл в течение недели).
+
+    Раньше сравнивали с любой предыдущей неделей — из-за этого приход
+    расписания на совершенно новую неделю (например, 1 сентября после каникул)
+    засчитывался как десятки «added»/«removed» по каждой группе, хотя это
+    просто новые данные, а не изменения. Появление новой недели фиксируется
+    отдельно — одной записью ScheduleChange(change_type="new_week") на
+    факультет, см. save_schedule_to_db."""
     changes = []
 
-    # Загружаем предыдущее расписание этой группы
+    # Предыдущая версия ИМЕННО этой недели (не любой предыдущей)
     prev_schedule = (
         db.query(WeekSchedule)
         .filter(
             WeekSchedule.faculty_code == week_schedule.faculty_code,
+            WeekSchedule.week_start == week_schedule.week_start,
             WeekSchedule.id != week_schedule.id,
         )
-        .order_by(WeekSchedule.week_start.desc())
+        .order_by(WeekSchedule.downloaded_at.desc())
         .first()
     )
     if not prev_schedule:
@@ -172,6 +181,15 @@ def save_schedule_to_db(db: Session, parsed: dict, file_last_modified: Optional[
     ).update({"is_latest": False})
     db.flush()
 
+    # Была ли уже версия ИМЕННО этой недели раньше? Если нет — это не
+    # «изменения», а появление новой недели целиком (проверяем ДО вставки
+    # новой строки, поэтому фильтр по id пока не нужен).
+    is_new_week = not (
+        db.query(WeekSchedule)
+        .filter_by(faculty_code=faculty_code, week_start=week_start)
+        .first()
+    )
+
     # Всегда создаём новую запись (архив старой остаётся)
     week_schedule = WeekSchedule(
         week_number=week_number,
@@ -182,6 +200,14 @@ def save_schedule_to_db(db: Session, parsed: dict, file_last_modified: Optional[
     )
     db.add(week_schedule)
     db.flush()
+
+    if is_new_week:
+        db.add(ScheduleChange(
+            faculty_code=faculty_code,
+            change_type="new_week",
+            week_start=week_start,
+            new_value=f"Расписание на {week_number}-ю неделю" if week_number else "Опубликовано новое расписание",
+        ))
 
     # Чистим архив старше 14 дней
     cleanup_old_schedules(db, faculty_code)
@@ -197,7 +223,8 @@ def save_schedule_to_db(db: Session, parsed: dict, file_last_modified: Optional[
             group_data["sheet_index"], group_data["block_index"]
         )
 
-        # Определяем изменения относительно предыдущей недели
+        # Изменения внутри ЭТОЙ ЖЕ недели (правка файла в течение недели).
+        # Для новой недели detect_changes вернёт [] — это не изменения.
         changes = detect_changes(db, week_schedule, group_data["lessons"], group)
         for change in changes:
             db.add(ScheduleChange(
