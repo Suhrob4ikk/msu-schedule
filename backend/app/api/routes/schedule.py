@@ -270,12 +270,15 @@ def is_real_teacher_name(name: str) -> bool:
 
 
 def _expand_teacher(teacher_id: int, name: str) -> list[dict]:
-    """Если в поле преподавателя несколько ФИО через запятую — разделяем на отдельных.
-    Каждая часть должна содержать инициалы вида «А.Б.»."""
-    if ',' in name:
-        parts = [p.strip() for p in name.split(',')]
-        if all(is_real_teacher_name(p) for p in parts) and len(parts) >= 2:
-            return [{"id": teacher_id, "name": p} for p in parts]
+    """Одна запись преподавателя = один пункт списка.
+
+    Раньше «Стаценко Ю.Ю., Охонвалиева Ш.С.» разбивалось на две строки, но обе
+    получали ОДИН И ТОТ ЖЕ teacher_id — то есть, нажав на любую из фамилий,
+    студент видел пары обоих преподавателей и не видел личных пар каждого.
+    Пока пара умеет ссылаться только на одного преподавателя (teacher_id),
+    честнее показать совмещённую запись как есть: тогда расписание всегда
+    соответствует тому, на что нажали. Поиск по фамилии всё равно находит —
+    он ищет подстроку."""
     return [{"id": teacher_id, "name": name}]
 
 
@@ -567,24 +570,32 @@ def get_free_rooms(
             return "Лингвистика"
         return name
 
-    occupied_map = {}
+    # В одной аудитории может стоять несколько групп (общая лекция — или ошибка
+    # в расписании). Раньше словарь перезаписывался и оставалась только последняя,
+    # то есть накладка просто пропадала с глаз. Собираем все.
+    occupied_map: dict[str, list[str]] = {}
     for l in occupied:
         if l.room:
             type_suffix = f" · {l.lesson_type}" if l.lesson_type else ""
             tname = override_teacher_name(l.subject, l.teacher.name) or l.teacher.name if l.teacher else None
             teacher_name = f" · {tname}" if tname else ""
             group_name = short_group_name(l.group.name) if l.group else ""
-            occupied_map[l.room.name] = (
+            occupied_map.setdefault(l.room.name, []).append(
                 f"{l.group.year} курс · {group_name}: {l.subject}{type_suffix}{teacher_name}"
             )
 
     result = []
     for room_name in sorted(all_rooms.values()):
         if room_name in occupied_map:
+            entries = occupied_map[room_name]
             result.append({
                 "room_name": room_name,
                 "is_free": False,
-                "occupied_by": occupied_map[room_name],
+                # Строкой — чтобы старые версии приложения не сломались
+                "occupied_by": "; ".join(entries),
+                # Списком — для новых клиентов и подсветки накладок
+                "occupied_list": entries,
+                "conflict": len(entries) > 1,
             })
         else:
             result.append({"room_name": room_name, "is_free": True})
@@ -650,7 +661,7 @@ def get_group_stats(group_id: int, db: Session = Depends(get_db)):
 @router.get("/changes")
 def get_changes(
     faculty_code: Optional[str] = None,
-    limit: int = 50,
+    limit: int = Query(50, ge=1, le=200),   # верхняя граница: эндпоинт публичный
     db: Session = Depends(get_db),
 ):
     """История изменений расписания."""

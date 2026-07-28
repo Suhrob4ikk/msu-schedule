@@ -31,7 +31,10 @@ export default function RoomsPage() {
     if (jsDay >= 1 && jsDay <= 6) setDay(DAYS_ORDER[jsDay - 1]);
   }, []);
   const [pair, setPair] = useState("I");
-  const [rooms, setRooms] = useState<Array<{ room_name: string; is_free: boolean; occupied_by?: string }>>([]);
+  const [rooms, setRooms] = useState<Array<{
+    room_name: string; is_free: boolean; occupied_by?: string;
+    occupied_list?: string[]; conflict?: boolean;
+  }>>([]);
   const [loading, setLoading] = useState(false);
   const [weekBarReady, setWeekBarReady] = useState(false);
   // Пусто на старте (совпадает с SSR), реальную неделю выставит WeekBar после
@@ -145,14 +148,24 @@ export default function RoomsPage() {
                 Занятых: {busyRooms.length}
               </h2>
               <div className="space-y-2">
-                {busyRooms.map(r => (
-                  <div key={r.room_name} className="rounded-xl border-l-[3px] border-l-red-400 bg-red-50 dark:bg-red-950/20 px-3 py-2.5">
-                    <span className="text-sm font-semibold">{r.room_name}</span>
-                    {r.occupied_by && (
-                      <p className="text-xs text-[var(--muted)] mt-0.5">{r.occupied_by}</p>
-                    )}
-                  </div>
-                ))}
+                {busyRooms.map(r => {
+                  const entries = r.occupied_list ?? (r.occupied_by ? [r.occupied_by] : []);
+                  return (
+                    <div key={r.room_name} className="rounded-xl border-l-[3px] border-l-red-400 bg-red-50 dark:bg-red-950/20 px-3 py-2.5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-semibold">{r.room_name}</span>
+                        {r.conflict && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-500 text-white">
+                            {entries.length} группы одновременно
+                          </span>
+                        )}
+                      </div>
+                      {entries.map((e, i) => (
+                        <p key={i} className="text-xs text-[var(--muted)] mt-0.5">{e}</p>
+                      ))}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>

@@ -163,7 +163,10 @@ export const api = {
     fetchApi<TodayItem[]>(`/schedule/now?group_id=${groupId}`, 60_000),
 
   getFreeRooms: (day: string, pair: string, weekStart?: string) =>
-    fetchApi<Array<{ room_name: string; is_free: boolean; occupied_by?: string }>>(
+    fetchApi<Array<{
+      room_name: string; is_free: boolean; occupied_by?: string;
+      occupied_list?: string[]; conflict?: boolean;
+    }>>(
       `/schedule/free-rooms${buildQuery({ day_of_week: day, pair_number: pair, week_start: weekStart })}`
     ),
 
@@ -247,10 +250,10 @@ export function shortGroupName(name: string): string {
 
   const n = trimmed.toUpperCase();
   if (n.includes('ПРИКЛАДНАЯ МАТЕМАТИКА') || (n.includes('МАТЕМАТИК') && n.includes('ИНФОРМАТИК'))) return 'ПМиИ';
-  if ((n.includes('ХИМИЯ') || n.includes('ФИЗИКА') || n.includes('МЕХАНИКА') || n.includes('МАТЕМАТИКА')) &&
-    (n.includes('ХИМИЯ') || n.includes('ФИЗИКА') || n.includes('МЕХАНИКА') || n.includes('МАТЕМАТИКА'))) {
-    return 'ХФММ';
-  }
+  // Обе половины условия были одинаковыми (&& не делал ничего), из-за чего
+  // ЛЮБАЯ группа со словом «физика» или «математика» становилась ХФММ.
+  // Правило должно совпадать с бэкендом и мобильным.
+  if (n.includes('ХИМИЯ') && (n.includes('ФИЗИКА') || n.includes('МЕХАНИКА'))) return 'ХФММ';
   if (n.includes('ГЕОЛОГИЯ')) return 'Геология';
   if (n.includes('МУНИЦИПАЛЬН') || (n.includes('ГОСУДАРСТВЕНН') && n.includes('УПРАВЛЕНИ'))) return 'ГМУ';
   if (n.includes('МЕЖДУНАРОДН') && n.includes('ОТНОШЕНИ')) return 'МО';

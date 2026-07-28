@@ -45,10 +45,13 @@ def _day_label(lesson) -> str:
 
 
 def send_push(endpoint: str, keys_json: str, title: str, body: str,
-              url: str = "/", notif_type: str = "general", exam_key: str = "") -> None:
-    """Отправляет одно push-уведомление."""
+              url: str = "/", notif_type: str = "general", exam_key: str = "") -> bool:
+    """Отправляет одно push-уведомление. True — ушло успешно.
+
+    Возвращаемое значение важно для панели /dev: раньше функция была `-> None`,
+    и счётчик «Тестовый push» всегда показывал 0, хотя уведомления доходили."""
     if not settings.VAPID_PRIVATE_KEY or not settings.VAPID_PUBLIC_KEY:
-        return
+        return False
     try:
         keys = json.loads(keys_json)
         payload = {"title": title, "body": body, "url": url, "type": notif_type}
@@ -60,12 +63,15 @@ def send_push(endpoint: str, keys_json: str, title: str, body: str,
             vapid_private_key=settings.VAPID_PRIVATE_KEY,
             vapid_claims={"sub": settings.VAPID_SUBJECT},
         )
+        return True
     except WebPushException as e:
         if e.response and e.response.status_code in (404, 410):
             raise  # вызывающий код удалит протухшую подписку
         logger.warning(f"Push ошибка: {e}")
+        return False
     except Exception as e:
         logger.warning(f"Push ошибка: {e}")
+        return False
 
 
 # ─── Уведомления об изменениях расписания ─────────────────────────────────────

@@ -4,7 +4,7 @@
 Значение задаётся переменной окружения ADMIN_SECRET в .env.
 """
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -40,14 +40,17 @@ async def sync_one(faculty_code: str, force: bool = False, _: None = Depends(req
     return result
 
 
-@router.get("/sync-logs")
-def get_sync_logs(limit: int = 20, db: Session = Depends(get_db)):
-    """Последние записи журнала синхронизации."""
+@router.get("/sync-logs", dependencies=[Depends(require_admin)])
+def get_sync_logs(limit: int = Query(20, ge=1, le=200), db: Session = Depends(get_db)):
+    """Последние записи журнала синхронизации.
+
+    Закрыто ключом: в message попадают тексты исключений с путями и деталями
+    внутреннего устройства — наружу это отдавать незачем."""
     logs = db.query(SyncLog).order_by(SyncLog.started_at.desc()).limit(limit).all()
     return logs
 
 
-@router.get("/weeks")
+@router.get("/weeks", dependencies=[Depends(require_admin)])
 def get_weeks(db: Session = Depends(get_db)):
     """Все загруженные недели расписания."""
     weeks = db.query(WeekSchedule).order_by(WeekSchedule.week_start.desc()).all()
