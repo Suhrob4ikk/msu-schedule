@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     VAPID_PRIVATE_KEY: str = ""
     VAPID_PUBLIC_KEY: str = ""
     VAPID_SUBJECT: str = "mailto:davlatovsuhrob1234@gmail.com"
+    # Токен для GitHub API (только чтение msu-schedule-mobile) — без него
+    # анонимный лимит 60 запросов/час общий на весь IP хостинга и делится
+    # с чужими проектами, легко истощается. Если пусто — запросы идут
+    # анонимно (работает, но менее надёжно).
+    GITHUB_API_TOKEN: str = ""
 
     class Config:
         env_file = ".env"

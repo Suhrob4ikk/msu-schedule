@@ -10,22 +10,32 @@ import logging
 import httpx
 from fastapi import APIRouter, HTTPException
 
+from app.core.config import settings
+
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/app", tags=["app"])
 
 GITHUB_REPO = "Suhrob4ikk/msu-schedule-mobile"
 
-# GitHub API даёт 60 запросов/час анонимным клиентам — кэш на час с запасом
-# (у нас один такой запрос на весь бэкенд, не на пользователя).
-_CACHE: dict = {}
-_CACHE_TTL = 3600.0
+# Успешный ответ кэшируем надолго — релизы выходят не чаще раза в 1-2 недели.
+_SUCCESS_TTL = 3600.0
+# Если GitHub только что отказал (например, 403 rate limit на общий IP
+# хостинга) — не долбим его повторно на каждый запрос пользователя,
+# ждём хотя бы 5 минут перед следующей попыткой.
+_RETRY_COOLDOWN = 300.0
+
+_cache: dict = {"data": None, "ts": 0.0, "last_attempt": 0.0}
 
 
 async def _fetch_latest_release() -> dict:
+    headers = {"Accept": "application/vnd.github+json"}
+    if settings.GITHUB_API_TOKEN:
+        headers["Authorization"] = f"Bearer {settings.GITHUB_API_TOKEN}"
+
     async with httpx.AsyncClient(timeout=10) as client:
         resp = await client.get(
             f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest",
-            headers={"Accept": "application/vnd.github+json"},
+            headers=headers,
         )
         resp.raise_for_status()
         data = resp.json()
@@ -45,18 +55,24 @@ async def _fetch_latest_release() -> dict:
 async def get_latest_version():
     """Последняя опубликованная версия мобильного приложения."""
     now = time.time()
-    cached = _CACHE.get("data")
-    if cached and (now - _CACHE.get("ts", 0)) < _CACHE_TTL:
-        return cached
 
+    if _cache["data"] and (now - _cache["ts"]) < _SUCCESS_TTL:
+        return _cache["data"]
+
+    if (now - _cache["last_attempt"]) < _RETRY_COOLDOWN:
+        if _cache["data"]:
+            return _cache["data"]  # протухший, но лучше чем ошибка
+        raise HTTPException(503, "Не удалось получить информацию о версии")
+
+    _cache["last_attempt"] = now
     try:
         data = await _fetch_latest_release()
     except Exception as e:
         logger.warning(f"Не удалось получить версию приложения с GitHub: {e}")
-        if cached:
-            return cached  # протухший кэш лучше, чем ошибка у пользователя
+        if _cache["data"]:
+            return _cache["data"]
         raise HTTPException(503, "Не удалось получить информацию о версии")
 
-    _CACHE["data"] = data
-    _CACHE["ts"] = now
+    _cache["data"] = data
+    _cache["ts"] = now
     return data
