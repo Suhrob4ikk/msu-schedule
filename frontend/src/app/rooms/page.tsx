@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import WeekBar from "@/components/WeekBar";
+import { SkeletonRooms } from "@/components/Skeletons";
 import { api, DAYS_ORDER, PAIR_TIMES } from "@/lib/api";
 
 const DAY_SHORT: Record<string, string> = {
@@ -26,11 +27,22 @@ export default function RoomsPage() {
   const [day, setDay] = useState("понедельник");
   // После монтирования — сегодняшний день (вс → понедельник). В useEffect,
   // чтобы первый клиентский рендер совпадал с SSR (иначе hydration #418).
+  const [pair, setPair] = useState("I");
   useEffect(() => {
+    // Переход из расписания по клику на аудиторию: ?day=вторник&pair=II.
+    // Адрес читаем после монтирования, а не через useSearchParams — иначе
+    // страница перестала бы собираться статически и потребовала Suspense.
+    const q = new URLSearchParams(window.location.search);
+    const qDay = q.get("day");
+    const qPair = q.get("pair");
+    if (qDay && DAYS.includes(qDay)) {
+      setDay(qDay);
+      if (qPair && PAIR_TIMES[qPair]) setPair(qPair);
+      return;
+    }
     const jsDay = new Date().getDay();
     if (jsDay >= 1 && jsDay <= 6) setDay(DAYS_ORDER[jsDay - 1]);
   }, []);
-  const [pair, setPair] = useState("I");
   const [rooms, setRooms] = useState<Array<{
     room_name: string; is_free: boolean; occupied_by?: string;
     occupied_list?: string[]; conflict?: boolean;
@@ -171,12 +183,7 @@ export default function RoomsPage() {
           </div>
         )}
 
-        {!weekBarReady && !loading && rooms.length === 0 && (
-          <div className="flex items-center justify-center py-16">
-            <div className="w-6 h-6 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
-            <span className="ml-3 text-sm text-[var(--muted)]">Загружаем данные...</span>
-          </div>
-        )}
+        {rooms.length === 0 && (!weekBarReady || loading) && <SkeletonRooms />}
 
         {!loading && rooms.length === 0 && weekBarReady && (
           <div className="text-center py-16 text-[var(--muted)]">

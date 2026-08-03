@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 import Header from "@/components/Header";
 import WeekBar from "@/components/WeekBar";
 import LessonCard from "@/components/LessonCard";
+import { SkeletonRows, SkeletonCards } from "@/components/Skeletons";
 import { api, Teacher, Lesson, DAYS_ORDER } from "@/lib/api";
 
 const DAY_LABELS: Record<string, string> = {
@@ -36,6 +37,23 @@ export default function TeachersPage() {
   useEffect(() => {
     if (selectedWeekStart) loadTeachers(selectedWeekStart);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Переход из расписания по клику на ФИО: /teachers?teacher=<id>.
+  // Читаем адрес после монтирования, а не через useSearchParams — иначе
+  // страница перестала бы собираться статически и потребовала Suspense.
+  const [pendingTeacherId, setPendingTeacherId] = useState<number | null>(null);
+  useEffect(() => {
+    const id = Number(new URLSearchParams(window.location.search).get("teacher"));
+    if (id) setPendingTeacherId(id);
+  }, []);
+
+  // Ждём, пока подгрузится список: имя преподавателя известно только из него.
+  useEffect(() => {
+    if (pendingTeacherId === null || teachers.length === 0) return;
+    const t = teachers.find(x => x.id === pendingTeacherId);
+    setPendingTeacherId(null);
+    if (t) loadTeacher(t);
+  }, [pendingTeacherId, teachers]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleWeekChange = useCallback(async (weekStart: string) => {
     setSelectedWeekStart(weekStart);
@@ -94,11 +112,7 @@ export default function TeachersPage() {
           {/* Список преподавателей */}
           <div className={`lg:col-span-1 ${mobileView === "detail" ? "hidden lg:block" : ""}`}>
             <div className="card h-[calc(100vh-320px)] lg:h-[calc(100vh-240px)] overflow-y-auto">
-              {loadingTeachers && (
-                <div className="flex items-center justify-center py-6">
-                  <div className="w-5 h-5 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
-                </div>
-              )}
+              {loadingTeachers && <SkeletonRows rows={9} label="Загружаем преподавателей" />}
               {!loadingTeachers && filtered.length === 0 && (
                 <p className="text-[var(--muted)] text-sm lg:text-base text-center py-4">Нет результатов</p>
               )}
@@ -133,10 +147,13 @@ export default function TeachersPage() {
               </button>
             )}
 
+            {/* Расписание преподавателя рисуется плоским списком карточек, без
+                рельсы таймлайна — поэтому и заглушка здесь простая. */}
             {loading && (
-              <div className="flex items-center justify-center py-16">
-                <div className="w-6 h-6 lg:w-8 lg:h-8 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
-              </div>
+              <>
+                <div className="skeleton h-6 w-52 mb-4" />
+                <SkeletonCards rows={4} label="Загружаем расписание преподавателя" />
+              </>
             )}
             {!selected && !loading && (
               <div className="hidden lg:flex text-center py-16 text-[var(--muted)] items-center justify-center">

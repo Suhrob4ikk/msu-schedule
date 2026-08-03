@@ -149,6 +149,7 @@ export default function DaySchedule({
                 <LessonCard
                   lesson={lesson}
                   compactTime
+                  links
                   showAttendance={showAttendance}
                   showNotes={showNotes}
                 />

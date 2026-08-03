@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import WeekBar from "@/components/WeekBar";
 import DaySchedule from "@/components/DaySchedule";
-import ScheduleSkeleton from "@/components/ScheduleSkeleton";
+import { ScheduleSkeleton } from "@/components/Skeletons";
 import { api, Group, Lesson, TodayItem, Stats, WeekInfo, DAYS_ORDER, breakLabel } from "@/lib/api";
 import { featuresUnlocked } from "@/lib/features";
 import { todayIso } from "@/lib/studyData";

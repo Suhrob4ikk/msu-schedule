@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Header from "@/components/Header";
+import { SkeletonCards } from "@/components/Skeletons";
 import { api, Change, shortGroupName } from "@/lib/api";
 
 const typeLabels: Record<string, string> = {
@@ -61,11 +62,7 @@ export default function ChangesPage() {
           </p>
         </div>
 
-        {loading && (
-          <div className="flex items-center justify-center py-16">
-            <div className="w-6 h-6 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
-          </div>
-        )}
+        {loading && <SkeletonCards rows={6} label="Загружаем историю изменений" />}
 
         {error && (
           <div className="text-center py-16 text-[var(--muted)]">

@@ -1,7 +1,22 @@
 "use client";
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { Lesson, shortGroupName } from "@/lib/api";
 import { skipKey, noteWeeklyKey, noteDatedKey, isPastLesson } from "@/lib/studyData";
+
+// Иконки вынесены в константы: одна и та же используется и в ссылке, и в
+// обычном тексте — дублировать разметку незачем.
+const teacherIcon = (
+  <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor" className="shrink-0">
+    <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" />
+  </svg>
+);
+
+const roomIcon = (
+  <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor" className="shrink-0">
+    <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+  </svg>
+);
 
 const typeLabels: Record<string, string> = {
   ЗАЧЕТ: "Зачёт",
@@ -34,9 +49,13 @@ interface Props {
   /** Внутри таймлайна время пары показано на рельсе слева — в карточке его
    *  прячем, чтобы не дублировать. На остальных страницах время нужно. */
   compactTime?: boolean;
+  /** Делать ФИО и аудиторию ссылками: ФИО → расписание преподавателя,
+   *  аудитория → кто ещё в это время. Включаем только на главной: на самой
+   *  странице преподавателя ссылка вела бы на неё же. */
+  links?: boolean;
 }
 
-export default function LessonCard({ lesson, showGroup, showAttendance, showNotes, compactTime }: Props) {
+export default function LessonCard({ lesson, showGroup, showAttendance, showNotes, compactTime, links }: Props) {
   const shortGroup = lesson.group ? shortGroupName(lesson.group.name) : null;
   const kind = lesson.lesson_type ? (typeKind[lesson.lesson_type] || "default") : "default";
   // На экзаменах/зачётах/консультациях посещаемость не отмечают — кнопки не показываем
@@ -125,20 +144,42 @@ export default function LessonCard({ lesson, showGroup, showAttendance, showNote
       {/* Преподаватель, аудитория, группа */}
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm lg:text-base" style={{ color: "var(--muted)" }}>
         {lesson.teacher && (
-          <span className="flex items-center gap-1">
-            <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" />
-            </svg>
-            {lesson.teacher.name}
-          </span>
+          links ? (
+            <Link
+              href={`/teachers?teacher=${lesson.teacher.id}`}
+              className="flex items-center gap-1 hover:text-[var(--primary)] transition-colors"
+              title={`Расписание ${lesson.teacher.name}`}
+            >
+              {teacherIcon}
+              <span className="underline decoration-dotted decoration-from-font underline-offset-2">
+                {lesson.teacher.name}
+              </span>
+            </Link>
+          ) : (
+            <span className="flex items-center gap-1">
+              {teacherIcon}
+              {lesson.teacher.name}
+            </span>
+          )
         )}
         {lesson.room && (
-          <span className="flex items-center gap-1">
-            <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
-            </svg>
-            Ауд. {lesson.room.name}
-          </span>
+          links ? (
+            <Link
+              href={`/rooms?day=${encodeURIComponent(lesson.day_of_week)}&pair=${encodeURIComponent(lesson.pair_number)}`}
+              className="flex items-center gap-1 hover:text-[var(--primary)] transition-colors"
+              title={`Кто ещё занят в это время`}
+            >
+              {roomIcon}
+              <span className="underline decoration-dotted decoration-from-font underline-offset-2">
+                Ауд. {lesson.room.name}
+              </span>
+            </Link>
+          ) : (
+            <span className="flex items-center gap-1">
+              {roomIcon}
+              Ауд. {lesson.room.name}
+            </span>
+          )
         )}
         {showGroup && lesson.group && shortGroup && (
           <span className="flex min-w-0 items-center gap-1">
