@@ -30,6 +30,10 @@ msu-schedule-mobile/node_modules/
 msu-schedule-mobile/.expo/
 msu-schedule-mobile/dist/
 
+# Служебные файлы Claude Code: локальные настройки и рабочие копии (worktrees).
+# В репозиторий не нужны — там абсолютные пути этого компьютера.
+.claude/
+
 # OS
 .DS_Store
 Thumbs.db

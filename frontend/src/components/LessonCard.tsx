@@ -31,9 +31,12 @@ interface Props {
   showGroup?: boolean;
   showAttendance?: boolean;
   showNotes?: boolean;
+  /** Внутри таймлайна время пары показано на рельсе слева — в карточке его
+   *  прячем, чтобы не дублировать. На остальных страницах время нужно. */
+  compactTime?: boolean;
 }
 
-export default function LessonCard({ lesson, showGroup, showAttendance, showNotes }: Props) {
+export default function LessonCard({ lesson, showGroup, showAttendance, showNotes, compactTime }: Props) {
   const shortGroup = lesson.group ? shortGroupName(lesson.group.name) : null;
   const kind = lesson.lesson_type ? (typeKind[lesson.lesson_type] || "default") : "default";
   // На экзаменах/зачётах/консультациях посещаемость не отмечают — кнопки не показываем
@@ -105,7 +108,7 @@ export default function LessonCard({ lesson, showGroup, showAttendance, showNote
       <div className="flex items-center justify-between gap-2 mb-2">
         <span className="lesson-tag lesson-time">
           {lesson.pair_number} пара
-          {lesson.pair_time_start && ` · ${lesson.pair_time_start}–${lesson.pair_time_end}`}
+          {!compactTime && lesson.pair_time_start && ` · ${lesson.pair_time_start}–${lesson.pair_time_end}`}
         </span>
         {lesson.lesson_type && (
           <span className={`lesson-tag ${typeTagClass[lesson.lesson_type] || ""}`}>

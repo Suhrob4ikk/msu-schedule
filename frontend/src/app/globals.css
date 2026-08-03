@@ -143,9 +143,229 @@ h1, h2 { letter-spacing: -0.015em; }
   letter-spacing: -0.01em;
 }
 
+/* ═════════════════════════════════════════════════════════════════════════
+   АНИМАЦИИ
+   Плагина tailwindcss-animate в проекте нет — все анимации свои, здесь.
+   Всё уважает prefers-reduced-motion (блок в самом конце файла).
+   ═════════════════════════════════════════════════════════════════════════ */
+
+/* ── Появление карточек: снизу вверх с проявлением ──
+   Задержка задаётся инлайновой переменной --d (для каскада: --d: 90ms). */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+.anim-rise {
+  animation: rise 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--d, 0ms);
+}
+
+/* ── Выезд плашки снизу (подсказка установки, баннеры) ── */
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: none; }
+}
+.anim-slide-up { animation: slide-up 0.34s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* ── Мягкое появление содержимого страницы при переходе ── */
+@keyframes page-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+.page-enter { animation: page-in 0.3s ease-out both; }
+
+/* ── Скелетон загрузки: бегущий блик вместо крутящегося спиннера ──
+   Ощущается быстрее спиннера: видно форму того, что грузится. */
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+.skeleton {
+  border-radius: 8px;
+  background-image: linear-gradient(
+    90deg,
+    var(--tag-bg) 0%,
+    var(--card-2) 40%,
+    var(--tag-bg) 80%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+/* ── Пульсирующее кольцо у точки «идёт сейчас» ── */
+@keyframes now-ping {
+  from { transform: scale(1);   opacity: 0.55; }
+  to   { transform: scale(2.6); opacity: 0; }
+}
+.now-dot { position: relative; }
+.now-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;            /* кольцо расходится ПОД точкой, не закрывая её */
+  border-radius: 9999px;
+  background: var(--primary);
+  animation: now-ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   ТАЙМЛАЙН ДНЯ
+   Слева вертикальная «рельса» с точками-станциями: сразу видно, что прошло,
+   что идёт, где окна. Ширина рельсы одна на всё приложение.
+   ═════════════════════════════════════════════════════════════════════════ */
+.tl-rail {
+  --tl-w: 58px;              /* колонка со временем + линия */
+  position: relative;
+  padding-left: var(--tl-w);
+}
+@media (min-width: 1024px) { .tl-rail { --tl-w: 66px; } }
+
+/* Сама линия — тянется на всю высоту дня */
+.tl-rail::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--tl-w) - 13px);
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--border);
+}
+
+/* Точка-станция напротив карточки.
+   Строки внутри .tl-rail сами position:relative, поэтому отсчёт идёт от
+   левого края карточки в минус — линия рельсы приходится на -13px. */
+.tl-dot {
+  position: absolute;
+  left: -18px;
+  width: 12px;
+  height: 12px;
+  border-radius: 9999px;
+  border: 2px solid var(--border);
+  background: var(--card);
+  z-index: 1;
+}
+.tl-dot[data-state="past"]    { border-color: var(--border); background: var(--border); }
+.tl-dot[data-state="future"]  { border-color: var(--primary); background: var(--card); }
+.tl-dot[data-state="current"] { border-color: var(--primary); background: var(--primary); }
+
+/* Время слева от линии */
+.tl-time {
+  position: absolute;
+  left: calc(-1 * var(--tl-w));
+  width: calc(var(--tl-w) - 24px);
+  text-align: right;
+  font-family: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", monospace;
+  font-size: 11px;
+  line-height: 1.1;
+  color: var(--muted);
+}
+@media (min-width: 1024px) { .tl-time { font-size: 12px; } }
+
+/* Участок окна — линия становится пунктиром, чтобы разрыв читался глазами.
+   Фон непрозрачный: он закрывает сплошную линию рельсы под собой. */
+.tl-gap-line {
+  position: absolute;
+  left: -13px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background-image: linear-gradient(var(--border) 55%, transparent 0%);
+  background-size: 2px 7px;
+  background-repeat: repeat-y;
+  background-color: var(--background);
+}
+
+/* Живой маркер текущего времени — тонкая линия поверх рельсы */
+.tl-now {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+}
+.tl-now::before {
+  content: "";
+  position: absolute;
+  left: -16px;
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-soft);
+}
+.tl-now-line {
+  height: 1px;
+  flex: 1;
+  background: linear-gradient(90deg, var(--primary), transparent);
+  opacity: 0.6;
+}
+.tl-now-label {
+  font-family: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--primary);
+  letter-spacing: -0.02em;
+}
+
+/* Состояние пары задаётся на строке таймлайна — карточка о нём не знает.
+   Прошедшее приглушаем, чтобы взгляд цеплялся за актуальное.
+   Гасим ТОЛЬКО в текущей неделе (data-dim): в архивной прошло всё, и
+   приглушённой оказалась бы вся страница. */
+.tl-row { transition: opacity 0.25s; }
+.tl-rail[data-dim="1"] .tl-row[data-state="past"] { opacity: 0.5; }
+.tl-rail[data-dim="1"] .tl-row[data-state="past"]:hover { opacity: 1; }
+.tl-row[data-state="current"] > .card {
+  border-color: var(--primary);
+  box-shadow: var(--shadow-md);
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   ПЕРЕКЛЮЧЕНИЕ ТЕМЫ — круговое раскрытие
+   Работает через View Transitions API браузера. Единственное место, откуда
+   вызывается startViewTransition — ThemeToggle.tsx; координаты кнопки
+   приходят в --reveal-x/y. В браузерах без поддержки тема просто
+   переключается мгновенно (без анимации), ничего не ломается.
+   ═════════════════════════════════════════════════════════════════════════ */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-old(root) { z-index: 0; }
+::view-transition-new(root) { z-index: 1; }
+
+@keyframes theme-reveal {
+  from { clip-path: circle(0 at var(--reveal-x, 50%) var(--reveal-y, 0)); }
+  to   { clip-path: circle(var(--reveal-r, 150%) at var(--reveal-x, 50%) var(--reveal-y, 0)); }
+}
+html.theme-switching::view-transition-new(root) {
+  animation: theme-reveal 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 .scrollbar-hide::-webkit-scrollbar { display: none; }
+
+/* ═════════════════════════════════════════════════════════════════════════
+   «Уменьшить движение» в настройках системы — выключаем всю анимацию.
+   Часть людей от таких эффектов физически укачивает, поэтому это не
+   опция, а обязательный блок. Интерфейс остаётся полностью рабочим.
+   ═════════════════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* Скелетону блик не нужен — остаётся ровная подложка */
+  .skeleton { animation: none !important; background: var(--tag-bg); }
+  .now-dot::after { display: none; }
+  html.theme-switching::view-transition-new(root) { animation: none !important; }
+}

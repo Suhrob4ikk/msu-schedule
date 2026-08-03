@@ -60,26 +60,44 @@ export default function BottomNav() {
   // Профиль — скрываем навбар только для новых пользователей (принудительная регистрация)
   if (pathname === "/profile" && !registered) return null;
 
+  const activeIdx = nav.findIndex(n => n.href === pathname);
+
   return (
     <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-[var(--background)] border-t border-[var(--border)]"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
-      <div className="flex">
+      <div className="relative flex">
+        {/* Индикатор активной вкладки — один на всю панель, поэтому при
+            переходе он ПЕРЕЕЗЖАЕТ, а не появляется на новом месте.
+            Ширина = ровно одна вкладка, сдвиг = её номер. */}
+        {activeIdx >= 0 && (
+          <span
+            className="absolute top-0 flex justify-center pointer-events-none transition-transform duration-300 ease-out"
+            style={{
+              width: `${100 / nav.length}%`,
+              transform: `translateX(${activeIdx * 100}%)`,
+            }}
+            aria-hidden="true"
+          >
+            <span className="block w-8 h-0.5 rounded-full bg-[var(--primary)]" />
+          </span>
+        )}
         {nav.map(({ href, label, icon }) => {
           const active = pathname === href;
           return (
             <Link
               key={href}
               href={href}
-              className={`relative flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-colors ${active
+              className={`relative flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-colors active:scale-95 ${active
                 ? "text-[var(--primary)]"
                 : "text-[var(--muted)]"
                 }`}
             >
-              <span className={active ? "scale-110 transition-transform" : ""}>{icon}</span>
+              {/* Класс перехода стоит всегда — иначе увеличение иконки
+                  происходило бы скачком, без анимации */}
+              <span className={`transition-transform duration-200 ${active ? "scale-110 -translate-y-px" : ""}`}>
+                {icon}
+              </span>
               <span className="text-[9px] font-medium leading-tight">{label}</span>
-              {active && (
-                <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-[var(--primary)] rounded-full" />
-              )}
             </Link>
           );
         })}

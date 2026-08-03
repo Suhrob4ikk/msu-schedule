@@ -4,9 +4,11 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import WeekBar from "@/components/WeekBar";
-import LessonCard from "@/components/LessonCard";
-import { api, Group, Lesson, TodayItem, Stats, WeekInfo, DAYS_ORDER, breakLabel, gapBetween, humanDuration } from "@/lib/api";
+import DaySchedule from "@/components/DaySchedule";
+import ScheduleSkeleton from "@/components/ScheduleSkeleton";
+import { api, Group, Lesson, TodayItem, Stats, WeekInfo, DAYS_ORDER, breakLabel } from "@/lib/api";
 import { featuresUnlocked } from "@/lib/features";
+import { todayIso } from "@/lib/studyData";
 import GroupSelector from "@/components/GroupSelector";
 import FeatureHint from "@/components/FeatureHint";
 
@@ -52,6 +54,23 @@ export default function HomePage() {
   useEffect(() => {
     const jsDay = new Date().getDay(); // 0=вс, 1=пн, ..., 6=сб
     if (jsDay !== 0) setSelectedDay(DAYS_ORDER[(jsDay + 6) % 7]); // пн-сб → русское название
+  }, []);
+
+  // Текущая дата и время в минутах — для таймлайна (какие пары прошли, где
+  // маркер «сейчас»). null до монтирования: на сервере времени пользователя
+  // мы не знаем, и рендеры разошлись бы (hydration #418).
+  const [today, setToday] = useState<string | null>(null);
+  const [nowMinutes, setNowMinutes] = useState<number | null>(null);
+  useEffect(() => {
+    const tick = () => {
+      const d = new Date();
+      setToday(todayIso());
+      setNowMinutes(d.getHours() * 60 + d.getMinutes());
+    };
+    tick();
+    // Раз в полминуты: маркер двигается по минутам, чаще незачем.
+    const id = window.setInterval(tick, 30_000);
+    return () => window.clearInterval(id);
   }, []);
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [nowItems, setNowItems] = useState<TodayItem[]>([]);
@@ -167,6 +186,17 @@ export default function HomePage() {
   // Отметки и заметки — только на расписании СВОЕЙ группы (на чужих не нужны)
   const isMyGroup = selectedGroup != null && profileGroupId != null && selectedGroup.id === profileGroupId;
 
+  // Идёт ли просматриваемая неделя прямо сейчас. Нужно таймлайну: приглушать
+  // отработанные пары осмысленно только в текущей неделе.
+  const isCurrentWeek = useMemo(() => {
+    if (!today || !selectedWeekStart) return false;
+    const end = new Date(selectedWeekStart);
+    end.setDate(end.getDate() + 6);
+    const p = (n: number) => String(n).padStart(2, "0");
+    const endIso = `${end.getFullYear()}-${p(end.getMonth() + 1)}-${p(end.getDate())}`;
+    return today >= selectedWeekStart && today <= endIso;
+  }, [today, selectedWeekStart]);
+
   const lessonsByDay = useMemo(() => {
     const filtered = selectedDay === "all"
       ? lessons
@@ -219,7 +249,7 @@ export default function HomePage() {
       <Header />
       <WeekBar onWeekChange={handleWeekChange} selectedWeekStart={selectedWeekStart} />
 
-      <main className="max-w-7xl mx-auto px-4 lg:px-8 py-4 lg:py-6 pb-24 lg:pb-6">
+      <main className="max-w-7xl mx-auto px-4 lg:px-8 py-4 lg:py-6 pb-24 lg:pb-6 page-enter">
         {/* Выбор группы */}
         <div className="card mb-4 lg:mb-5">
           <h1 className="font-bold text-lg lg:text-2xl mb-2 lg:mb-3">Расписание занятий МГУ Душанбе</h1>
@@ -256,7 +286,7 @@ export default function HomePage() {
 
         {/* На сегодня занятия кончились — показываем ближайший учебный день */}
         {selectedGroup && !loading && tomorrowItem && (
-          <div className="card lesson-now mb-4 lg:mb-5">
+          <div className="card lesson-now mb-4 lg:mb-5 anim-rise">
             <div className="flex items-center gap-2 mb-2">
               <svg className="w-4 h-4 text-[var(--primary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M20 6L9 17l-5-5" />
@@ -286,7 +316,7 @@ export default function HomePage() {
         {selectedGroup && !loading && (currentItem || nextItem) && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:gap-4 mb-4 lg:mb-5">
             {currentItem && (
-              <div className="card lesson-now">
+              <div className="card lesson-now anim-rise">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="w-2 h-2 rounded-full bg-[var(--primary)] animate-pulse"></span>
                   <span className="text-xs lg:text-sm font-semibold text-[var(--primary)]">ИДЁТ СЕЙЧАС</span>
@@ -318,7 +348,7 @@ export default function HomePage() {
               </div>
             )}
             {nextItem && (
-              <div className="card lesson-now">
+              <div className="card lesson-now anim-rise" style={{ "--d": "80ms" } as React.CSSProperties}>
                 <div className="flex items-center justify-between gap-2 mb-2">
                   <div className="flex items-center gap-2">
                     {/* Во время перемены важнее сказать «идёт перемена», чем «следующая» */}
@@ -449,12 +479,7 @@ export default function HomePage() {
         )}
 
         {/* Расписание */}
-        {loading && (
-          <div className="flex items-center justify-center py-16">
-            <div className="w-8 h-8 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin"></div>
-            <span className="ml-3 text-[var(--muted)]">Загружаем расписание...</span>
-          </div>
-        )}
+        {loading && <ScheduleSkeleton rows={4} />}
 
         {error && (
           <div className="card text-sm" style={{ borderColor: "var(--border)", color: "var(--muted)" }}>
@@ -505,40 +530,18 @@ export default function HomePage() {
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-6">
-          {Object.entries(lessonsByDay).map(([day, dayLessons]) => (
-            <div key={day} className="mb-5 lg:mb-6">
-              <h2 className="font-semibold text-sm lg:text-base text-[var(--foreground)] mb-2 lg:mb-3 flex items-center gap-2">
-                {DAY_LABELS[day]}
-                <span className="text-xs lg:text-sm font-normal normal-case">
-                  {dayLessons[0]?.lesson_date &&
-                    new Date(dayLessons[0].lesson_date).toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}
-                </span>
-              </h2>
-              {dayLessons.map((lesson, i) => {
-                // Окно = пропущенный слот пары. Обычный перерыв между соседними
-                // парами (включая обед III→IV) окном не считается.
-                const gap = i > 0 ? gapBetween(dayLessons[i - 1].pair_number, lesson.pair_number) : null;
-                return (
-                  <div key={lesson.id}>
-                    {gap && (
-                      <div className="flex items-center gap-2 my-2 px-1" aria-label="Окно в расписании">
-                        <span className="h-px flex-1" style={{ background: "var(--border)" }} />
-                        <span className="text-[11px] lg:text-xs shrink-0" style={{ color: "var(--muted)" }}>
-                          окно {humanDuration(gap.minutes)} · свободн{gap.pairs.length > 1 ? "ы" : "а"}{" "}
-                          {gap.pairs.join(", ")} пар{gap.pairs.length > 1 ? "ы" : "а"}
-                        </span>
-                        <span className="h-px flex-1" style={{ background: "var(--border)" }} />
-                      </div>
-                    )}
-                    <LessonCard
-                      lesson={lesson}
-                      showAttendance={featureAttendance && isMyGroup}
-                      showNotes={featureNotes && isMyGroup}
-                    />
-                  </div>
-                );
-              })}
-            </div>
+          {Object.entries(lessonsByDay).map(([day, dayLessons], idx) => (
+            <DaySchedule
+              key={day}
+              dayLabel={DAY_LABELS[day]}
+              lessons={dayLessons}
+              showAttendance={featureAttendance && isMyGroup}
+              showNotes={featureNotes && isMyGroup}
+              todayIso={today}
+              nowMinutes={nowMinutes}
+              dimPast={isCurrentWeek}
+              order={idx}
+            />
           ))}
         </div>
       </main>

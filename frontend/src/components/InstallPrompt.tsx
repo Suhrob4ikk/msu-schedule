@@ -55,7 +55,7 @@ export default function InstallPrompt() {
   // Инструкция для iOS: "Поделиться → На экран Домой"
   if (showIOS) {
     return (
-      <div className="fixed bottom-24 lg:bottom-6 left-4 right-4 z-[300] animate-in slide-in-from-bottom-4 duration-300">
+      <div className="fixed bottom-24 lg:bottom-6 left-4 right-4 z-[300] anim-slide-up">
         <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-4 shadow-2xl max-w-sm mx-auto">
           <div className="flex items-start gap-3">
             <div className="w-11 h-11 rounded-xl bg-[var(--primary)] flex items-center justify-center shrink-0 text-white text-xs font-bold">
@@ -91,7 +91,7 @@ export default function InstallPrompt() {
   // Android / Chrome: нативный prompt
   if (androidPrompt) {
     return (
-      <div className="fixed bottom-24 lg:bottom-6 left-4 right-4 z-[300] animate-in slide-in-from-bottom-4 duration-300">
+      <div className="fixed bottom-24 lg:bottom-6 left-4 right-4 z-[300] anim-slide-up">
         <div className="bg-[var(--primary)] text-white rounded-2xl p-4 shadow-2xl flex items-center gap-3 max-w-sm mx-auto">
           <div className="w-11 h-11 rounded-xl bg-white/20 flex items-center justify-center shrink-0 text-sm font-bold">
             МГУ
