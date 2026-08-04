@@ -7,7 +7,7 @@ import Header from "@/components/Header";
 import { useRouter } from "next/navigation";
 import { getPushStatus, subscribePush, unsubscribePush, type PushStatus } from "@/lib/push";
 
-import { featuresUnlocked, daysUntilUnlock } from "@/lib/features";
+import { featuresUnlocked, daysUntilUnlock, markGroupChosen } from "@/lib/features";
 import { collectSkips, collectNotes, type SkipStats as SkipStatsType } from "@/lib/studyData";
 
 // Автооткрытие 1 сентября 2026 — см. lib/features.ts.
@@ -240,6 +240,9 @@ export default function ProfilePage() {
     localStorage.setItem("user_name", name.trim());
     localStorage.setItem("selected_group_id", String(selectedGroupId));
     localStorage.setItem("schedule_view_group_id", String(selectedGroupId));
+    // Отмечаем момент выбора: по нему решаем, спрашивать ли про курс после
+    // смены учебного года (новичков спрашивать не нужно).
+    markGroupChosen();
 
     // Сохраняем регистрацию на сервер
     let deviceId = localStorage.getItem("msu_device_id_v2");

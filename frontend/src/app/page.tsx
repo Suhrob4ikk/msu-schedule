@@ -11,6 +11,7 @@ import { featuresUnlocked } from "@/lib/features";
 import { todayIso } from "@/lib/studyData";
 import GroupSelector from "@/components/GroupSelector";
 import FeatureHint from "@/components/FeatureHint";
+import CourseCheckBanner from "@/components/CourseCheckBanner";
 
 const DAY_LABELS: Record<string, string> = {
   понедельник: "Понедельник", вторник: "Вторник", среда: "Среда",
@@ -250,6 +251,9 @@ export default function HomePage() {
       <WeekBar onWeekChange={handleWeekChange} selectedWeekStart={selectedWeekStart} />
 
       <main className="max-w-7xl mx-auto px-4 lg:px-8 py-4 lg:py-6 pb-24 lg:pb-6 page-enter">
+        {/* Новый учебный год — курс не сдвигается сам, просим проверить */}
+        <CourseCheckBanner />
+
         {/* Выбор группы */}
         <div className="card mb-4 lg:mb-5">
           <h1 className="font-bold text-lg lg:text-2xl mb-2 lg:mb-3">Расписание занятий МГУ Душанбе</h1>
