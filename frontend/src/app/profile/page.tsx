@@ -7,6 +7,7 @@ import Header from "@/components/Header";
 import { useRouter } from "next/navigation";
 import { getPushStatus, subscribePush, unsubscribePush, type PushStatus } from "@/lib/push";
 import InviteCard from "@/components/InviteCard";
+import ThemeSetting from "@/components/ThemeSetting";
 
 import { featuresUnlocked, daysUntilUnlock, markGroupChosen } from "@/lib/features";
 import { collectSkips, collectNotes, type SkipStats as SkipStatsType } from "@/lib/studyData";
@@ -396,6 +397,7 @@ export default function ProfilePage() {
               Дополнительные возможности
             </p>
             <div className="flex flex-col gap-2.5">
+              <ThemeSetting />
               <NotificationToggle
                 sessionId={typeof window !== "undefined" ? (localStorage.getItem("msu_device_id_v2") ?? "") : ""}
                 groupId={selectedGroupId}
@@ -434,6 +436,18 @@ export default function ProfilePage() {
                 </span>
               </button>
             )}
+            <a
+              href="/compare"
+              className="w-full py-3 rounded-xl text-sm font-medium border text-center transition-colors hover:border-[var(--primary)] hover:text-[var(--primary)]"
+              style={{ background: "var(--card)", borderColor: "var(--border)", color: "var(--muted)" }}
+            >
+              <span className="inline-flex items-center justify-center gap-2">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
+                </svg>
+                Сравнить с другой группой
+              </span>
+            </a>
             <a
               href="/changes"
               className="w-full py-3 rounded-xl text-sm font-medium border text-center transition-colors hover:border-[var(--primary)] hover:text-[var(--primary)]"

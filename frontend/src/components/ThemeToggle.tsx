@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, type MouseEvent } from "react";
+import { getThemePref, resolveDark, setThemePref, watchSystemTheme } from "@/lib/theme";
 
 /** startViewTransition есть не во всех браузерах и не во всех версиях типов DOM. */
 type DocumentWithViewTransition = Document & {
@@ -13,10 +14,10 @@ export default function ThemeToggle() {
   const [dark, setDark] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem("theme");
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    setDark(saved === "dark" || (!saved && prefersDark));
+    setDark(resolveDark(getThemePref()));
     setMounted(true);
+    // Пока выбрано «как в системе» — иконка следует за системной темой
+    return watchSystemTheme(setDark);
   }, []);
   // Класс на <html> ставит инлайновый скрипт в layout.tsx (до первого кадра),
   // дальше — только toggle() ниже. Отдельного эффекта-синхронизатора нет
@@ -28,6 +29,8 @@ export default function ThemeToggle() {
     const applyTheme = () => root.classList.toggle("dark", next);
 
     setDark(next);
+    // Явный выбор кнопкой отключает режим «как в системе» —
+    // вернуть его можно в кабинете (ThemeSetting).
     localStorage.setItem("theme", next ? "dark" : "light");
 
     const doc = document as DocumentWithViewTransition;

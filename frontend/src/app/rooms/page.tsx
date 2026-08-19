@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import WeekBar from "@/components/WeekBar";
 import { SkeletonRooms } from "@/components/Skeletons";
-import { api, DAYS_ORDER, PAIR_TIMES } from "@/lib/api";
+import { api, DAYS_ORDER, PAIR_TIMES, currentSlot } from "@/lib/api";
 
 const DAY_SHORT: Record<string, string> = {
   понедельник: "Пн", вторник: "Вт", среда: "Ср",
@@ -48,6 +48,8 @@ export default function RoomsPage() {
     occupied_list?: string[]; conflict?: boolean;
   }>>([]);
   const [loading, setLoading] = useState(false);
+  // «Свободно сейчас» нажали вечером или в воскресенье — показываем пояснение
+  const [noSlotHint, setNoSlotHint] = useState(false);
   const [weekBarReady, setWeekBarReady] = useState(false);
   // Пусто на старте (совпадает с SSR), реальную неделю выставит WeekBar после
   // монтирования — иначе первый клиентский рендер расходится с сервером (#418).
@@ -80,6 +82,26 @@ export default function RoomsPage() {
         {/* Фильтры */}
         <div className="card mb-4 lg:mb-5">
           <h1 className="font-bold text-lg lg:text-2xl mb-3">Свободные аудитории</h1>
+
+          {/* Быстрый переход к текущей паре — самый частый вопрос «где сейчас свободно» */}
+          <button
+            onClick={() => {
+              const slot = currentSlot();
+              if (!slot) { setNoSlotHint(true); return; }
+              setNoSlotHint(false);
+              setDay(slot.day);
+              setPair(slot.pair);
+            }}
+            className="w-full mb-4 py-2.5 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90"
+            style={{ background: "var(--primary)" }}
+          >
+            Свободно прямо сейчас
+          </button>
+          {noSlotHint && (
+            <p className="text-xs text-[var(--muted)] -mt-2 mb-4">
+              Сейчас занятий нет — вечер или выходной. Выбери день и пару вручную.
+            </p>
+          )}
 
           {/* День */}
           <p className="text-xs font-semibold uppercase tracking-wider text-[var(--muted)] mb-2">День</p>
