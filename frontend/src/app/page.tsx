@@ -211,18 +211,8 @@ export default function HomePage() {
     }, {} as Record<string, Lesson[]>);
   }, [lessons, selectedDay, visibleDays]);
 
-  // ВРЕМЕННО (превью колец прогресса, лето — реальных пар нет): ?debugNow=1
-  const debugNow = typeof window !== "undefined" && window.location.search.includes("debugNow=1");
-  const fmt = (mins: number) => {
-    const d = new Date(); d.setMinutes(d.getMinutes() + mins);
-    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-  };
-  const currentItem = debugNow
-    ? ({ pair_number: "III", pair_time_start: fmt(-25), pair_time_end: fmt(20), subject: "Матанализ", teacher: "Иванов И.И.", room: "302", is_current: true, is_next: false, minutes_until: null, break_minutes: null, is_tomorrow: false, day_label: null, lesson_type: null } as TodayItem)
-    : nowItems.find(i => i.is_current);
-  const nextItem = debugNow
-    ? ({ pair_number: "IV", pair_time_start: fmt(45), pair_time_end: fmt(135), subject: "Программирование", teacher: "Петров П.П.", room: "105", is_current: false, is_next: true, minutes_until: 45, break_minutes: 90, is_tomorrow: false, day_label: null, lesson_type: null } as TodayItem)
-    : nowItems.find(i => i.is_next);
+  const currentItem = nowItems.find(i => i.is_current);
+  const nextItem = nowItems.find(i => i.is_next);
   // На сегодня всё — бэкенд прислал первую пару следующего учебного дня
   const tomorrowItem = nowItems.find(i => i.is_tomorrow);
 
