@@ -8,6 +8,7 @@ import DaySchedule from "@/components/DaySchedule";
 import { ScheduleSkeleton } from "@/components/Skeletons";
 import { api, Group, Lesson, TodayItem, Stats, WeekInfo, DAYS_ORDER, breakLabel, shortGroupName } from "@/lib/api";
 import { shareScheduleImage } from "@/lib/shareImage";
+import { useSwipe } from "@/lib/useSwipe";
 import { featuresUnlocked } from "@/lib/features";
 import { todayIso } from "@/lib/studyData";
 import GroupSelector from "@/components/GroupSelector";
@@ -220,6 +221,19 @@ export default function HomePage() {
       return acc;
     }, {} as Record<string, Lesson[]>);
   }, [lessons, selectedDay, visibleDays]);
+
+  // Свайп по расписанию листает дни: «вся неделя» → пн → вт → …
+  // Направление запоминаем, чтобы новый день выезжал с той стороны, куда тянули.
+  const [slideDir, setSlideDir] = useState<"left" | "right" | null>(null);
+  const dayOrder = useMemo(() => ["all", ...visibleDays], [visibleDays]);
+  const shiftDay = useCallback((step: 1 | -1) => {
+    const i = dayOrder.indexOf(selectedDay);
+    const next = dayOrder[i + step];
+    if (i < 0 || !next) return;   // край списка — дальше листать некуда
+    setSlideDir(step === 1 ? "left" : "right");
+    setSelectedDay(next);
+  }, [dayOrder, selectedDay]);
+  const swipe = useSwipe(() => shiftDay(1), () => shiftDay(-1));
 
   const [sharing, setSharing] = useState(false);
   const handleShareImage = useCallback(async () => {
@@ -576,7 +590,11 @@ export default function HomePage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-6">
+        <div
+          {...swipe}
+          key={selectedDay}
+          className={`grid grid-cols-1 lg:grid-cols-2 gap-x-6${slideDir ? ` slide-${slideDir}` : ""}`}
+        >
           {Object.entries(lessonsByDay).map(([day, dayLessons], idx) => (
             <DaySchedule
               key={day}

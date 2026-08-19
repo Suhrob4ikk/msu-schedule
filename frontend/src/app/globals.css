@@ -160,6 +160,20 @@ h1, h2 { letter-spacing: -0.015em; }
   animation-delay: var(--d, 0ms);
 }
 
+/* ── Листание дней свайпом: новый день выезжает с той стороны, куда тянули ──
+   Ставится на контейнер расписания вместе с key={selectedDay}, поэтому
+   анимация перезапускается на каждой смене дня. */
+@keyframes slide-from-right {
+  from { opacity: 0; transform: translateX(22px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes slide-from-left {
+  from { opacity: 0; transform: translateX(-22px); }
+  to   { opacity: 1; transform: none; }
+}
+.slide-left  { animation: slide-from-right 0.28s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.slide-right { animation: slide-from-left  0.28s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
 /* ── Выезд плашки снизу (подсказка установки, баннеры) ── */
 @keyframes slide-up {
   from { opacity: 0; transform: translateY(24px); }
