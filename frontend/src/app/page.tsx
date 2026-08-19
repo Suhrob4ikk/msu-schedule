@@ -6,7 +6,8 @@ import Header from "@/components/Header";
 import WeekBar from "@/components/WeekBar";
 import DaySchedule from "@/components/DaySchedule";
 import { ScheduleSkeleton } from "@/components/Skeletons";
-import { api, Group, Lesson, TodayItem, Stats, WeekInfo, DAYS_ORDER, breakLabel } from "@/lib/api";
+import { api, Group, Lesson, TodayItem, Stats, WeekInfo, DAYS_ORDER, breakLabel, shortGroupName } from "@/lib/api";
+import { shareScheduleImage } from "@/lib/shareImage";
 import { featuresUnlocked } from "@/lib/features";
 import { todayIso } from "@/lib/studyData";
 import GroupSelector from "@/components/GroupSelector";
@@ -28,6 +29,15 @@ const DAY_SHORT: Record<string, string> = {
   понедельник: "Пн", вторник: "Вт", среда: "Ср",
   четверг: "Чт", пятница: "Пт", суббота: "Сб", воскресенье: "Вс",
 };
+
+// Короткая метка недели для шапки картинки-шаринга («1 – 7 сентября»)
+function weekRangeLabel(weekStart: string): string {
+  const start = new Date(weekStart + "T00:00:00");
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  const months = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
+  return `${start.getDate()} – ${end.getDate()} ${months[end.getMonth()]}`;
+}
 
 export default function HomePage() {
   const router = useRouter();
@@ -211,6 +221,24 @@ export default function HomePage() {
     }, {} as Record<string, Lesson[]>);
   }, [lessons, selectedDay, visibleDays]);
 
+  const [sharing, setSharing] = useState(false);
+  const handleShareImage = useCallback(async () => {
+    if (!selectedGroup || sharing) return;
+    setSharing(true);
+    try {
+      const result = await shareScheduleImage({
+        groupLabel: `${shortGroupName(selectedGroup.name)} · ${selectedGroup.year} курс`,
+        weekLabel: selectedWeekStart ? weekRangeLabel(selectedWeekStart) : "",
+        lessonsByDay,
+        dayLabels: DAY_LABELS,
+      });
+      if (result === "empty") alert("Нет пар, чтобы поделиться — выберите день или неделю с занятиями.");
+      if (result === "error") alert("Не получилось создать картинку. Попробуйте ещё раз.");
+    } finally {
+      setSharing(false);
+    }
+  }, [selectedGroup, selectedWeekStart, lessonsByDay, sharing]);
+
   const currentItem = nowItems.find(i => i.is_current);
   const nextItem = nowItems.find(i => i.is_next);
   // На сегодня всё — бэкенд прислал первую пару следующего учебного дня
@@ -277,6 +305,16 @@ export default function HomePage() {
                 </svg>
                 Google Calendar
               </a>
+              <button
+                onClick={handleShareImage}
+                disabled={sharing}
+                className="flex items-center gap-1 px-3 py-2 rounded-lg border border-[var(--border)] text-[var(--muted)] text-sm hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors disabled:opacity-50"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 12v7a2 2 0 002 2h12a2 2 0 002-2v-7M16 6l-4-4-4 4M12 2v13" />
+                </svg>
+                {sharing ? "Готовим картинку..." : "Поделиться картинкой"}
+              </button>
               {profileGroupId !== null && selectedGroup.id !== profileGroupId && (
                 <button
                   onClick={restoreProfileGroup}
