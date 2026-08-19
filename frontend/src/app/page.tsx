@@ -12,6 +12,7 @@ import { todayIso } from "@/lib/studyData";
 import GroupSelector from "@/components/GroupSelector";
 import FeatureHint from "@/components/FeatureHint";
 import CourseCheckBanner from "@/components/CourseCheckBanner";
+import RadialProgress from "@/components/RadialProgress";
 
 const DAY_LABELS: Record<string, string> = {
   понедельник: "Понедельник", вторник: "Вторник", среда: "Среда",
@@ -210,8 +211,18 @@ export default function HomePage() {
     }, {} as Record<string, Lesson[]>);
   }, [lessons, selectedDay, visibleDays]);
 
-  const currentItem = nowItems.find(i => i.is_current);
-  const nextItem = nowItems.find(i => i.is_next);
+  // ВРЕМЕННО (превью колец прогресса, лето — реальных пар нет): ?debugNow=1
+  const debugNow = typeof window !== "undefined" && window.location.search.includes("debugNow=1");
+  const fmt = (mins: number) => {
+    const d = new Date(); d.setMinutes(d.getMinutes() + mins);
+    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  };
+  const currentItem = debugNow
+    ? ({ pair_number: "III", pair_time_start: fmt(-25), pair_time_end: fmt(20), subject: "Матанализ", teacher: "Иванов И.И.", room: "302", is_current: true, is_next: false, minutes_until: null, break_minutes: null, is_tomorrow: false, day_label: null, lesson_type: null } as TodayItem)
+    : nowItems.find(i => i.is_current);
+  const nextItem = debugNow
+    ? ({ pair_number: "IV", pair_time_start: fmt(45), pair_time_end: fmt(135), subject: "Программирование", teacher: "Петров П.П.", room: "105", is_current: false, is_next: true, minutes_until: 45, break_minutes: 90, is_tomorrow: false, day_label: null, lesson_type: null } as TodayItem)
+    : nowItems.find(i => i.is_next);
   // На сегодня всё — бэкенд прислал первую пару следующего учебного дня
   const tomorrowItem = nowItems.find(i => i.is_tomorrow);
 
@@ -333,81 +344,85 @@ export default function HomePage() {
                   {currentItem.room && ` · ауд. ${currentItem.room}`}
                 </p>
                 {(() => {
-                  // Прогресс пары: сколько прошло из 90 минут
+                  // Прогресс пары: сколько прошло из 90 минут — тающее кольцо вместо полоски
                   const [sh, sm] = currentItem.pair_time_start.split(":").map(Number);
                   const [eh, em] = currentItem.pair_time_end.split(":").map(Number);
                   const st = new Date(currentTime); st.setHours(sh, sm, 0, 0);
                   const en = new Date(currentTime); en.setHours(eh, em, 0, 0);
-                  const p = Math.min(1, Math.max(0, (currentTime - st.getTime()) / (en.getTime() - st.getTime())));
+                  const p = (currentTime - st.getTime()) / (en.getTime() - st.getTime());
                   const left = Math.max(0, Math.ceil((en.getTime() - currentTime) / 60000));
                   return (
-                    <div className="mt-2.5">
-                      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--tag-bg)" }}>
-                        <div className="h-full rounded-full transition-all" style={{ width: `${p * 100}%`, background: "var(--primary)" }} />
-                      </div>
-                      <p className="text-[11px] mt-1 text-right text-[var(--muted)]">осталось {left} мин</p>
+                    <div className="mt-2.5 flex items-center gap-2.5">
+                      <RadialProgress progress={1 - p} size={34} stroke={3.5}>
+                        <span className="text-[10px] font-bold tabular-nums" style={{ color: "var(--primary)" }}>{left}</span>
+                      </RadialProgress>
+                      <p className="text-xs text-[var(--muted)]">
+                        осталось <b style={{ color: "var(--foreground)" }}>{left} мин</b> до конца пары
+                      </p>
                     </div>
                   );
                 })()}
               </div>
             )}
-            {nextItem && (
-              <div className="card lesson-now anim-rise" style={{ "--d": "80ms" } as React.CSSProperties}>
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <div className="flex items-center gap-2">
-                    {/* Во время перемены важнее сказать «идёт перемена», чем «следующая» */}
-                    <span className="text-xs lg:text-sm font-semibold text-[var(--primary)]">
-                      {nextItem.break_minutes != null
-                        ? breakLabel(nextItem.break_minutes).toUpperCase()
-                        : "СЛЕДУЮЩАЯ"}
-                    </span>
-                    <span className="lesson-tag">{nextItem.pair_number} пара</span>
+            {nextItem && (() => {
+              // Прогресс перемены — тает по мере приближения к следующей паре
+              let breakProgress: number | null = null;
+              if (nextItem.break_minutes != null && nextItem.break_minutes > 0) {
+                const [h, m] = nextItem.pair_time_start.split(":").map(Number);
+                const start = new Date(currentTime);
+                start.setHours(h, m, 0, 0);
+                const leftMs = start.getTime() - currentTime;
+                const totalMs = nextItem.break_minutes * 60_000;
+                breakProgress = Math.min(1, Math.max(0, leftMs / totalMs));
+              }
+              return (
+                <div className="card lesson-now anim-rise" style={{ "--d": "80ms" } as React.CSSProperties}>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2">
+                      {/* Во время перемены важнее сказать «идёт перемена», чем «следующая» */}
+                      <span className="text-xs lg:text-sm font-semibold text-[var(--primary)]">
+                        {nextItem.break_minutes != null
+                          ? breakLabel(nextItem.break_minutes).toUpperCase()
+                          : "СЛЕДУЮЩАЯ"}
+                      </span>
+                      <span className="lesson-tag">{nextItem.pair_number} пара</span>
+                    </div>
+                    {countdown && (
+                      breakProgress != null ? (
+                        <RadialProgress progress={breakProgress} size={58} stroke={4}>
+                          <span className="text-xs font-bold tabular-nums text-[var(--primary)] whitespace-nowrap">{countdown}</span>
+                        </RadialProgress>
+                      ) : (
+                        <span className="text-lg lg:text-2xl font-bold tabular-nums text-[var(--primary)]">
+                          {countdown}
+                        </span>
+                      )
+                    )}
                   </div>
-                  {countdown && (
-                    <span className="text-lg lg:text-2xl font-bold tabular-nums text-[var(--primary)]">
-                      {countdown}
-                    </span>
+                  {nextItem.break_minutes != null && (
+                    <p className="text-xs text-[var(--muted)] mb-1.5">
+                      {nextItem.break_minutes <= 20
+                        ? "Не уходи далеко — скоро начнётся:"
+                        : "Дальше по расписанию:"}
+                    </p>
                   )}
-                </div>
-                {nextItem.break_minutes != null && (
-                  <p className="text-xs text-[var(--muted)] mb-1.5">
-                    {nextItem.break_minutes <= 20
-                      ? "Не уходи далеко — скоро начнётся:"
-                      : "Дальше по расписанию:"}
-                  </p>
-                )}
-                <p className="font-semibold text-sm lg:text-base">{nextItem.subject}</p>
-                {/* Аудиторию — отдельно и крупно: на перемене это главный вопрос */}
-                <div className="flex flex-wrap items-center gap-2 mt-2">
-                  {nextItem.room && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-sm font-bold"
-                      style={{ background: "var(--primary-soft)", color: "var(--primary)" }}>
-                      ауд. {nextItem.room}
+                  <p className="font-semibold text-sm lg:text-base">{nextItem.subject}</p>
+                  {/* Аудиторию — отдельно и крупно: на перемене это главный вопрос */}
+                  <div className="flex flex-wrap items-center gap-2 mt-2">
+                    {nextItem.room && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-sm font-bold"
+                        style={{ background: "var(--primary-soft)", color: "var(--primary)" }}>
+                        ауд. {nextItem.room}
+                      </span>
+                    )}
+                    <span className="text-xs lg:text-sm text-[var(--muted)]">
+                      {nextItem.pair_time_start}–{nextItem.pair_time_end}
+                      {nextItem.teacher && ` · ${nextItem.teacher}`}
                     </span>
-                  )}
-                  <span className="text-xs lg:text-sm text-[var(--muted)]">
-                    {nextItem.pair_time_start}–{nextItem.pair_time_end}
-                    {nextItem.teacher && ` · ${nextItem.teacher}`}
-                  </span>
+                  </div>
                 </div>
-                {/* Прогресс перемены — видно, сколько от неё осталось */}
-                {nextItem.break_minutes != null && nextItem.break_minutes > 0 && (() => {
-                  const [h, m] = nextItem.pair_time_start.split(":").map(Number);
-                  const start = new Date(currentTime);
-                  start.setHours(h, m, 0, 0);
-                  const leftMs = start.getTime() - currentTime;
-                  const totalMs = nextItem.break_minutes * 60_000;
-                  const p = Math.min(1, Math.max(0, 1 - leftMs / totalMs));
-                  return (
-                    <div className="mt-2.5">
-                      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--tag-bg)" }}>
-                        <div className="h-full rounded-full" style={{ width: `${p * 100}%`, background: "var(--primary)" }} />
-                      </div>
-                    </div>
-                  );
-                })()}
-              </div>
-            )}
+              );
+            })()}
           </div>
         )}
 
