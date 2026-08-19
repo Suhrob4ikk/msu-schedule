@@ -89,7 +89,7 @@ async function buildScheduleImage(opts: {
 
   const footer = document.createElement("div");
   footer.style.cssText = `margin-top:6px;font-size:11px;color:${BRAND.muted};text-align:center;`;
-  footer.textContent = window.location.origin.replace(/^https?:\/\//, "");
+  footer.textContent = "МГУ Душанбе · Расписание занятий";
   wrap.appendChild(footer);
 
   document.body.appendChild(wrap);
