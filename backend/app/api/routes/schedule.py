@@ -4,7 +4,7 @@ from datetime import date, datetime, time, timedelta
 from typing import Optional, List
 from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends, Query, HTTPException
-from sqlalchemy import func
+from sqlalchemy import func, or_, and_
 from sqlalchemy.orm import Session, joinedload
 
 # Душанбе — UTC+5, не переходит на летнее время
@@ -728,6 +728,7 @@ def get_group_stats(group_id: int, db: Session = Depends(get_db)):
 @router.get("/changes")
 def get_changes(
     faculty_code: Optional[str] = None,
+    group_id: Optional[int] = None,   # «только моя группа» — фильтр на сервере
     limit: int = Query(50, ge=1, le=200),   # верхняя граница: эндпоинт публичный
     db: Session = Depends(get_db),
 ):
@@ -736,6 +737,18 @@ def get_changes(
     q = db.query(ScheduleChange)
     if faculty_code:
         q = q.filter_by(faculty_code=faculty_code)
+    if group_id:
+        # Плюс общие «новая неделя» своего факультета — они не привязаны
+        # к группе, но всё равно касаются студента.
+        group = db.get(Group, group_id)
+        fcode = group.faculty.code if group and group.faculty else None
+        if fcode:
+            q = q.filter(or_(
+                ScheduleChange.group_id == group_id,
+                and_(ScheduleChange.change_type == "new_week", ScheduleChange.faculty_code == fcode),
+            ))
+        else:
+            q = q.filter_by(group_id=group_id)
     changes = q.order_by(ScheduleChange.detected_at.desc()).limit(limit).all()
     return [
         {
@@ -746,6 +759,7 @@ def get_changes(
             "faculty_code": c.faculty_code,
             "change_type": c.change_type,
             "group_name": c.group_name,
+            "group_id": c.group_id,
             "day_of_week": c.day_of_week,
             "pair_number": c.pair_number,
             "old_value": c.old_value,

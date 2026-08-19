@@ -132,6 +132,7 @@ export interface Change {
   faculty_code: string;
   change_type: string;
   group_name: string | null;
+  group_id: number | null;
   day_of_week: string | null;
   pair_number: string | null;
   old_value: string | null;
@@ -173,8 +174,8 @@ export const api = {
   getStats: (groupId: number) =>
     fetchApi<Stats>(`/schedule/stats/${groupId}`),
 
-  getChanges: () =>
-    fetchApi<Change[]>('/schedule/changes'),
+  getChanges: (groupId?: number) =>
+    fetchApi<Change[]>(`/schedule/changes${buildQuery({ group_id: groupId })}`),
 
   getIcsUrl: (groupId: number) =>
     `${API_BASE}/export/ics/${groupId}`,

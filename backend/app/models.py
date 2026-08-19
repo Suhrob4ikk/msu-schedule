@@ -138,6 +138,9 @@ class ScheduleChange(Base):
     new_value = Column(Text)
     # Начало недели, к которой относится изменение — чтобы показывать точную дату
     week_start = Column(Date, nullable=True)
+    # Конкретная группа (не только направление) — для фильтра «только моя группа».
+    # У старых записей (до этого поля) и у new_week (относится ко всему факультету) — NULL.
+    group_id = Column(Integer, ForeignKey("groups.id"), nullable=True)
 
 
 class UserSubscription(Base):

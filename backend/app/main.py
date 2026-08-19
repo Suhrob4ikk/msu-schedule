@@ -149,18 +149,31 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Не удалось создать индекс ix_lesson_week_day_pair: {e}")
     # create_all не добавляет колонки к существующим таблицам — добавляем вручную.
-    # week_start в истории изменений нужен, чтобы показывать точную дату («Пн, 08.09»).
+    # Оба ALTER TABLE — ДО любого ORM-запроса к ScheduleChange: модель уже знает
+    # про обе колонки, и SELECT со старой схемой упадёт на "no such column".
     global MIGRATION_STATUS
     try:
         from sqlalchemy import text, inspect as sa_inspect
         # Инспектор работает одинаково в SQLite и PostgreSQL
         cols = [c["name"] for c in sa_inspect(engine).get_columns("schedule_changes")]
+
+        # week_start — точная дата изменения («Пн, 08.09»)
         if "week_start" not in cols:
             with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE schedule_changes ADD COLUMN week_start DATE"))
             MIGRATION_STATUS = "week_start: добавлена"
         else:
             MIGRATION_STATUS = "week_start: уже есть"
+
+        # group_id — для фильтра «только моя группа». Старые записи (до этого
+        # поля) останутся с NULL — их точную группу задним числом не восстановить
+        # (group_name хранит только направление, без курса).
+        if "group_id" not in cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE schedule_changes ADD COLUMN group_id INTEGER"))
+            MIGRATION_STATUS += "; group_id: добавлена"
+        else:
+            MIGRATION_STATUS += "; group_id: уже есть"
 
         # Дозаполняем старые записи без week_start. Файл с расписанием новой недели
         # приходит в конце текущей (пт–вс) — тогда изменение относится к СЛЕДУЮЩЕМУ
@@ -185,7 +198,7 @@ async def lifespan(app: FastAPI):
             db.close()
         logger.info(f"Миграция: {MIGRATION_STATUS}")
     except Exception as e:
-        MIGRATION_STATUS = f"week_start: ошибка — {e}"
+        MIGRATION_STATUS = f"schedule_changes: ошибка — {e}"
         logger.warning(MIGRATION_STATUS)
     logger.info("Таблицы созданы.")
 

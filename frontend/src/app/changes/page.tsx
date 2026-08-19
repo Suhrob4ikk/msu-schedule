@@ -41,15 +41,34 @@ export default function ChangesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
-  const load = () => {
+  // Пусто на старте (совпадает с SSR), реальную группу и фильтр выставляем
+  // после монтирования — иначе первый клиентский рендер разойдётся с
+  // серверным (hydration #418).
+  const [profileGroupId, setProfileGroupId] = useState<number | null>(null);
+  const [profileGroupLabel, setProfileGroupLabel] = useState<string>("");
+  const [onlyMine, setOnlyMine] = useState(false);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("selected_group_id");
+    if (!saved) return;
+    const id = Number(saved);
+    setProfileGroupId(id);
+    setOnlyMine(true); // группа выбрана — по умолчанию фильтруем на неё
+    api.getGroups().then(groups => {
+      const g = groups.find(x => x.id === id);
+      if (g) setProfileGroupLabel(`${shortGroupName(g.name)} · ${g.year} курс`);
+    }).catch(() => {});
+  }, []);
+
+  const load = (groupId: number | null) => {
     setLoading(true);
     setError(false);
-    api.getChanges()
+    api.getChanges(groupId ?? undefined)
       .then(data => { setChanges(data); setLoading(false); })
       .catch(() => { setError(true); setLoading(false); });
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(onlyMine ? profileGroupId : null); }, [onlyMine, profileGroupId]);
 
   return (
     <div className="min-h-screen">
@@ -60,6 +79,30 @@ export default function ChangesPage() {
           <p className="text-sm text-[var(--muted)] mt-1">
             Здесь видно что изменилось в расписании с последнего обновления.
           </p>
+          {profileGroupId != null && (
+            <div className="flex gap-1.5 mt-3">
+              <button
+                onClick={() => setOnlyMine(true)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                  onlyMine
+                    ? "bg-[var(--primary)] text-white"
+                    : "bg-[var(--card)] border border-[var(--border)] text-[var(--foreground)]"
+                }`}
+              >
+                Моя группа{profileGroupLabel ? ` · ${profileGroupLabel}` : ""}
+              </button>
+              <button
+                onClick={() => setOnlyMine(false)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                  !onlyMine
+                    ? "bg-[var(--primary)] text-white"
+                    : "bg-[var(--card)] border border-[var(--border)] text-[var(--foreground)]"
+                }`}
+              >
+                Все факультеты
+              </button>
+            </div>
+          )}
         </div>
 
         {loading && <SkeletonCards rows={6} label="Загружаем историю изменений" />}
@@ -68,7 +111,7 @@ export default function ChangesPage() {
           <div className="text-center py-16 text-[var(--muted)]">
             <p className="mb-3">Не удалось загрузить историю изменений</p>
             <button
-              onClick={load}
+              onClick={() => load(onlyMine ? profileGroupId : null)}
               className="px-4 py-2 rounded-lg text-sm font-medium"
               style={{ background: "var(--primary)", color: "#fff" }}
             >
@@ -79,8 +122,12 @@ export default function ChangesPage() {
 
         {!loading && !error && changes.length === 0 && (
           <div className="text-center py-16 text-[var(--muted)]">
-            <p>Изменений пока нет</p>
-            <p className="text-xs mt-1">Они появятся после первого обновления расписания</p>
+            <p>{onlyMine ? "У твоей группы изменений пока нет" : "Изменений пока нет"}</p>
+            <p className="text-xs mt-1">
+              {onlyMine
+                ? "Старые записи (до этого фильтра) видно только во «Все факультеты»"
+                : "Они появятся после первого обновления расписания"}
+            </p>
           </div>
         )}
 
