@@ -604,6 +604,73 @@ def get_free_rooms(
     return result
 
 
+@router.get("/bulk-sync")
+def bulk_sync(db: Session = Depends(get_db)):
+    """Всё для офлайн-кэша мобилки одним ответом.
+
+    Раньше мобильный SyncContext делал то же самое за 300+ отдельных HTTP-
+    запросов (расписание каждой группы, каждого преподавателя, свободные
+    аудитории по каждому дню/паре/неделе) — на слабой сети это занимало
+    1-2 минуты. Здесь та же выборка, но обычными вызовами внутри процесса:
+    без сетевых round-trip'ов это доли секунды даже на 300+ запросах к SQLite.
+    """
+    groups = get_groups(db=db)
+    weeks_all = get_all_weeks(db)
+
+    group_weeks: dict[int, list] = {}
+    schedules: dict[str, list] = {}
+    for g in groups:
+        gw = get_available_weeks(g["id"], db)
+        group_weeks[g["id"]] = gw
+        for w in gw:
+            schedules[f'{g["id"]}_{w["id"]}'] = get_group_schedule(g["id"], week_id=w["id"], db=db)
+
+    # Текущая неделя + 2 предыдущие — та же логика выбора, что раньше
+    # считал клиент (см. syncService.ts мобилки).
+    def _is_current(week_start: str) -> bool:
+        d = date.fromisoformat(week_start)
+        today = date.today()
+        return d <= today <= d + timedelta(days=6)
+
+    cur_idx = next((i for i, w in enumerate(weeks_all) if _is_current(w["week_start"])), -1)
+    base_idx = max(0, len(weeks_all) - 2) if cur_idx == -1 else cur_idx
+    sync_weeks = weeks_all[base_idx: base_idx + 3]
+
+    teachers_by_week: dict[str, list] = {}
+    teacher_ids: set = set()
+    for w in sync_weeks:
+        ts = get_teachers(week_start=w["week_start"], db=db)
+        teachers_by_week[w["week_start"]] = ts
+        teacher_ids.update(t["id"] for t in ts)
+
+    teacher_schedules: dict[str, list] = {}
+    for tid in teacher_ids:
+        for w in sync_weeks:
+            teacher_schedules[f'{tid}_{w["week_start"]}'] = get_teacher_schedule(
+                tid, week_start=w["week_start"], db=db
+            )
+
+    free_rooms: dict[str, list] = {}
+    pairs = ["I", "II", "III", "IV", "V"]
+    for w in sync_weeks:
+        for day in DAYS_ORDER:
+            for pair in pairs:
+                free_rooms[f'{day}_{pair}_{w["week_start"]}'] = get_free_rooms(
+                    day, pair, week_start=w["week_start"], db=db
+                )
+
+    return {
+        "groups": groups,
+        "weeks_all": weeks_all,
+        "group_weeks": group_weeks,
+        "schedules": schedules,
+        "teachers_by_week": teachers_by_week,
+        "teacher_schedules": teacher_schedules,
+        "free_rooms": free_rooms,
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+    }
+
+
 @router.get("/stats/{group_id}", response_model=StatsSchema)
 def get_group_stats(group_id: int, db: Session = Depends(get_db)):
     """Статистика по группе: количество пар, загруженность по дням."""
