@@ -6,6 +6,7 @@ import GroupSelector from "@/components/GroupSelector";
 import Header from "@/components/Header";
 import { useRouter } from "next/navigation";
 import { getPushStatus, subscribePush, unsubscribePush, type PushStatus } from "@/lib/push";
+import InviteCard from "@/components/InviteCard";
 
 import { featuresUnlocked, daysUntilUnlock, markGroupChosen } from "@/lib/features";
 import { collectSkips, collectNotes, type SkipStats as SkipStatsType } from "@/lib/studyData";
@@ -416,6 +417,7 @@ export default function ProfilePage() {
         {/* Статистика, экспорт и история изменений */}
         {!isSetup && (
           <div className="flex flex-col gap-2.5 mt-2">
+            <InviteCard />
             {!featuresLocked && <SkipStats />}
             {!featuresLocked && (
               <button
