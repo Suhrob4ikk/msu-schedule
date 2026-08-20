@@ -48,7 +48,9 @@ export default function Header() {
           {/* На мобиле — пустое место для выравнивания */}
           <div className="flex-1 lg:hidden" />
 
-          <ThemeToggle />
+          {/* На кабинете уже есть полная настройка темы (ThemeSetting) —
+              не дублируем её иконкой здесь же на той же странице. */}
+          {pathname !== "/profile" && <ThemeToggle />}
         </div>
       </div>
     </header>

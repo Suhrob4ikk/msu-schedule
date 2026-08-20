@@ -34,6 +34,51 @@ export function setThemePref(pref: ThemePref): void {
   document.documentElement.classList.toggle("dark", resolveDark(pref));
 }
 
+/** startViewTransition есть не во всех браузерах и не во всех версиях типов DOM. */
+type DocumentWithViewTransition = Document & {
+  startViewTransition?: (callback: () => void) => { finished: Promise<void> };
+};
+
+/**
+ * Ставит тему с круговым переходом (View Transitions API) от точки клика —
+ * общая анимация для кнопки в шапке и чипов в кабинете, чтобы у обоих
+ * контролов был одинаково «крутой» переход, а не только у одного из них.
+ * Без поддержки API, без видимой смены цвета или при «уменьшить движение» —
+ * применяет мгновенно.
+ */
+export function setThemePrefAnimated(pref: ThemePref, origin: { x: number; y: number }): void {
+  const root = document.documentElement;
+  const willBeDark = resolveDark(pref);
+  const isDarkNow = root.classList.contains("dark");
+  const apply = () => setThemePref(pref);
+
+  const doc = document as DocumentWithViewTransition;
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (willBeDark === isDarkNow || reduceMotion || typeof doc.startViewTransition !== "function") {
+    apply();
+    return;
+  }
+
+  // Новая тема расходится кругом от точки клика. Радиус — до самого
+  // дальнего угла экрана, чтобы круг накрыл страницу целиком.
+  const radius = Math.hypot(
+    Math.max(origin.x, window.innerWidth - origin.x),
+    Math.max(origin.y, window.innerHeight - origin.y),
+  );
+  root.style.setProperty("--reveal-x", `${origin.x}px`);
+  root.style.setProperty("--reveal-y", `${origin.y}px`);
+  root.style.setProperty("--reveal-r", `${radius}px`);
+  root.classList.add("theme-switching");
+
+  doc.startViewTransition(apply).finished.finally(() => {
+    root.classList.remove("theme-switching");
+    // Убираем за собой: инлайновые переменные нужны только на время анимации
+    root.style.removeProperty("--reveal-x");
+    root.style.removeProperty("--reveal-y");
+    root.style.removeProperty("--reveal-r");
+  });
+}
+
 /**
  * Следить за сменой системной темы, пока выбрано «как в системе».
  * Возвращает функцию отписки.

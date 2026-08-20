@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { getThemePref, setThemePref, watchSystemTheme, type ThemePref } from "@/lib/theme";
+import { useEffect, useState, type MouseEvent } from "react";
+import { getThemePref, watchSystemTheme, setThemePrefAnimated, type ThemePref } from "@/lib/theme";
 
 const OPTIONS: Array<{ value: ThemePref; label: string }> = [
   { value: "system", label: "Как в системе" },
@@ -10,9 +10,10 @@ const OPTIONS: Array<{ value: ThemePref; label: string }> = [
 ];
 
 /**
- * Выбор темы в кабинете. «Как в системе» — тема идёт за настройкой телефона
- * и переключается сама, когда та меняется (кнопка в шапке при этом ставит
- * тему явно, отключая режим «как в системе»).
+ * Выбор темы в кабинете — единственный переключатель на этой странице
+ * (кнопка в шапке на кабинете скрыта, см. Header.tsx, чтобы не было двух
+ * контролов одной настройки на одном экране). «Как в системе» — тема идёт
+ * за настройкой телефона и переключается сама, когда та меняется.
  */
 export default function ThemeSetting() {
   // Нейтральное значение до монтирования: localStorage на сервере нет (#418).
@@ -20,15 +21,17 @@ export default function ThemeSetting() {
 
   useEffect(() => {
     setPref(getThemePref());
-    // Пока выбрано «как в системе» — следим за сменой системной темы.
-    // Заодно ловим переключение кнопкой в шапке (она пишет в тот же ключ).
-    const stop = watchSystemTheme(() => setPref(getThemePref()));
-    const onStorage = () => setPref(getThemePref());
-    window.addEventListener("storage", onStorage);
-    return () => { stop(); window.removeEventListener("storage", onStorage); };
+    // Пока выбрано «как в системе» — следим за сменой системной темы
+    return watchSystemTheme(() => setPref(getThemePref()));
   }, []);
 
   if (pref === null) return null;
+
+  const choose = (value: ThemePref, e: MouseEvent<HTMLButtonElement>) => {
+    const box = e.currentTarget.getBoundingClientRect();
+    setThemePrefAnimated(value, { x: box.left + box.width / 2, y: box.top + box.height / 2 });
+    setPref(value);
+  };
 
   return (
     <div className="w-full rounded-xl border px-4 py-3" style={{ borderColor: "var(--border)", background: "var(--card)" }}>
@@ -42,7 +45,7 @@ export default function ThemeSetting() {
           return (
             <button
               key={o.value}
-              onClick={() => { setThemePref(o.value); setPref(o.value); }}
+              onClick={e => choose(o.value, e)}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
                 active
                   ? "bg-[var(--primary)] text-white"

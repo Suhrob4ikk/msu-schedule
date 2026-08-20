@@ -1,12 +1,12 @@
 "use client";
 import { useEffect, useState, type MouseEvent } from "react";
-import { getThemePref, resolveDark, setThemePref, watchSystemTheme } from "@/lib/theme";
+import { getThemePref, resolveDark, watchSystemTheme, setThemePrefAnimated } from "@/lib/theme";
 
-/** startViewTransition есть не во всех браузерах и не во всех версиях типов DOM. */
-type DocumentWithViewTransition = Document & {
-  startViewTransition?: (callback: () => void) => { finished: Promise<void> };
-};
-
+/**
+ * Быстрый переключатель светлая/тёмная — иконка в шапке, видна на всех
+ * страницах, КРОМЕ кабинета (там уже есть полная настройка темы с теми же
+ * тремя вариантами, включая «как в системе»; см. Header.tsx и ThemeSetting).
+ */
 export default function ThemeToggle() {
   // mounted=false на сервере и при первом клиентском рендере → иконка совпадает
   // с SSR (светлая). После монтирования читаем реальную тему. Иначе hydration #418.
@@ -20,53 +20,21 @@ export default function ThemeToggle() {
     return watchSystemTheme(setDark);
   }, []);
   // Класс на <html> ставит инлайновый скрипт в layout.tsx (до первого кадра),
-  // дальше — только toggle() ниже. Отдельного эффекта-синхронизатора нет
+  // дальше — только click ниже. Отдельного эффекта-синхронизатора нет
   // намеренно: иначе он менял бы тему вне анимации перехода.
 
-  const toggle = (e: MouseEvent<HTMLButtonElement>) => {
-    const next = !dark;
-    const root = document.documentElement;
-    const applyTheme = () => root.classList.toggle("dark", next);
-
-    setDark(next);
+  const handleClick = (e: MouseEvent<HTMLButtonElement>) => {
+    const next = dark ? "light" : "dark";
+    setDark(!dark);
     // Явный выбор кнопкой отключает режим «как в системе» —
     // вернуть его можно в кабинете (ThemeSetting).
-    localStorage.setItem("theme", next ? "dark" : "light");
-
-    const doc = document as DocumentWithViewTransition;
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    // Без поддержки API или при «уменьшить движение» — просто мгновенно
-    if (reduceMotion || typeof doc.startViewTransition !== "function") {
-      applyTheme();
-      return;
-    }
-
-    // Новая тема расходится кругом от центра нажатой кнопки. Радиус — до
-    // самого дальнего угла экрана, чтобы круг накрыл страницу целиком.
     const box = e.currentTarget.getBoundingClientRect();
-    const x = box.left + box.width / 2;
-    const y = box.top + box.height / 2;
-    const radius = Math.hypot(
-      Math.max(x, window.innerWidth - x),
-      Math.max(y, window.innerHeight - y),
-    );
-    root.style.setProperty("--reveal-x", `${x}px`);
-    root.style.setProperty("--reveal-y", `${y}px`);
-    root.style.setProperty("--reveal-r", `${radius}px`);
-    root.classList.add("theme-switching");
-
-    doc.startViewTransition(applyTheme).finished.finally(() => {
-      root.classList.remove("theme-switching");
-      // Убираем за собой: инлайновые переменные нужны только на время анимации
-      root.style.removeProperty("--reveal-x");
-      root.style.removeProperty("--reveal-y");
-      root.style.removeProperty("--reveal-r");
-    });
+    setThemePrefAnimated(next, { x: box.left + box.width / 2, y: box.top + box.height / 2 });
   };
 
   return (
     <button
-      onClick={toggle}
+      onClick={handleClick}
       className="p-2.5 rounded-lg min-w-[44px] min-h-[44px] flex items-center justify-center hover:bg-[var(--tag-bg)] active:scale-95 transition-all"
       title={dark ? "Светлая тема" : "Тёмная тема"}
       aria-label="Переключить тему"
