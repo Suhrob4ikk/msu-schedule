@@ -448,18 +448,6 @@ export default function ProfilePage() {
                 Сравнить с другой группой
               </span>
             </a>
-            <a
-              href="/changes"
-              className="w-full py-3 rounded-xl text-sm font-medium border text-center transition-colors hover:border-[var(--primary)] hover:text-[var(--primary)]"
-              style={{ background: "var(--card)", borderColor: "var(--border)", color: "var(--muted)" }}
-            >
-              <span className="inline-flex items-center justify-center gap-2">
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" />
-                </svg>
-                История изменений расписания
-              </span>
-            </a>
           </div>
         )}
 
