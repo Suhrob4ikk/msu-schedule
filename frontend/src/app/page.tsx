@@ -144,7 +144,7 @@ export default function HomePage() {
     }
   }, []);
 
-  useEffect(() => {
+  const loadInitialGroups = useCallback(() => {
     const savedGroup = localStorage.getItem("selected_group_id");
     const viewedGroup = localStorage.getItem("schedule_view_group_id");
     const deviceId = localStorage.getItem("msu_device_id_v2");
@@ -154,6 +154,7 @@ export default function HomePage() {
       return;
     }
 
+    setError(null);
     const profileId = Number(savedGroup);
     setProfileGroupId(profileId);
     api.getGroups()
@@ -168,6 +169,8 @@ export default function HomePage() {
       })
       .catch(() => setError("Нет соединения с сервером"));
   }, [router, loadGroup]);
+
+  useEffect(() => { loadInitialGroups(); }, [loadInitialGroups]);
 
   const restoreProfileGroup = useCallback(() => {
     if (profileGroup) {
@@ -235,6 +238,17 @@ export default function HomePage() {
   }, [dayOrder, selectedDay]);
   const swipe = useSwipe(() => shiftDay(1), () => shiftDay(-1));
 
+  // Автопрокрутка к сегодняшнему дню при открытии «Вся неделя» — иначе
+  // приходится скроллить руками, если сегодня не понедельник. id и
+  // scroll-margin для секции — в DaySchedule.tsx.
+  useEffect(() => {
+    if (selectedDay !== "all" || loading) return;
+    const id = window.requestAnimationFrame(() => {
+      document.getElementById("day-today")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [selectedDay, loading]);
+
   const [sharing, setSharing] = useState(false);
   const handleShareImage = useCallback(async () => {
     if (!selectedGroup || sharing) return;
@@ -257,6 +271,25 @@ export default function HomePage() {
   const nextItem = nowItems.find(i => i.is_next);
   // На сегодня всё — бэкенд прислал первую пару следующего учебного дня
   const tomorrowItem = nowItems.find(i => i.is_tomorrow);
+
+  // Компактная плашка «Идёт сейчас» при скролле: следим за исходной
+  // карточкой через IntersectionObserver, а не за scrollY — не завязано на
+  // конкретные пиксельные пороги и не дёргает layout на каждый кадр скролла.
+  const nowCardRef = useRef<HTMLDivElement>(null);
+  const [showCompactNow, setShowCompactNow] = useState(false);
+  useEffect(() => {
+    if (!currentItem) { setShowCompactNow(false); return; }
+    const el = nowCardRef.current;
+    if (!el) return;
+    // Отрицательный верхний отступ — карточка считается «скрытой» чуть
+    // раньше, чем реально уйдёт под sticky-шапку (её высота — h-14/h-16).
+    const observer = new IntersectionObserver(
+      ([entry]) => setShowCompactNow(!entry.isIntersecting),
+      { rootMargin: "-110px 0px 0px 0px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [currentItem]);
 
   const [currentTime, setCurrentTime] = useState(() => Date.now());
   useEffect(() => {
@@ -291,6 +324,25 @@ export default function HomePage() {
   return (
     <div className="min-h-screen" style={{ background: "var(--background)" }}>
       <Header />
+
+      {/* Компактный дубль «Идёт сейчас» — виден, только пока исходная
+          карточка скрыта под шапкой (см. IntersectionObserver выше). */}
+      {showCompactNow && currentItem && (() => {
+        const [eh, em] = currentItem.pair_time_end.split(":").map(Number);
+        const end = new Date(currentTime);
+        end.setHours(eh, em, 0, 0);
+        const left = Math.max(0, Math.ceil((end.getTime() - currentTime) / 60000));
+        return (
+          <div className="sticky top-14 lg:top-16 z-40 anim-slide-up" style={{ background: "var(--primary)" }}>
+            <div className="max-w-7xl mx-auto px-4 lg:px-8 py-2 flex items-center gap-2.5 text-white">
+              <span className="w-1.5 h-1.5 rounded-full bg-white shrink-0 animate-pulse" />
+              <span className="text-sm font-semibold truncate flex-1">{currentItem.subject}</span>
+              <span className="text-xs font-bold tabular-nums shrink-0 whitespace-nowrap">{left} мин до конца</span>
+            </div>
+          </div>
+        );
+      })()}
+
       <WeekBar onWeekChange={handleWeekChange} selectedWeekStart={selectedWeekStart} />
 
       <main className="max-w-7xl mx-auto px-4 lg:px-8 py-4 lg:py-6 pb-24 lg:pb-6 page-enter">
@@ -322,7 +374,7 @@ export default function HomePage() {
               <button
                 onClick={handleShareImage}
                 disabled={sharing}
-                className="flex items-center gap-1 px-3 py-2 rounded-lg border border-[var(--border)] text-[var(--muted)] text-sm hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors disabled:opacity-50"
+                className="flex items-center gap-1 px-3 py-2 rounded-lg border border-[var(--border)] text-[var(--muted)] text-sm hover:border-[var(--primary)] hover:text-[var(--primary)] transition-all active:scale-95 disabled:opacity-50"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 12v7a2 2 0 002 2h12a2 2 0 002-2v-7M16 6l-4-4-4 4M12 2v13" />
@@ -332,7 +384,7 @@ export default function HomePage() {
               {profileGroupId !== null && selectedGroup.id !== profileGroupId && (
                 <button
                   onClick={restoreProfileGroup}
-                  className="px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--muted)] text-sm hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors"
+                  className="px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--muted)] text-sm hover:border-[var(--primary)] hover:text-[var(--primary)] transition-all active:scale-95"
                 >
                   Вернуться к моему расписанию
                 </button>
@@ -373,7 +425,7 @@ export default function HomePage() {
         {selectedGroup && !loading && (currentItem || nextItem) && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:gap-4 mb-4 lg:mb-5">
             {currentItem && (
-              <div className="card lesson-now anim-rise">
+              <div ref={nowCardRef} className="card lesson-now anim-rise">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="w-2 h-2 rounded-full bg-[var(--primary)] animate-pulse"></span>
                   <span className="text-xs lg:text-sm font-semibold text-[var(--primary)]">ИДЁТ СЕЙЧАС</span>
@@ -473,19 +525,19 @@ export default function HomePage() {
           <div className="card mb-4 lg:mb-5">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 lg:gap-6">
               <div className="text-center">
-                <div className="text-2xl lg:text-4xl font-bold text-[var(--primary)]">{stats.total_lessons_week}</div>
+                <div className="text-2xl lg:text-4xl font-bold tabular-nums text-[var(--primary)]">{stats.total_lessons_week}</div>
                 <div className="text-xs lg:text-sm text-[var(--muted)] mt-1">пар в неделю</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl lg:text-4xl font-bold text-[var(--primary)]">{stats.unique_subjects}</div>
+                <div className="text-2xl lg:text-4xl font-bold tabular-nums text-[var(--primary)]">{stats.unique_subjects}</div>
                 <div className="text-xs lg:text-sm text-[var(--muted)] mt-1">предметов</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl lg:text-4xl font-bold text-[var(--primary)]">{stats.unique_teachers}</div>
+                <div className="text-2xl lg:text-4xl font-bold tabular-nums text-[var(--primary)]">{stats.unique_teachers}</div>
                 <div className="text-xs lg:text-sm text-[var(--muted)] mt-1">преподавателей</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl lg:text-4xl font-bold text-[var(--primary)]">
+                <div className="text-2xl lg:text-4xl font-bold tabular-nums text-[var(--primary)]">
                   {stats.most_loaded_day ? DAY_SHORT[stats.most_loaded_day] : "—"}
                 </div>
                 <div className="text-xs lg:text-sm text-[var(--muted)] mt-1">загруженный день</div>
@@ -504,7 +556,7 @@ export default function HomePage() {
           <div className="flex gap-1.5 lg:gap-3 flex-wrap mb-4 lg:mb-5">
             <button
               onClick={() => setSelectedDay("all")}
-              className={`px-3 lg:px-5 py-1.5 lg:py-2.5 rounded-lg text-xs lg:text-base font-medium transition-colors ${selectedDay === "all"
+              className={`px-3 lg:px-5 py-1.5 lg:py-2.5 rounded-lg text-xs lg:text-base font-medium transition-all active:scale-95 ${selectedDay === "all"
                 ? "bg-[var(--primary)] text-white"
                 : "bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)]"
                 }`}
@@ -520,7 +572,7 @@ export default function HomePage() {
                 <button
                   key={day}
                   onClick={() => setSelectedDay(day)}
-                  className={`relative flex items-center gap-1 px-3 lg:px-5 min-h-[44px] rounded-lg text-xs lg:text-base font-medium transition-colors ${isActive
+                  className={`relative flex items-center gap-1 px-3 lg:px-5 min-h-[44px] rounded-lg text-xs lg:text-base font-medium transition-all active:scale-95 ${isActive
                     ? "bg-[var(--primary)] text-white"
                     : showHighlight
                       ? "bg-[var(--tag-bg)] border border-[var(--primary)] text-[var(--primary)]"
@@ -543,8 +595,15 @@ export default function HomePage() {
         {loading && <ScheduleSkeleton rows={4} />}
 
         {error && (
-          <div className="card text-sm" style={{ borderColor: "var(--border)", color: "var(--muted)" }}>
-            ⚠️ {error}
+          <div className="card text-sm flex items-center justify-between gap-3 flex-wrap" style={{ borderColor: "var(--border)", color: "var(--muted)" }}>
+            <span>⚠️ {error}</span>
+            <button
+              onClick={() => (groups.length === 0 ? loadInitialGroups() : selectedGroup && loadGroup(selectedGroup))}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white shrink-0"
+              style={{ background: "var(--primary)" }}
+            >
+              Повторить
+            </button>
           </div>
         )}
 

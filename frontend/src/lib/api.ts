@@ -4,11 +4,27 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL!;
 // Client-side cache: 3 минуты для списков, 60 сек для расписания
 const _cache = new Map<string, { data: unknown; ts: number }>();
 
+// Без тайм-аута fetch на плохой сети мог висеть бесконечно — ни ошибки,
+// ни повторной попытки, страница просто не показывает содержимое.
+const FETCH_TIMEOUT_MS = 15_000;
+
 async function fetchApi<T>(path: string, ttl = 180_000): Promise<T> {
   const hit = _cache.get(path);
   if (hit && Date.now() - hit.ts < ttl) return hit.data as T;
 
-  const res = await fetch(`${API_BASE}${path}`);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, { signal: controller.signal });
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      throw new Error("Сервер не отвечает — проверьте соединение");
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
   if (!res.ok) throw new Error(`API error: ${res.status}`);
   const data: T = await res.json();
   _cache.set(path, { data, ts: Date.now() });
