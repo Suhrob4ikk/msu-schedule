@@ -82,22 +82,27 @@ export default function DaySchedule({
 
   return (
     <section
-      className="mb-5 lg:mb-6 anim-rise"
+      id={isToday ? "day-today" : undefined}
+      className="mb-5 lg:mb-6 scroll-mt-28 lg:scroll-mt-32 anim-rise"
       style={{ "--d": `${order * 70}ms` } as CSSProperties}
     >
-      <h2 className="font-semibold text-sm lg:text-base mb-2.5 lg:mb-3 flex items-center gap-2 flex-wrap">
-        {dayLabel}
+      {/* Липкий заголовок: держится наверху, пока идут пары этого дня — в
+          «Всей неделе» иначе легко потерять, какой день сейчас перед глазами. */}
+      <h2 className="sticky top-14 lg:top-16 z-10 bg-[var(--background)] pt-1 pb-2.5 lg:pb-3 mb-2 lg:mb-2.5 border-b border-[var(--border)]">
+        <span className="flex items-center gap-2 flex-wrap">
+          <span className="font-bold text-sm lg:text-base uppercase tracking-wide">{dayLabel}</span>
+          {isToday && (
+            <span
+              className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full"
+              style={{ background: "var(--primary-soft)", color: "var(--primary)" }}
+            >
+              сегодня
+            </span>
+          )}
+        </span>
         {dateLabel && (
-          <span className="text-xs lg:text-sm font-normal" style={{ color: "var(--muted)" }}>
+          <span className="block text-xs lg:text-sm font-normal mt-0.5" style={{ color: "var(--muted)" }}>
             {dateLabel}
-          </span>
-        )}
-        {isToday && (
-          <span
-            className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full"
-            style={{ background: "var(--primary-soft)", color: "var(--primary)" }}
-          >
-            сегодня
           </span>
         )}
       </h2>

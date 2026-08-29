@@ -69,7 +69,7 @@ export default function GroupSelector({ groups, value, onChange, collapsible }: 
     return (
       <button
         onClick={() => setExpanded(true)}
-        className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl border-2 border-[var(--border)] bg-[var(--card)] hover:border-[var(--primary)] transition-colors text-left"
+        className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl border-2 border-[var(--border)] bg-[var(--card)] hover:border-[var(--primary)] transition-all active:scale-[0.98] text-left"
       >
         <span className="min-w-0">
           <span className="block text-xs font-semibold text-[var(--muted)] uppercase tracking-wider">Группа</span>
@@ -95,7 +95,7 @@ export default function GroupSelector({ groups, value, onChange, collapsible }: 
           {collapsible && value && (
             <button
               onClick={() => { setPendingDir(null); setExpanded(false); }}
-              className="flex items-center gap-1 text-xs text-[var(--muted)] hover:text-[var(--primary)] transition-colors"
+              className="flex items-center gap-1 text-xs text-[var(--muted)] hover:text-[var(--primary)] transition-all active:scale-95"
             >
               Свернуть
               <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -109,7 +109,7 @@ export default function GroupSelector({ groups, value, onChange, collapsible }: 
             <button
               key={dir}
               onClick={() => onDir(dir)}
-              className={`px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-all duration-150 ${
+              className={`px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-all duration-150 active:scale-95 ${
                 activeDir === dir
                   ? "bg-[var(--primary)] text-white border-[var(--primary)] shadow-sm"
                   : "bg-[var(--card)] border-[var(--border)] text-[var(--foreground)] hover:border-[var(--primary)] hover:text-[var(--primary)]"
@@ -129,7 +129,7 @@ export default function GroupSelector({ groups, value, onChange, collapsible }: 
               <button
                 key={year}
                 onClick={() => onYear(year)}
-                className={`px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-all duration-150 ${
+                className={`px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-all duration-150 active:scale-95 ${
                   activeYear === year
                     ? "bg-[var(--primary)] text-white border-[var(--primary)] shadow-sm"
                     : "bg-[var(--card)] border-[var(--border)] text-[var(--foreground)] hover:border-[var(--primary)] hover:text-[var(--primary)]"

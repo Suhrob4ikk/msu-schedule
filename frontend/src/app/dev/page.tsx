@@ -172,7 +172,11 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
         <div style={{ fontFamily: mono, fontSize: 14, color: c.accent }}>dev panel</div>
         <button onClick={onLogout} style={{ ...btn, fontSize: 12 }}>выйти</button>
       </div>
-      {msg && <div style={{ ...card, padding: "10px 14px", color: c.yellow, fontFamily: mono, fontSize: 13 }}>{msg}</div>}
+      {msg && (
+        <div key={msg} className="anim-slide-up" style={{ ...card, padding: "10px 14px", color: c.yellow, fontFamily: mono, fontSize: 13 }}>
+          {msg}
+        </div>
+      )}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(320px,1fr))", gap: 16 }}>
 

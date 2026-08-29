@@ -47,13 +47,18 @@ export default function ChangesPage() {
   const [profileGroupId, setProfileGroupId] = useState<number | null>(null);
   const [profileGroupLabel, setProfileGroupLabel] = useState<string>("");
   const [onlyMine, setOnlyMine] = useState(false);
+  // Пока не прочитали группу из localStorage, грузить нечего: иначе первый
+  // проход эффекта тянул ленту по всем факультетам, а второй — уже по своей
+  // группе. Два запроса подряд вместо одного.
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem("selected_group_id");
-    if (!saved) return;
+    if (!saved) { setReady(true); return; }
     const id = Number(saved);
     setProfileGroupId(id);
     setOnlyMine(true); // группа выбрана — по умолчанию фильтруем на неё
+    setReady(true);
     api.getGroups().then(groups => {
       const g = groups.find(x => x.id === id);
       if (g) setProfileGroupLabel(`${shortGroupName(g.name)} · ${g.year} курс`);
@@ -64,11 +69,20 @@ export default function ChangesPage() {
     setLoading(true);
     setError(false);
     api.getChanges(groupId ?? undefined)
-      .then(data => { setChanges(data); setLoading(false); })
+      .then(data => {
+        setChanges(data);
+        setLoading(false);
+        // Отмечаем момент просмотра — по нему в шапке гаснет бейдж «новое».
+        if (data[0]?.detected_at) localStorage.setItem("changes_last_seen", data[0].detected_at);
+      })
       .catch(() => { setError(true); setLoading(false); });
   };
 
-  useEffect(() => { load(onlyMine ? profileGroupId : null); }, [onlyMine, profileGroupId]);
+  useEffect(() => {
+    if (!ready) return;
+    load(onlyMine ? profileGroupId : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, onlyMine, profileGroupId]);
 
   return (
     <div className="min-h-screen">
@@ -83,7 +97,7 @@ export default function ChangesPage() {
             <div className="flex gap-1.5 mt-3">
               <button
                 onClick={() => setOnlyMine(true)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                className={`px-3 min-h-[36px] rounded-lg text-xs font-semibold transition-all active:scale-95 ${
                   onlyMine
                     ? "bg-[var(--primary)] text-white"
                     : "bg-[var(--card)] border border-[var(--border)] text-[var(--foreground)]"
@@ -93,7 +107,7 @@ export default function ChangesPage() {
               </button>
               <button
                 onClick={() => setOnlyMine(false)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                className={`px-3 min-h-[36px] rounded-lg text-xs font-semibold transition-all active:scale-95 ${
                   !onlyMine
                     ? "bg-[var(--primary)] text-white"
                     : "bg-[var(--card)] border border-[var(--border)] text-[var(--foreground)]"

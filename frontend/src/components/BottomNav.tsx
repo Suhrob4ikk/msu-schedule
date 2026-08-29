@@ -1,7 +1,8 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { viewTransitionNavClick } from "@/lib/viewTransition";
 
 const nav = [
   {
@@ -49,6 +50,7 @@ const nav = [
 
 export default function BottomNav() {
   const pathname = usePathname();
+  const router = useRouter();
   const [registered, setRegistered] = useState(false);
 
   useEffect(() => {
@@ -63,7 +65,7 @@ export default function BottomNav() {
   const activeIdx = nav.findIndex(n => n.href === pathname);
 
   return (
-    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-[var(--background)] border-t border-[var(--border)]"
+    <nav className="bottom-nav lg:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-[var(--border)]"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
       <div className="relative flex">
         {/* Индикатор активной вкладки — один на всю панель, поэтому при
@@ -87,6 +89,7 @@ export default function BottomNav() {
             <Link
               key={href}
               href={href}
+              onClick={viewTransitionNavClick(router, href)}
               className={`relative flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-colors active:scale-95 ${active
                 ? "text-[var(--primary)]"
                 : "text-[var(--muted)]"

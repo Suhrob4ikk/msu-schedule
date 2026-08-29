@@ -89,7 +89,7 @@ export default function WeekBar({ onWeekChange, selectedWeekStart }: Props) {
             <button
               key={w.week_start}
               onClick={() => handleSelect(w.week_start)}
-              className="shrink-0 flex items-center gap-1.5 px-4 py-0 min-h-[44px] rounded-lg text-sm font-medium transition-colors"
+              className="shrink-0 flex items-center gap-1.5 px-4 py-0 min-h-[44px] rounded-lg text-sm font-medium transition-all active:scale-95"
               style={
                 active
                   ? { background: "var(--primary)", color: "#fff" }

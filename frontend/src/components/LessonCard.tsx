@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { Lesson, shortGroupName } from "@/lib/api";
 import { skipKey, noteWeeklyKey, noteDatedKey, isPastLesson } from "@/lib/studyData";
@@ -75,6 +75,13 @@ export default function LessonCard({ lesson, showGroup, showAttendance, showNote
   const [note, setNote] = useState("");
   const [repeatWeekly, setRepeatWeekly] = useState(true);
   const [editingNote, setEditingNote] = useState(false);
+  const noteInputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Поле заметки остаётся смонтированным всегда (раскрывается через CSS grid,
+  // см. .note-editor) — поэтому автофокус при открытии ставим вручную.
+  useEffect(() => {
+    if (editingNote) noteInputRef.current?.focus();
+  }, [editingNote]);
 
   useEffect(() => {
     setMounted(true);
@@ -197,7 +204,7 @@ export default function LessonCard({ lesson, showGroup, showAttendance, showNote
           <button
             onClick={toggleSkip}
             aria-pressed={skipped}
-            className={`flex items-center gap-1.5 px-3 min-h-[32px] rounded-lg text-xs font-semibold border transition-colors ${
+            className={`flex items-center gap-1.5 px-3 min-h-[32px] rounded-lg text-xs font-semibold border transition-all active:scale-95 ${
               skipped
                 ? "bg-red-500 text-white border-red-500"
                 : "border-[var(--border)] text-[var(--muted)] hover:border-red-400 hover:text-red-600"
@@ -223,23 +230,41 @@ export default function LessonCard({ lesson, showGroup, showAttendance, showNote
       {/* Заметки */}
       {showNotes && (
         <div className="mt-3 pt-3 border-t border-[var(--border)]">
-          {!editingNote && note ? (
-            /* Компактная строка-индикатор: заметка видна, клик — редактирование */
-            <button
-              onClick={() => setEditingNote(true)}
-              className="w-full flex items-start gap-1.5 text-left text-xs leading-relaxed hover:opacity-80 transition-opacity"
-              style={{ color: "var(--foreground)" }}
-            >
-              <svg className="w-3.5 h-3.5 shrink-0 mt-0.5 text-[var(--primary)]" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-              </svg>
-              <span>{note}</span>
-            </button>
-          ) : editingNote ? (
-            <>
+          {!editingNote && (
+            note ? (
+              /* Компактная строка-индикатор: заметка видна, клик — редактирование */
+              <button
+                onClick={() => setEditingNote(true)}
+                className="w-full flex items-start gap-1.5 text-left text-xs leading-relaxed transition-all active:scale-[0.98] hover:opacity-80"
+                style={{ color: "var(--foreground)" }}
+              >
+                <svg className="w-3.5 h-3.5 shrink-0 mt-0.5 text-[var(--primary)]" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                </svg>
+                <span>{note}</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => setEditingNote(true)}
+                className="text-xs text-[var(--muted)] hover:text-[var(--primary)] transition-all active:scale-95 flex items-center gap-1"
+              >
+                <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                </svg>
+                Добавить заметку
+              </button>
+            )
+          )}
+
+          {/* Поле редактирования смонтировано всегда — раскрывается плавно
+              через CSS grid (0fr → 1fr, см. .note-editor в globals.css),
+              а не появляется скачком при подмене условного рендера. */}
+          <div className={`note-editor${editingNote ? " note-editor-open" : ""}`} aria-hidden={!editingNote}>
+            <div className="note-editor-inner">
               <textarea
-                autoFocus
+                ref={noteInputRef}
                 rows={2}
+                tabIndex={editingNote ? 0 : -1}
                 placeholder="Что задали? Что принести на пару?"
                 className="w-full text-xs rounded-lg px-2.5 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
                 style={{
@@ -256,7 +281,8 @@ export default function LessonCard({ lesson, showGroup, showAttendance, showNote
                 <button
                   onMouseDown={e => e.preventDefault()} /* чтобы textarea не потеряла фокус раньше клика */
                   onClick={toggleRepeat}
-                  className="flex items-center gap-1.5 mt-1.5 text-[11px] transition-colors"
+                  tabIndex={editingNote ? 0 : -1}
+                  className="flex items-center gap-1.5 mt-1.5 text-[11px] transition-all active:scale-95"
                   style={{ color: repeatWeekly ? "var(--primary)" : "var(--muted)" }}
                 >
                   <span
@@ -266,27 +292,18 @@ export default function LessonCard({ lesson, showGroup, showAttendance, showNote
                       background: repeatWeekly ? "var(--primary)" : "transparent",
                     }}
                   >
-                    {repeatWeekly && (
-                      <svg width="9" height="9" viewBox="0 0 20 20" fill="#fff">
-                        <path fillRule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-7.4 7.4a1 1 0 01-1.4 0L3.3 9.5a1 1 0 111.4-1.4l3.9 3.9 6.7-6.7a1 1 0 011.4 0z" clipRule="evenodd" />
-                      </svg>
-                    )}
+                    <svg
+                      width="9" height="9" viewBox="0 0 20 20" fill="#fff"
+                      className={`note-check${repeatWeekly ? " note-check-on" : ""}`}
+                    >
+                      <path fillRule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-7.4 7.4a1 1 0 01-1.4 0L3.3 9.5a1 1 0 111.4-1.4l3.9 3.9 6.7-6.7a1 1 0 011.4 0z" clipRule="evenodd" />
+                    </svg>
                   </span>
                   Повторять каждую неделю
                 </button>
               )}
-            </>
-          ) : (
-            <button
-              onClick={() => setEditingNote(true)}
-              className="text-xs text-[var(--muted)] hover:text-[var(--primary)] transition-colors flex items-center gap-1"
-            >
-              <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-              </svg>
-              Добавить заметку
-            </button>
-          )}
+            </div>
+          </div>
         </div>
       )}
     </div>

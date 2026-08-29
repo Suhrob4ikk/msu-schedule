@@ -1,34 +1,223 @@
 // URL бэкенда — единственный источник правды в next.config.ts (там же fallback).
 const API_BASE = process.env.NEXT_PUBLIC_API_URL!;
 
-// Client-side cache: 3 минуты для списков, 60 сек для расписания
-const _cache = new Map<string, { data: unknown; ts: number }>();
+/** Origin бэкенда — для <link rel="preconnect"> в layout.tsx. */
+export const API_ORIGIN = (() => {
+  try { return new URL(API_BASE).origin; } catch { return ''; }
+})();
+
+// ─── Кэш ответов API ─────────────────────────────────────────────────────────
+//
+// Два уровня:
+//   1) память       — живёт, пока открыта вкладка; переходы между страницами мгновенные;
+//   2) localStorage — переживает перезагрузку и запуск PWA. Именно он спасает
+//      от холодного старта Render (до 50 сек на первый запрос): экран рисуется
+//      сразу по сохранённым данным, а свежие подъезжают в фоне.
+//
+// Стратегия — stale-while-revalidate:
+//   свежее (моложе ttl)  → отдаём сразу, сеть не трогаем;
+//   протухшее            → отдаём сразу И параллельно обновляем в фоне;
+//   ничего нет           → ждём сеть; если сеть упала — отдаём протухшее любого возраста.
+//
+// Так офлайн-режим работает без сети, а онлайн не показывает пустой экран.
+
+type Entry = { data: unknown; ts: number };
+
+const _mem = new Map<string, Entry>();
+const _inflight = new Map<string, Promise<unknown>>();
+
+const LS_PREFIX = 'msu_api_v1:';
+/** Данные старше недели не показываем даже в офлайне — это уже другое расписание. */
+const PERSIST_MAX_AGE = 7 * 24 * 3600_000;
+/** Больше 400 КБ в localStorage не кладём: квота ~5 МБ на весь домен. */
+const PERSIST_MAX_BYTES = 400_000;
+/** Сколько ответов держим в localStorage; лишние вытесняются по давности. */
+const PERSIST_MAX_ENTRIES = 60;
 
 // Без тайм-аута fetch на плохой сети мог висеть бесконечно — ни ошибки,
 // ни повторной попытки, страница просто не показывает содержимое.
 const FETCH_TIMEOUT_MS = 15_000;
+// Render на бесплатном тарифе просыпается до 50 сек. Один повтор с длинным
+// тайм-аутом — только если показать нечего (кэша нет), иначе ждать незачем.
+const COLD_START_TIMEOUT_MS = 40_000;
 
-async function fetchApi<T>(path: string, ttl = 180_000): Promise<T> {
-  const hit = _cache.get(path);
-  if (hit && Date.now() - hit.ts < ttl) return hit.data as T;
+const hasLS = () => typeof window !== 'undefined' && !!window.localStorage;
 
+function readPersisted(path: string): Entry | undefined {
+  if (!hasLS()) return undefined;
+  try {
+    const raw = window.localStorage.getItem(LS_PREFIX + path);
+    if (!raw) return undefined;
+    const e = JSON.parse(raw) as Entry;
+    if (!e || typeof e.ts !== 'number') return undefined;
+    if (Date.now() - e.ts > PERSIST_MAX_AGE) {
+      window.localStorage.removeItem(LS_PREFIX + path);
+      return undefined;
+    }
+    return e;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Вытесняет самые старые записи кэша — когда их слишком много или кончилась квота. */
+function evictPersisted(keep = PERSIST_MAX_ENTRIES): void {
+  if (!hasLS()) return;
+  try {
+    const keys: Array<{ k: string; ts: number }> = [];
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const k = window.localStorage.key(i);
+      if (!k || !k.startsWith(LS_PREFIX)) continue;
+      let ts = 0;
+      // Битая запись получит ts=0 и вылетит первой — так и надо.
+      try { ts = (JSON.parse(window.localStorage.getItem(k) || '{}') as Entry).ts || 0; } catch { ts = 0; }
+      keys.push({ k, ts });
+    }
+    keys.sort((a, b) => a.ts - b.ts);
+    for (const { k } of keys.slice(0, Math.max(0, keys.length - keep))) {
+      window.localStorage.removeItem(k);
+    }
+  } catch { /* квота/приватный режим — переживём и без кэша */ }
+}
+
+function writePersisted(path: string, entry: Entry): void {
+  if (!hasLS()) return;
+  let raw: string;
+  try { raw = JSON.stringify(entry); } catch { return; }
+  if (raw.length > PERSIST_MAX_BYTES) return;
+  try {
+    window.localStorage.setItem(LS_PREFIX + path, raw);
+  } catch {
+    // Квота кончилась — чистим половину и пробуем ещё раз, один раз.
+    evictPersisted(Math.floor(PERSIST_MAX_ENTRIES / 2));
+    try { window.localStorage.setItem(LS_PREFIX + path, raw); } catch { /* не влезло — не беда */ }
+  }
+}
+
+function getEntry(path: string, volatile: boolean): Entry | undefined {
+  const hit = _mem.get(path);
+  if (hit) return hit;
+  if (volatile) return undefined;          // «идёт сейчас» из прошлой сессии показывать нельзя
+  const persisted = readPersisted(path);
+  if (persisted) _mem.set(path, persisted);
+  return persisted;
+}
+
+function putEntry(path: string, data: unknown, volatile: boolean): void {
+  const entry = { data, ts: Date.now() };
+  _mem.set(path, entry);
+  if (!volatile) writePersisted(path, entry);
+}
+
+// ─── Подписка на фоновое обновление ──────────────────────────────────────────
+// Страница отрисовалась по кэшу, в фоне пришли новые данные — сообщаем ей,
+// чтобы она молча перечитала (все чтения к этому моменту уже свежие, сети не будет).
+
+type UpdateListener = (path: string) => void;
+const _listeners = new Set<UpdateListener>();
+
+/** Подписка на «в кэше появились новые данные». Возвращает функцию отписки. */
+export function onApiUpdate(fn: UpdateListener): () => void {
+  _listeners.add(fn);
+  return () => { _listeners.delete(fn); };
+}
+
+function emitUpdate(path: string): void {
+  for (const fn of _listeners) {
+    try { fn(path); } catch { /* слушатель не должен ломать загрузку */ }
+  }
+}
+
+// ─── Сам запрос ──────────────────────────────────────────────────────────────
+
+async function rawFetch<T>(path: string, timeout: number): Promise<T> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeout);
   let res: Response;
   try {
     res = await fetch(`${API_BASE}${path}`, { signal: controller.signal });
-  } catch (e) {
-    if (e instanceof DOMException && e.name === "AbortError") {
-      throw new Error("Сервер не отвечает — проверьте соединение");
-    }
-    throw e;
   } finally {
     clearTimeout(timer);
   }
   if (!res.ok) throw new Error(`API error: ${res.status}`);
-  const data: T = await res.json();
-  _cache.set(path, { data, ts: Date.now() });
-  return data;
+  return res.json() as Promise<T>;
+}
+
+const isTimeout = (e: unknown) => e instanceof Error && e.name === 'AbortError';
+
+/**
+ * Одна сетевая попытка на путь: если два компонента спросили одно и то же
+ * одновременно, запрос уйдёт один, а ответ получат оба.
+ */
+function revalidate<T>(path: string, volatile: boolean, allowRetry: boolean): Promise<T> {
+  const running = _inflight.get(path);
+  if (running) return running as Promise<T>;
+
+  const p = (async () => {
+    try {
+      return await rawFetch<T>(path, FETCH_TIMEOUT_MS);
+    } catch (e) {
+      // Тайм-аут при пустом кэше — почти всегда просыпающийся Render. Ждём дольше.
+      if (allowRetry && isTimeout(e)) return await rawFetch<T>(path, COLD_START_TIMEOUT_MS);
+      throw e;
+    }
+  })()
+    .then(data => {
+      const prev = _mem.get(path);
+      putEntry(path, data, volatile);
+      // Сообщаем страницам, только когда данные реально изменились —
+      // иначе фоновое обновление дёргало бы перерисовку впустую.
+      if (prev && JSON.stringify(prev.data) !== JSON.stringify(data)) emitUpdate(path);
+      return data as T;
+    })
+    .finally(() => { _inflight.delete(path); });
+
+  _inflight.set(path, p);
+  return p;
+}
+
+async function fetchApi<T>(path: string, ttl = 180_000, volatile = false): Promise<T> {
+  const entry = getEntry(path, volatile);
+
+  // 1. Свежее — отдаём сразу, в сеть не идём.
+  if (entry && Date.now() - entry.ts < ttl) return entry.data as T;
+
+  // 2. Протухшее — отдаём сразу, обновляем в фоне (stale-while-revalidate).
+  if (entry) {
+    revalidate<T>(path, volatile, false).catch(() => { /* нет сети — остаёмся на кэше */ });
+    return entry.data as T;
+  }
+
+  // 3. Показать нечего — ждём сеть.
+  try {
+    return await revalidate<T>(path, volatile, true);
+  } catch (e) {
+    // Сеть упала, но сохранённое есть (например, память пуста после перезагрузки) —
+    // отдаём его: офлайн-режим важнее свежести.
+    const fallback = volatile ? undefined : readPersisted(path);
+    if (fallback) return fallback.data as T;
+    if (isTimeout(e)) throw new Error('Сервер не отвечает — проверьте соединение');
+    throw e;
+  }
+}
+
+/** Прогреть кэш заранее, не мешая отрисовке. Ошибки игнорируются. */
+export function prefetch(path: string, ttl = 180_000): void {
+  fetchApi(path, ttl).catch(() => { /* прогрев — необязательная операция */ });
+}
+
+/** Полный сброс кэша: ручное обновление должно тянуть свежие данные. */
+export function clearApiCache(): void {
+  _mem.clear();
+  if (!hasLS()) return;
+  try {
+    const keys: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const k = window.localStorage.key(i);
+      if (k && k.startsWith(LS_PREFIX)) keys.push(k);
+    }
+    keys.forEach(k => window.localStorage.removeItem(k));
+  } catch { /* нет доступа к localStorage — память уже очищена */ }
 }
 
 /** Собирает query string из объекта, пропуская undefined/null/false */
@@ -180,42 +369,64 @@ export interface Change {
   week_start: string | null;
 }
 
+/**
+ * TTL — «сколько ответ считается свежим». Если он протух, страница всё равно
+ * получает данные мгновенно из кэша, а сеть спрашивается в фоне (см. fetchApi).
+ * Бэкенд синхронизируется с msu.tj раз в 2 часа, поэтому минуты роли не играют.
+ */
+const TTL_LONG = 30 * 60_000;   // списки: группы, недели
+const TTL_DATA = 10 * 60_000;   // расписания, преподаватели, аудитории
+const TTL_FEED = 3 * 60_000;    // лента изменений
+const TTL_NOW  = 60_000;        // «идёт сейчас» — устаревает быстро
+
+/** Пути, на обновление которых подписываются страницы (см. onApiUpdate). */
+export const paths = {
+  groups: (facultyCode?: string) => `/schedule/groups${buildQuery({ faculty_code: facultyCode })}`,
+  groupSchedule: (groupId: number, day?: string, weekId?: number) =>
+    `/schedule/group/${groupId}${buildQuery({ day_of_week: day, week_id: weekId })}`,
+  groupWeeks: (groupId: number) => `/schedule/weeks/${groupId}`,
+  teachers: (weekStart?: string) => `/schedule/teachers${buildQuery({ week_start: weekStart })}`,
+  changes: (groupId?: number) => `/schedule/changes${buildQuery({ group_id: groupId })}`,
+};
+
 export const api = {
   getGroups: (facultyCode?: string) =>
-    fetchApi<Group[]>(`/schedule/groups${buildQuery({ faculty_code: facultyCode })}`),
+    fetchApi<Group[]>(paths.groups(facultyCode), TTL_LONG),
 
   getGroupSchedule: (groupId: number, day?: string, weekId?: number) =>
-    fetchApi<Lesson[]>(`/schedule/group/${groupId}${buildQuery({ day_of_week: day, week_id: weekId })}`),
+    fetchApi<Lesson[]>(paths.groupSchedule(groupId, day, weekId), TTL_DATA),
 
   getGroupWeeks: (groupId: number) =>
-    fetchApi<WeekInfo[]>(`/schedule/weeks/${groupId}`),
+    fetchApi<WeekInfo[]>(paths.groupWeeks(groupId), TTL_LONG),
 
   getAllWeeks: () =>
-    fetchApi<Array<{ week_start: string; week_number: number; is_latest: boolean }>>('/schedule/weeks-all'),
+    fetchApi<Array<{ week_start: string; week_number: number; is_latest: boolean }>>('/schedule/weeks-all', TTL_LONG),
 
   getTeachers: (weekStart?: string) =>
-    fetchApi<Teacher[]>(`/schedule/teachers${buildQuery({ week_start: weekStart })}`),
+    fetchApi<Teacher[]>(paths.teachers(weekStart), TTL_DATA),
 
   getTeacherSchedule: (teacherId: number, weekStart?: string) =>
-    fetchApi<Lesson[]>(`/schedule/teacher/${teacherId}${buildQuery({ week_start: weekStart })}`),
+    fetchApi<Lesson[]>(`/schedule/teacher/${teacherId}${buildQuery({ week_start: weekStart })}`, TTL_DATA),
 
-  // 60 сек, а не 3 минуты по умолчанию: «идёт сейчас / перемена» устаревает быстро
+  // volatile: «идёт сейчас / перемена» привязано к текущей минуте — из прошлой
+  // сессии такой ответ показывать нельзя, поэтому в localStorage он не пишется.
   getNow: (groupId: number) =>
-    fetchApi<TodayItem[]>(`/schedule/now?group_id=${groupId}`, 60_000),
+    fetchApi<TodayItem[]>(`/schedule/now?group_id=${groupId}`, TTL_NOW, true),
 
   getFreeRooms: (day: string, pair: string, weekStart?: string) =>
     fetchApi<Array<{
       room_name: string; is_free: boolean; occupied_by?: string;
       occupied_list?: string[]; conflict?: boolean;
     }>>(
-      `/schedule/free-rooms${buildQuery({ day_of_week: day, pair_number: pair, week_start: weekStart })}`
+      `/schedule/free-rooms${buildQuery({ day_of_week: day, pair_number: pair, week_start: weekStart })}`,
+      TTL_DATA,
     ),
 
   getStats: (groupId: number) =>
-    fetchApi<Stats>(`/schedule/stats/${groupId}`),
+    fetchApi<Stats>(`/schedule/stats/${groupId}`, TTL_DATA),
 
   getChanges: (groupId?: number) =>
-    fetchApi<Change[]>(`/schedule/changes${buildQuery({ group_id: groupId })}`),
+    fetchApi<Change[]>(paths.changes(groupId), TTL_FEED),
 
   getIcsUrl: (groupId: number) =>
     `${API_BASE}/export/ics/${groupId}`,

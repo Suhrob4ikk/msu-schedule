@@ -1,6 +1,6 @@
 // Версия кеша — меняй при каждом деплое если нужно принудительно сбросить
-const CACHE_STATIC = 'msu-static-v4';
-const CACHE_API    = 'msu-api-v4';
+const CACHE_STATIC = 'msu-static-v5';
+const CACHE_API    = 'msu-api-v5';
 
 // Страницы и ассеты для предварительного кеширования при установке
 const PRECACHE_URLS = [
@@ -63,13 +63,19 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // 2. API запросы (внешний домен Railway) — Network First с кеш-fallback
+  // 2. API запросы (внешний домен) — Network First с кеш-fallback.
+  //    Основной кэш теперь в самом приложении (lib/api.ts: память + localStorage),
+  //    здесь — только страховка на случай, когда localStorage недоступен.
   const isApi = url.hostname !== self.location.hostname;
   if (isApi) {
+    // «Идёт сейчас» и личные данные привязаны к текущей минуте и к пользователю —
+    // отдать их из кеша значит показать неправду. Их не кешируем совсем.
+    const volatileApi =
+      url.pathname.includes('/schedule/now') || url.pathname.includes('/user/');
     e.respondWith(
       fetch(e.request)
         .then(res => {
-          if (res.ok) {
+          if (res.ok && !volatileApi) {
             const clone = res.clone();
             caches.open(CACHE_API).then(c => c.put(e.request, clone));
           }

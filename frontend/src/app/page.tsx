@@ -6,7 +6,7 @@ import Header from "@/components/Header";
 import WeekBar from "@/components/WeekBar";
 import DaySchedule from "@/components/DaySchedule";
 import { ScheduleSkeleton } from "@/components/Skeletons";
-import { api, Group, Lesson, TodayItem, Stats, WeekInfo, DAYS_ORDER, breakLabel, shortGroupName } from "@/lib/api";
+import { api, prefetch, paths, onApiUpdate, Group, Lesson, TodayItem, Stats, WeekInfo, DAYS_ORDER, breakLabel, shortGroupName } from "@/lib/api";
 import { shareScheduleImage } from "@/lib/shareImage";
 import { useSwipe } from "@/lib/useSwipe";
 import { featuresUnlocked } from "@/lib/features";
@@ -40,6 +40,17 @@ function weekRangeLabel(weekStart: string): string {
   return `${start.getDate()} – ${end.getDate()} ${months[end.getMonth()]}`;
 }
 
+// Дата конкретного дня недели по дате её начала — для чисел на пилюлях
+// фильтра и определения "сегодня" даже когда у дня нет ни одной пары.
+function dayISO(day: string, weekStart: string): string | null {
+  const idx = DAYS_ORDER.indexOf(day);
+  if (idx === -1 || !weekStart) return null;
+  const d = new Date(weekStart + "T00:00:00");
+  d.setDate(d.getDate() + idx);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
 export default function HomePage() {
   const router = useRouter();
   const [groups, setGroups] = useState<Group[]>([]);
@@ -47,10 +58,7 @@ export default function HomePage() {
   // Флаги читаем после монтирования — SSR-безопасно (иначе hydration #418).
   const [featureAttendance, setFeatureAttendance] = useState(false);
   const [featureNotes, setFeatureNotes] = useState(false);
-  // Июль–август = каникулы. Вычисляем после монтирования (SSR-безопасно, иначе #418)
-  const [isVacation, setIsVacation] = useState(false);
   useEffect(() => {
-    setIsVacation([6, 7].includes(new Date().getMonth()));
     if (!featuresUnlocked()) return;
     setFeatureAttendance(localStorage.getItem("feature_attendance") === "1");
     setFeatureNotes(localStorage.getItem("feature_notes") === "1");
@@ -95,10 +103,18 @@ export default function HomePage() {
   const [selectedWeekStart, setSelectedWeekStart] = useState<string>("");
   const selectedWeekStartRef = useRef(selectedWeekStart);
   useEffect(() => { selectedWeekStartRef.current = selectedWeekStart; }, [selectedWeekStart]);
+  // Пользователь сам переключил неделю кнопками? Пока нет — неделю всегда
+  // выбираем по сегодняшней дате. Иначе первый экран, нарисованный по кэшу
+  // недельной давности, «прилипал» бы к прошлой неделе: свежий список пришёл,
+  // а мы ищем в нём ту неделю, что показали из кэша.
+  const userPickedWeekRef = useRef(false);
+  const selectedWeekIdRef = useRef<number | undefined>(undefined);
+  useEffect(() => { selectedWeekIdRef.current = selectedWeekId; }, [selectedWeekId]);
 
-  const loadGroup = useCallback(async (group: Group, weekId?: number) => {
+  // silent — фоновое обновление: данные на экране уже есть, скелетон показывать нельзя.
+  const loadGroup = useCallback(async (group: Group, weekId?: number, silent = false) => {
     setSelectedGroup(group);
-    setLoading(true);
+    if (!silent) setLoading(true);
     setError(null);
     localStorage.setItem("schedule_view_group_id", String(group.id));
 
@@ -108,7 +124,7 @@ export default function HomePage() {
       setWeeks(wks);
 
       let targetWeekId = weekId;
-      if (!targetWeekId && selectedWeekStartRef.current) {
+      if (!targetWeekId && userPickedWeekRef.current && selectedWeekStartRef.current) {
         const matchingWeek = wks.find(w => w.week_start === selectedWeekStartRef.current);
         if (matchingWeek) targetWeekId = matchingWeek.id;
       }
@@ -138,9 +154,11 @@ export default function HomePage() {
       setNowItems(now);
       setStats(st);
     } catch {
-      setError("Ошибка загрузки расписания");
+      // При фоновом обновлении молчим: на экране остаются прежние данные,
+      // и красная плашка поверх них была бы враньём.
+      if (!silent) setError("Ошибка загрузки расписания");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
@@ -157,6 +175,20 @@ export default function HomePage() {
     setError(null);
     const profileId = Number(savedGroup);
     setProfileGroupId(profileId);
+
+    // Раньше это была лесенка из трёх ожиданий: группы → недели → расписание.
+    // На спящем Render каждая ступенька стоила отдельного round-trip. Группу,
+    // которую надо показать, мы знаем из localStorage сразу — значит, её недели
+    // и «идёт сейчас» можно запросить параллельно со списком групп. К моменту,
+    // когда loadGroup дойдёт до getGroupWeeks, ответ уже в кэше (или тот же
+    // запрос ещё в полёте — fetchApi не пустит второй).
+    const initialId = Number(viewedGroup ?? savedGroup);
+    if (initialId) {
+      prefetch(paths.groupWeeks(initialId));
+      api.getNow(initialId).catch(() => null);
+      api.getStats(initialId).catch(() => null);
+    }
+
     api.getGroups()
       .then(gs => {
         setGroups(gs);
@@ -172,6 +204,24 @@ export default function HomePage() {
 
   useEffect(() => { loadInitialGroups(); }, [loadInitialGroups]);
 
+  // Экран рисуется по кэшу мгновенно; когда фоновый запрос принесёт что-то
+  // новое — молча перечитываем. Все чтения к этому моменту уже свежие,
+  // так что второй раз в сеть никто не пойдёт.
+  const selectedGroupRef = useRef<Group | null>(null);
+  useEffect(() => { selectedGroupRef.current = selectedGroup; }, [selectedGroup]);
+  useEffect(() => {
+    let timer: number | undefined;
+    const off = onApiUpdate(() => {
+      // Обновлений может прилететь несколько подряд — склеиваем в одно.
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        const g = selectedGroupRef.current;
+        if (g) loadGroup(g, userPickedWeekRef.current ? selectedWeekIdRef.current : undefined, true);
+      }, 400);
+    });
+    return () => { off(); window.clearTimeout(timer); };
+  }, [loadGroup]);
+
   const restoreProfileGroup = useCallback(() => {
     if (profileGroup) {
       loadGroup(profileGroup);
@@ -185,6 +235,7 @@ export default function HomePage() {
 
   // Обработчик переключения недели из WeekBar
   const handleWeekChange = useCallback((weekStart: string) => {
+    userPickedWeekRef.current = true;
     setSelectedWeekStart(weekStart);
     if (!selectedGroup) return;
     const week = weeks.find(w => w.week_start === weekStart);
@@ -551,9 +602,10 @@ export default function HomePage() {
           <FeatureHint skips={featureAttendance} notes={featureNotes} />
         )}
 
-        {/* Фильтр по дню */}
+        {/* Фильтр по дню — лента с числами месяца, сегодняшний день виден
+            даже когда не выбран (рамка + подпись), не только по клику. */}
         {selectedGroup && (
-          <div className="flex gap-1.5 lg:gap-3 flex-wrap mb-4 lg:mb-5">
+          <div className="flex gap-1.5 lg:gap-3 flex-wrap mb-4 lg:mb-5 pt-2">
             <button
               onClick={() => setSelectedDay("all")}
               className={`px-3 lg:px-5 py-1.5 lg:py-2.5 rounded-lg text-xs lg:text-base font-medium transition-all active:scale-95 ${selectedDay === "all"
@@ -566,21 +618,36 @@ export default function HomePage() {
             {visibleDays.map(day => {
               const hasLessons = lessons.some(l => l.day_of_week === day);
               const isActive = selectedDay === day;
+              const iso = dayISO(day, selectedWeekStart);
+              const isToday = !!today && iso === today;
+              const dayNum = iso ? Number(iso.slice(-2)) : null;
               // Подсвечивать синей рамкой только когда выбран конкретный день, а не "вся неделя"
               const showHighlight = hasLessons && !isActive && selectedDay !== "all";
               return (
                 <button
                   key={day}
                   onClick={() => setSelectedDay(day)}
-                  className={`relative flex items-center gap-1 px-3 lg:px-5 min-h-[44px] rounded-lg text-xs lg:text-base font-medium transition-all active:scale-95 ${isActive
+                  className={`relative flex flex-col lg:flex-row items-center gap-0.5 lg:gap-1.5 px-3 lg:px-5 min-h-[44px] rounded-lg text-xs lg:text-base font-medium transition-all active:scale-95 ${isActive
                     ? "bg-[var(--primary)] text-white"
-                    : showHighlight
-                      ? "bg-[var(--tag-bg)] border border-[var(--primary)] text-[var(--primary)]"
-                      : "bg-[var(--card)] border border-[var(--border)] text-[var(--muted)]"
+                    : isToday
+                      ? "bg-[var(--card)] border-[1.5px] border-[var(--primary)] text-[var(--primary)]"
+                      : showHighlight
+                        ? "bg-[var(--tag-bg)] border border-[var(--primary)] text-[var(--primary)]"
+                        : "bg-[var(--card)] border border-[var(--border)] text-[var(--muted)]"
                     }`}
                 >
-                  <span className="lg:hidden">{DAY_SHORT[day]}</span>
+                  {isToday && (
+                    <span
+                      className="absolute -top-2 left-1/2 -translate-x-1/2 text-[8px] font-bold uppercase tracking-wide px-1 whitespace-nowrap"
+                      style={{ background: "var(--background)", color: "var(--primary)" }}
+                    >
+                      сегодня
+                    </span>
+                  )}
+                  <span className="lg:hidden leading-tight opacity-80">{DAY_SHORT[day]}</span>
                   <span className="hidden lg:inline">{DAY_LABELS[day]}</span>
+                  {dayNum != null && <span className="lg:hidden text-sm font-bold leading-tight">{dayNum}</span>}
+                  {dayNum != null && <span className="hidden lg:inline opacity-70">, {dayNum}</span>}
                   {/* Точка-индикатор: есть пары, режим "вся неделя", кнопка не активна */}
                   {hasLessons && selectedDay === "all" && (
                     <span className="w-1.5 h-1.5 rounded-full bg-[var(--primary)] shrink-0" />
@@ -607,66 +674,56 @@ export default function HomePage() {
           </div>
         )}
 
-        {!loading && !error && selectedGroup && Object.keys(lessonsByDay).length === 0 && (
-          <div className="text-center py-16 text-[var(--muted)]">
-            {isVacation && lessons.length === 0 ? (
-              <>
-                <svg className="w-12 h-12 mx-auto mb-3 text-[var(--primary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="4" />
-                  <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
-                </svg>
-                <p className="font-semibold text-base" style={{ color: "var(--foreground)" }}>Каникулы!</p>
-                <p className="text-xs mt-1">Занятий нет — отдыхаем. Расписание появится ближе к 1 сентября.</p>
-              </>
-            ) : (
-              <>
-                <svg className="w-12 h-12 mx-auto mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                {selectedDay !== "all" ? (
-                  <>
-                    <p className="font-medium">{DAY_IN[selectedDay]} занятий нет</p>
-                    <p className="text-xs mt-1">Выходной или нет пар в этот день</p>
-                  </>
-                ) : (
-                  <>
-                    <p className="font-medium">На этой неделе занятий нет</p>
-                    <p className="text-xs mt-1">Идёт сессия или каникулы</p>
-                  </>
-                )}
-              </>
-            )}
-          </div>
-        )}
+        {/* Зона свайпа переключения дней — растянута на весь остаток экрана,
+            а не только на карточки пар: иначе в пустой день (или пока грузится
+            блок «занятий нет») свайпать было буквально не по чему. */}
+        <div {...swipe} key={selectedDay} className="min-h-[55vh] lg:min-h-0">
+          {!loading && !error && selectedGroup && Object.keys(lessonsByDay).length === 0 && (
+            <div className="text-center py-16 text-[var(--muted)]">
+              <svg className="w-12 h-12 mx-auto mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              {selectedDay !== "all" ? (
+                <>
+                  <p className="font-medium">{DAY_IN[selectedDay]} занятий нет</p>
+                  <p className="text-xs mt-1">Выходной или нет пар в этот день</p>
+                </>
+              ) : (
+                <>
+                  <p className="font-medium">На этой неделе занятий нет</p>
+                  <p className="text-xs mt-1">Идёт сессия или каникулы</p>
+                </>
+              )}
+            </div>
+          )}
 
-        {!loading && !selectedGroup && !error && (
-          <div className="text-center py-16 text-[var(--muted)]">
-            <svg className="w-12 h-12 mx-auto mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-            </svg>
-            <p className="font-medium">Выберите группу выше</p>
-            <p className="text-xs mt-1">Чтобы увидеть расписание</p>
-          </div>
-        )}
+          {!loading && !selectedGroup && !error && (
+            <div className="text-center py-16 text-[var(--muted)]">
+              <svg className="w-12 h-12 mx-auto mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+              </svg>
+              <p className="font-medium">Выберите группу выше</p>
+              <p className="text-xs mt-1">Чтобы увидеть расписание</p>
+            </div>
+          )}
 
-        <div
-          {...swipe}
-          key={selectedDay}
-          className={`grid grid-cols-1 lg:grid-cols-2 gap-x-6${slideDir ? ` slide-${slideDir}` : ""}`}
-        >
-          {Object.entries(lessonsByDay).map(([day, dayLessons], idx) => (
-            <DaySchedule
-              key={day}
-              dayLabel={DAY_LABELS[day]}
-              lessons={dayLessons}
-              showAttendance={featureAttendance && isMyGroup}
-              showNotes={featureNotes && isMyGroup}
-              todayIso={today}
-              nowMinutes={nowMinutes}
-              dimPast={isCurrentWeek}
-              order={idx}
-            />
-          ))}
+          <div
+            className={`grid grid-cols-1 lg:grid-cols-2 gap-x-6${slideDir ? ` slide-${slideDir}` : ""}`}
+          >
+            {Object.entries(lessonsByDay).map(([day, dayLessons], idx) => (
+              <DaySchedule
+                key={day}
+                dayLabel={DAY_LABELS[day]}
+                lessons={dayLessons}
+                showAttendance={featureAttendance && isMyGroup}
+                showNotes={featureNotes && isMyGroup}
+                todayIso={today}
+                nowMinutes={nowMinutes}
+                dimPast={isCurrentWeek}
+                order={idx}
+              />
+            ))}
+          </div>
         </div>
       </main>
     </div>

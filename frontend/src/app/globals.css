@@ -121,9 +121,13 @@ h1, h2 { letter-spacing: -0.015em; }
 .lesson-tag-new-week      { background: #f0fdfa; color: #0f766e; border-color: #99f6e4; }
 .dark .lesson-tag-new-week{ background: rgba(20,184,166,0.16); color: #5eead4; border-color: rgba(45,212,191,0.28); }
 
-/* ── Карточка текущей/следующей пары — цветной левый акцент ── */
+/* ── Карточка текущей/следующей пары — цветной левый акцент + мягкий
+   градиент подложки (от --primary-soft к обычному --card, по диагонали).
+   Только у этой карточки: она самая просматриваемая на экране, и лёгкая
+   глубина отличает её от остального плоского интерфейса, не ломая стиль. */
 .lesson-now {
   border-left: 3px solid var(--primary);
+  background: linear-gradient(135deg, var(--primary-soft) 0%, var(--card) 70%);
   box-shadow: var(--shadow-md);
 }
 
@@ -221,6 +225,34 @@ h1, h2 { letter-spacing: -0.015em; }
   background: var(--primary);
   animation: now-ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
+
+/* ── Раскрытие поля заметки: контейнер смонтирован всегда, высота растёт
+   через grid-template-rows (0fr → 1fr) — плавнее и надёжнее, чем анимировать
+   height: auto. Внутренний div с overflow:hidden обрезает содержимое,
+   пока строка грид-а схлопнута. См. LessonCard.tsx. */
+.note-editor {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.note-editor-open { grid-template-rows: 1fr; }
+.note-editor-inner { overflow: hidden; min-height: 0; }
+
+/* ── Галочка «повторять каждую неделю»: не просто появляется, а слегка
+   «выскакивает» — маленький перелёт делает подтверждение ощутимее. ── */
+.note-check {
+  transform: scale(0);
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.note-check-on { transform: scale(1); }
+
+/* ── Точка «есть новые изменения»: выскакивает, а не просто появляется —
+   иначе новый бейдж легко пропустить взглядом. ── */
+@keyframes badge-pop {
+  from { transform: scale(0); }
+  to   { transform: scale(1); }
+}
+.badge-pop { animation: badge-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
 
 /* ═════════════════════════════════════════════════════════════════════════
    ТАЙМЛАЙН ДНЯ
@@ -357,6 +389,51 @@ html.theme-switching::view-transition-new(root) {
   animation: theme-reveal 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 
+/* ═════════════════════════════════════════════════════════════════════════
+   ПЕРЕХОД МЕЖДУ СТРАНИЦАМИ — тоже через View Transitions API.
+   Запускается из lib/viewTransition.ts (Header.tsx, BottomNav.tsx), которое
+   на время перехода ставит класс page-transitioning. Правило выше уже
+   выключило анимацию по умолчанию для ::view-transition-old/new(root) —
+   здесь мы включаем её обратно, но только под этим классом, лёгким
+   кросс-фейдом (не круговым, как у темы — для навигации это было бы лишним).
+   Шапка и нижняя навигация получают СВОИ view-transition-name и остаются
+   статичными: иначе они «просвечивали» бы вместе с контентом при каждом
+   переходе.
+   ═════════════════════════════════════════════════════════════════════════ */
+@keyframes nav-fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+@keyframes nav-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+html.page-transitioning::view-transition-old(root) {
+  animation: nav-fade-out 0.16s ease both;
+}
+html.page-transitioning::view-transition-new(root) {
+  animation: nav-fade-in 0.22s ease 0.05s both;
+}
+
+/* ── Нижняя навигация: лёгкое стекло, а не сплошная заливка ──
+   Только у «плавающего» интерфейса поверх контента (эта панель и шапка) —
+   карточки расписания остаются плоскими, как задумано в дизайн-системе.
+   color-mix — тот же --background, но полупрозрачный: если backdrop-filter
+   не поддержан, панель просто останется полупрозрачной без блюра. */
+.bottom-nav {
+  background: color-mix(in srgb, var(--background) 85%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+html.page-transitioning header { view-transition-name: app-header; }
+html.page-transitioning .bottom-nav { view-transition-name: app-bottom-nav; }
+::view-transition-old(app-header), ::view-transition-new(app-header),
+::view-transition-old(app-bottom-nav), ::view-transition-new(app-bottom-nav) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
@@ -382,4 +459,6 @@ html.theme-switching::view-transition-new(root) {
   .skeleton { animation: none !important; background: var(--tag-bg); }
   .now-dot::after { display: none; }
   html.theme-switching::view-transition-new(root) { animation: none !important; }
+  html.page-transitioning::view-transition-old(root),
+  html.page-transitioning::view-transition-new(root) { animation: none !important; }
 }
