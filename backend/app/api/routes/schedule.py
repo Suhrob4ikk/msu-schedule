@@ -208,6 +208,18 @@ def get_teacher_schedule(
             if w:
                 week_ids.append(w.id)
 
+    # Сольное имя («Балхова С.Я.») — подмешиваем пары, где оно упомянуто в
+    # связке с кем-то ещё («Балхова С.Я., Собко В.И.»): это её реальные пары,
+    # просто пара технически ссылается на отдельного «совмещённого»
+    # преподавателя. Иначе на личной странице не хватало бы части расписания —
+    # список /teachers связку отдельной строкой уже не показывает
+    # (см. get_teachers), так что это единственный путь до этих пар.
+    teacher_ids = [teacher_id]
+    if "," not in teacher.name:
+        for c in db.query(Teacher).filter(Teacher.name.contains(",")).all():
+            if teacher.name in _split_person_names(c.name):
+                teacher_ids.append(c.id)
+
     q = (
         db.query(Lesson)
         .options(
@@ -215,7 +227,7 @@ def get_teacher_schedule(
             joinedload(Lesson.room),
             joinedload(Lesson.group).joinedload(Group.faculty),
         )
-        .filter(Lesson.teacher_id == teacher_id)
+        .filter(Lesson.teacher_id.in_(teacher_ids))
         .filter(Lesson.week_schedule_id.in_(week_ids))
     )
     if day_of_week:
@@ -269,17 +281,9 @@ def is_real_teacher_name(name: str) -> bool:
     return bool(_INITIAL_RE.search(name))
 
 
-def _expand_teacher(teacher_id: int, name: str) -> list[dict]:
-    """Одна запись преподавателя = один пункт списка.
-
-    Раньше «Стаценко Ю.Ю., Охонвалиева Ш.С.» разбивалось на две строки, но обе
-    получали ОДИН И ТОТ ЖЕ teacher_id — то есть, нажав на любую из фамилий,
-    студент видел пары обоих преподавателей и не видел личных пар каждого.
-    Пока пара умеет ссылаться только на одного преподавателя (teacher_id),
-    честнее показать совмещённую запись как есть: тогда расписание всегда
-    соответствует тому, на что нажали. Поиск по фамилии всё равно находит —
-    он ищет подстроку."""
-    return [{"id": teacher_id, "name": name}]
+def _split_person_names(name: str) -> list[str]:
+    """«Стаценко Ю.Ю., Охонвалиева Ш.С.» → ['Стаценко Ю.Ю.', 'Охонвалиева Ш.С.']"""
+    return [p.strip() for p in name.split(",") if p.strip()]
 
 
 @router.get("/teachers")
@@ -288,7 +292,19 @@ def get_teachers(week_start: Optional[str] = None, db: Session = Depends(get_db)
 
     В список попадают только настоящие ФИО — коды кафедр/предметов
     («ИТУ», «английский» и т.п.) отфильтровываются, а одинаковые имена
-    (один и тот же преподаватель в разных совмещённых записях) дедуплицируются.
+    дедуплицируются.
+
+    Совмещённая запись («Стаценко Ю.Ю., Охонвалиева Ш.С.») не показывается
+    отдельной строкой, если КАЖДЫЙ из пары уже есть в списке своей сольной
+    записью — иначе один и тот же человек был бы виден и один, и в связке,
+    и непонятно, по какой строке искать его полное расписание. Обе версии
+    ведут на разные teacher_id с разным набором пар, поэтому просто
+    скрыть связку недостаточно — get_teacher_schedule дополнительно
+    подмешивает совместные пары на сольную страницу каждого из пары,
+    так что расписание не теряется, просто открывается через сольное имя.
+    Если хотя бы у одного из пары своей сольной записи нет (либо есть,
+    но она не «настоящее» ФИО, например код кафедры) — связку оставляем
+    как есть, иначе этот человек стал бы вообще недостижим.
     """
     if week_start:
         try:
@@ -319,17 +335,22 @@ def get_teachers(week_start: Optional[str] = None, db: Session = Depends(get_db)
     else:
         teachers = db.query(Teacher).order_by(Teacher.name).all()
 
+    # Сольные ФИО — те, что уже есть в списке отдельной строкой (без запятой).
+    # По ним решаем, можно ли скрыть совмещённую запись как избыточную.
+    solo_names = {t.name for t in teachers if "," not in t.name and is_real_teacher_name(t.name)}
+
     result = []
     seen_names: set = set()
     for t in teachers:
-        for entry in _expand_teacher(t.id, t.name):
-            # Пропускаем коды кафедр/предметов и дубли по имени
-            if not is_real_teacher_name(entry["name"]):
-                continue
-            if entry["name"] in seen_names:
-                continue
-            seen_names.add(entry["name"])
-            result.append(entry)
+        if not is_real_teacher_name(t.name):
+            continue
+        parts = _split_person_names(t.name)
+        if len(parts) > 1 and all(p in solo_names for p in parts):
+            continue  # у каждого из пары уже есть своя строка — не дублируем
+        if t.name in seen_names:
+            continue
+        seen_names.add(t.name)
+        result.append({"id": t.id, "name": t.name})
     return sorted(result, key=lambda x: x["name"])
 
 
