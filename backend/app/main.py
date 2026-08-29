@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 
 from app.database import engine
-from app.models import Base
+from app.models import Base, CANONICAL_ROOMS
 from app.api.routes import schedule, export, user, admin, dev, app_update
 from app.services.scheduler import start_scheduler, stop_scheduler
 
@@ -19,16 +19,6 @@ logger = logging.getLogger(__name__)
 
 # Статус миграции колонки week_start — виден в /health для диагностики
 MIGRATION_STATUS = "не запускалась"
-
-
-CANONICAL_ROOMS = [
-    "стадион", "лабхим", "лабфиз", "лабгеол",
-    "100", "104", "105", "107", "108", "208",
-    "301", "302", "401", "402", "403", "404",
-    "601", "602", "603",
-    "701", "702", "703", "704",
-    "801", "802",
-]
 
 
 def seed_rooms():

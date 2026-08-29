@@ -504,7 +504,7 @@ def get_free_rooms(
     db: Session = Depends(get_db),
 ):
     """Свободные аудитории в указанный день и пару. week_start — конкретная неделя."""
-    from app.models import Room
+    from app.models import CANONICAL_ROOMS
 
     # Кэш: ключ = день|пара|неделя. Результат идентичен для всех пользователей.
     cache_key = (day_of_week.lower(), pair_number.upper(), week_start or "latest")
@@ -512,7 +512,10 @@ def get_free_rooms(
     if hit and (_time_mod.time() - hit[1]) < _FREE_ROOMS_TTL:
         return hit[0]
 
-    all_rooms = {r.id: r.name for r in db.query(Room).all()}
+    # Список настоящих аудиторий — фиксированный, а не из таблицы Room:
+    # там может застрять что угодно, что когда-то распарсилось из Excel
+    # (см. ниже про «601 702»), а показывать в списке можно только реальные.
+    canonical_set = set(CANONICAL_ROOMS)
 
     # Определяем week_ids — по одной свежей записи на факультет
     latest_week_ids = []
@@ -580,12 +583,20 @@ def get_free_rooms(
             tname = override_teacher_name(l.subject, l.teacher.name) or l.teacher.name if l.teacher else None
             teacher_name = f" · {tname}" if tname else ""
             group_name = short_group_name(l.group.name) if l.group else ""
-            occupied_map.setdefault(l.room.name, []).append(
-                f"{l.group.year} курс · {group_name}: {l.subject}{type_suffix}{teacher_name}"
-            )
+            entry = f"{l.group.year} курс · {group_name}: {l.subject}{type_suffix}{teacher_name}"
+
+            # Иностранный язык и похожие предметы делят поток на подгруппы —
+            # в Excel это одна ячейка вида «601 702»: пара идёт сразу в ОБЕИХ
+            # аудиториях одновременно, не в одной с двойным названием. Разносим
+            # занятость на каждую настоящую аудиторию, иначе 601 и 702
+            # показались бы свободными, пока реально заняты.
+            tokens = l.room.name.split()
+            room_names = tokens if len(tokens) > 1 and all(t in canonical_set for t in tokens) else [l.room.name]
+            for rn in room_names:
+                occupied_map.setdefault(rn, []).append(entry)
 
     result = []
-    for room_name in sorted(all_rooms.values()):
+    for room_name in sorted(canonical_set):
         if room_name in occupied_map:
             entries = occupied_map[room_name]
             result.append({
