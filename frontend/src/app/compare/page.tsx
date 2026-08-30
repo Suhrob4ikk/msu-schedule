@@ -165,7 +165,13 @@ export default function ComparePage() {
               Общих свободных пар: <b style={{ color: "var(--primary)" }}>{commonFree}</b>
             </p>
             <div className="overflow-x-auto scrollbar-hide">
-              <table className="w-full min-w-[420px] border-separate" style={{ borderSpacing: "3px" }}>
+              {/* table-fixed: без него ширину колонки считает самое широкое
+                  содержимое в ней — а время пары набрано пропорциональным
+                  шрифтом, где "0"/"8"/"9" шире "1", поэтому «08:00» физически
+                  шире «11:30». Квадраты под них (aspect-square) выходили
+                  заметно разного размера. С фиксированной раскладкой все
+                  колонки пар делят оставшееся место поровну. */}
+              <table className="w-full min-w-[420px] table-fixed border-separate" style={{ borderSpacing: "3px" }}>
                 <thead>
                   <tr>
                     <th className="w-12" />
