@@ -2,7 +2,7 @@
 
 import { useMemo, type CSSProperties } from "react";
 import LessonCard from "./LessonCard";
-import { Lesson, gapBetween, humanDuration } from "@/lib/api";
+import { Lesson, gapBetween, leadingGap, humanDuration } from "@/lib/api";
 
 /**
  * Один день расписания в виде вертикального таймлайна.
@@ -110,8 +110,12 @@ export default function DaySchedule({
       <div className="tl-rail" data-dim={dimPast ? "1" : undefined}>
         {lessons.map((lesson, i) => {
           // Окно = пропущенный слот пары. Обычный перерыв между соседними
-          // парами (включая обед III→IV) окном не считается.
-          const gap = i > 0 ? gapBetween(lessons[i - 1].pair_number, lesson.pair_number) : null;
+          // парами (включая обед III→IV) окном не считается. У первой пары
+          // дня сравнивать не с чем — leadingGap меряет от начала дня (I
+          // пара), а не от предыдущего занятия.
+          const gap = i > 0
+            ? gapBetween(lessons[i - 1].pair_number, lesson.pair_number)
+            : leadingGap(lesson.pair_number);
           const state = states[i];
 
           return (

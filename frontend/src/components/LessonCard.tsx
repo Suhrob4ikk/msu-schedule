@@ -24,7 +24,12 @@ const typeLabels: Record<string, string> = {
   ПРАКТИКА: "Практика",
   Практика: "Практика",
   ПЗ: "Практика",
+  // msu.tj присылает именно сокращение "ЛК" — полное слово "ЛЕКЦИЯ" в
+  // реальных данных не встречается, но оставлено на случай, если формат
+  // файла изменится.
+  ЛК: "Лекция",
   ЛЕКЦИЯ: "Лекция",
+  Лекция: "Лекция",
 };
 
 // CSS-классы для цветных тегов (определены в globals.css, поддерживают dark mode)
@@ -32,13 +37,14 @@ const typeTagClass: Record<string, string> = {
   ЭКЗАМЕН: "lesson-tag-exam", Экзамен: "lesson-tag-exam",
   ЗАЧЕТ: "lesson-tag-exam", Зачёт: "lesson-tag-exam",
   ПРАКТИКА: "lesson-tag-practice", Практика: "lesson-tag-practice", ПЗ: "lesson-tag-practice",
+  ЛК: "lesson-tag-lecture", ЛЕКЦИЯ: "lesson-tag-lecture", Лекция: "lesson-tag-lecture",
 };
 
 // Тип пары → цвет левого акцента карточки (делает расписание сканируемым)
 const typeKind: Record<string, string> = {
   ЭКЗАМЕН: "exam", Экзамен: "exam", ЗАЧЕТ: "exam", Зачёт: "exam",
   ПРАКТИКА: "practice", Практика: "practice", ПЗ: "practice",
-  ЛЕКЦИЯ: "lecture", Лекция: "lecture",
+  ЛК: "lecture", ЛЕКЦИЯ: "lecture", Лекция: "lecture",
 };
 
 interface Props {

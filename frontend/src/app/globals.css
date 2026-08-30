@@ -109,6 +109,13 @@ h1, h2 { letter-spacing: -0.015em; }
 .lesson-tag-practice      { background: #ecebfb; color: #4a44c9; border-color: #d3d0fa; }
 .dark .lesson-tag-practice{ background: rgba(140,135,243,0.18); color: #b6b2f7; border-color: rgba(140,135,243,0.32); }
 
+/* Лекция ("ЛК") — раньше не входила ни в одну из карт соответствий (там было
+   только полное слово "ЛЕКЦИЯ", а msu.tj присылает именно "ЛК"), поэтому тег
+   красился нейтральным серым и сливался с карточкой. Синий — единственный
+   акцент, ещё не занятый другим смыслом (экзамен/практика/лента изменений). */
+.lesson-tag-lecture      { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+.dark .lesson-tag-lecture{ background: rgba(59,130,246,0.16); color: #93c5fd; border-color: rgba(96,165,250,0.30); }
+
 .lesson-tag-added      { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
 .dark .lesson-tag-added{ background: rgba(16,185,129,0.15); color: #6ee7b7; border-color: rgba(52,211,153,0.28); }
 
@@ -135,10 +142,14 @@ h1, h2 { letter-spacing: -0.015em; }
 .lesson-accent { border-left: 4px solid var(--border); }
 .lesson-accent[data-kind="exam"]     { border-left-color: #d43a40; }
 .lesson-accent[data-kind="practice"] { border-left-color: #5650d6; }
-.lesson-accent[data-kind="lecture"]  { border-left-color: var(--primary); }
+/* Раньше здесь был var(--primary) — тот же зелёный, что у активной кнопки,
+   ссылок и "ИДЁТ СЕЙЧАС". Полоса не читалась как "это лекция", а как
+   обычный акцент интерфейса. Синий совпадает с новым тегом lesson-tag-lecture. */
+.lesson-accent[data-kind="lecture"]  { border-left-color: #2563eb; }
 .lesson-accent[data-kind="default"]  { border-left-color: #94a3b8; }
 .dark .lesson-accent[data-kind="exam"]     { border-left-color: #ff6166; }
 .dark .lesson-accent[data-kind="practice"] { border-left-color: #8c87f3; }
+.dark .lesson-accent[data-kind="lecture"]  { border-left-color: #60a5fa; }
 .dark .lesson-accent[data-kind="default"]  { border-left-color: #4b5563; }
 
 /* Время пары — моноширинный «билетный» стиль */
@@ -291,6 +302,11 @@ h1, h2 { letter-spacing: -0.015em; }
   background: var(--card);
   z-index: 1;
 }
+/* На десктопе рельса шире (--tl-w: 66px против 58px на мобиле), и между
+   точкой и карточкой набегает лишних 4px пустоты — время визуально
+   «плавает» отдельно от своей пары. Подтягиваем точку к карточке, не трогая
+   мобильную раскладку — там разрыв уже не бросается в глаза. */
+@media (min-width: 1024px) { .tl-dot { left: -14px; } }
 .tl-dot[data-state="past"]    { border-color: var(--border); background: var(--border); }
 .tl-dot[data-state="future"]  { border-color: var(--primary); background: var(--card); }
 .tl-dot[data-state="current"] { border-color: var(--primary); background: var(--primary); }
@@ -364,6 +380,27 @@ h1, h2 { letter-spacing: -0.015em; }
 .tl-row[data-state="current"] > .card {
   border-color: var(--primary);
   box-shadow: var(--shadow-md);
+}
+
+/* ── Разделитель колонок «Вся неделя» на десктопе ──
+   Без неё взгляд «плавал» между левой и правой колонкой дней без опоры.
+   Едва заметная линия (12% непрозрачности от цвета текста, тот же приём,
+   что у .bottom-nav ниже) держит взгляд по центру. Только у lg:grid-cols-2
+   с полными двумя колонками — на «Вся неделя» ставится классом в page.tsx,
+   при одном выбранном дне (одна колонка) класс не навешивается. */
+.day-grid { position: relative; }
+@media (min-width: 1024px) {
+  .day-grid::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 1px;
+    transform: translateX(-50%);
+    background: color-mix(in srgb, var(--foreground) 12%, transparent);
+    pointer-events: none;
+  }
 }
 
 /* ═════════════════════════════════════════════════════════════════════════
