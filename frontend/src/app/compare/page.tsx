@@ -202,7 +202,7 @@ export default function ComparePage() {
                             ? "bg-[var(--tag-bg)] border-[var(--border)]"
                             : mine
                               ? "bg-amber-100 dark:bg-amber-900/40 border-amber-200 dark:border-amber-800"
-                              : "bg-violet-100 dark:bg-violet-900/40 border-violet-200 dark:border-violet-800";
+                              : "bg-blue-100 dark:bg-blue-900/40 border-blue-200 dark:border-blue-800";
                         const otherLabel = otherGroup ? `${shortGroupName(otherGroup.name)} · ${otherGroup.year} курс` : "у них";
                         const title = bothFree
                           ? "Оба свободны"
@@ -231,7 +231,7 @@ export default function ComparePage() {
                 занята твоя
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded bg-violet-100 dark:bg-violet-900/40 border border-violet-200 dark:border-violet-800 inline-block" />
+                <span className="w-3 h-3 rounded bg-blue-100 dark:bg-blue-900/40 border border-blue-200 dark:border-blue-800 inline-block" />
                 занята {otherGroup ? `${shortGroupName(otherGroup.name)} · ${otherGroup.year} курс` : "их"}
               </span>
               <span className="flex items-center gap-1.5">
