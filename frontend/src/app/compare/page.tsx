@@ -191,18 +191,24 @@ export default function ComparePage() {
                         const mine = mineBusy.has(slotKey(day, p));
                         const theirs = theirsBusy.has(slotKey(day, p));
                         const bothFree = !mine && !theirs;
-                        // Заняты обе / только одна / никто — три состояния,
-                        // чтобы было видно не только «когда можно», но и почему нельзя
+                        // Занята только одна из групп — раньше «у тебя» и «у них»
+                        // красились одинаковым янтарным, отличить можно было
+                        // только наведя мышь. Теперь у своей и чужой группы
+                        // разные цвета, а в легенде подписана настоящая чужая
+                        // группа — понятно без наведения и без деталей пары.
                         const cls = bothFree
                           ? "bg-green-200 dark:bg-green-900/60 border-green-300 dark:border-green-800"
                           : mine && theirs
                             ? "bg-[var(--tag-bg)] border-[var(--border)]"
-                            : "bg-amber-100 dark:bg-amber-900/40 border-amber-200 dark:border-amber-800";
+                            : mine
+                              ? "bg-amber-100 dark:bg-amber-900/40 border-amber-200 dark:border-amber-800"
+                              : "bg-violet-100 dark:bg-violet-900/40 border-violet-200 dark:border-violet-800";
+                        const otherLabel = otherGroup ? `${shortGroupName(otherGroup.name)} · ${otherGroup.year} курс` : "у них";
                         const title = bothFree
                           ? "Оба свободны"
                           : mine && theirs
                             ? "Пары у обеих групп"
-                            : mine ? "Пара у тебя" : "Пара у них";
+                            : mine ? "Пара у тебя" : `Пара у ${otherLabel}`;
                         return (
                           <td key={p} className="p-0">
                             <div className={`w-full aspect-square rounded-md border ${cls}`} title={title} />
@@ -222,11 +228,15 @@ export default function ComparePage() {
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="w-3 h-3 rounded bg-amber-100 dark:bg-amber-900/40 border border-amber-200 dark:border-amber-800 inline-block" />
-                пара у одной группы
+                занята твоя
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded bg-violet-100 dark:bg-violet-900/40 border border-violet-200 dark:border-violet-800 inline-block" />
+                занята {otherGroup ? `${shortGroupName(otherGroup.name)} · ${otherGroup.year} курс` : "их"}
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="w-3 h-3 rounded bg-[var(--tag-bg)] border border-[var(--border)] inline-block" />
-                пары у обеих
+                заняты обе
               </span>
             </div>
           </div>
