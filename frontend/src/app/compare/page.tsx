@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import Header from "@/components/Header";
 import WeekBar from "@/components/WeekBar";
 import GroupSelector from "@/components/GroupSelector";
@@ -30,20 +30,39 @@ export default function ComparePage() {
   const [loading, setLoading] = useState(false);
   // Пусто на старте (совпадает с SSR), реальную неделю выставит WeekBar (#418)
   const [selectedWeekStart, setSelectedWeekStart] = useState<string>("");
+  // Список недель не пришёл (нет сети, база ещё пуста после деплоя) — без
+  // этого сигнала страница ждала бы selectedWeekStart вечно и, как только
+  // человек выбирал группу, показывала бы «На этой неделе занятий нет» —
+  // неправду про каникулы вместо правды про отсутствие связи.
+  const [weeksUnknown, setWeeksUnknown] = useState(false);
+  // Список групп не загрузился — иначе человек с уже выбранной в кабинете
+  // группой видел бы «Сначала укажи свою группу в кабинете», хотя дело в сети.
+  const [groupsError, setGroupsError] = useState(false);
+  // Для одной из групп не нашлось той же недели, что у другой (у ЕНФ и ГФ
+  // архивы синхронизируются раздельно, наборы недель могут разойтись) —
+  // сравнивать в этом случае нечего: показать разные недели как одну было
+  // бы тихой ошибкой, а не отсутствием общих окон.
+  const [weekMismatch, setWeekMismatch] = useState(false);
 
-  useEffect(() => {
+  const loadGroups = useCallback(() => {
+    setGroupsError(false);
     const saved = localStorage.getItem("selected_group_id");
-    api.getGroups().then(gs => {
-      setGroups(gs);
-      if (saved) setMyGroup(gs.find(g => g.id === Number(saved)) ?? null);
-    }).catch(() => {});
+    api.getGroups()
+      .then(gs => {
+        setGroups(gs);
+        if (saved) setMyGroup(gs.find(g => g.id === Number(saved)) ?? null);
+      })
+      .catch(() => setGroupsError(true));
   }, []);
+
+  useEffect(() => { loadGroups(); }, [loadGroups]);
 
   // Расписание обеих групп на выбранную неделю
   useEffect(() => {
-    if (!myGroup || !otherGroup || !selectedWeekStart) return;
+    if (!myGroup || !otherGroup || (!selectedWeekStart && !weeksUnknown)) return;
     let cancelled = false;
     setLoading(true);
+    setWeekMismatch(false);
     (async () => {
       try {
         // week_id у каждой группы свой (он привязан к факультету), поэтому
@@ -53,6 +72,16 @@ export default function ComparePage() {
           return wks.find(w => w.week_start === selectedWeekStart)?.id;
         };
         const [myWeek, otherWeek] = await Promise.all([weekIdFor(myGroup), weekIdFor(otherGroup)]);
+        // Неделя была указана явно, но нашлась только у одной из групп —
+        // без week_id бэкенд подставит для другой группы ЕЁ текущую неделю,
+        // и сравнение молча сведёт разные недели. Честнее не сравнивать.
+        if (selectedWeekStart && (myWeek == null) !== (otherWeek == null)) {
+          if (cancelled) return;
+          setMyLessons([]);
+          setOtherLessons([]);
+          setWeekMismatch(true);
+          return;
+        }
         const [mine, theirs] = await Promise.all([
           api.getGroupSchedule(myGroup.id, undefined, myWeek),
           api.getGroupSchedule(otherGroup.id, undefined, otherWeek),
@@ -65,7 +94,7 @@ export default function ComparePage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [myGroup, otherGroup, selectedWeekStart]);
+  }, [myGroup, otherGroup, selectedWeekStart, weeksUnknown]);
 
   const mineBusy = useMemo(() => busySlots(myLessons), [myLessons]);
   const theirsBusy = useMemo(() => busySlots(otherLessons), [otherLessons]);
@@ -92,7 +121,7 @@ export default function ComparePage() {
   return (
     <div className="min-h-screen">
       <Header />
-      <WeekBar onWeekChange={setSelectedWeekStart} selectedWeekStart={selectedWeekStart} />
+      <WeekBar onWeekChange={setSelectedWeekStart} selectedWeekStart={selectedWeekStart} onUnavailable={() => setWeeksUnknown(true)} />
       <main className="max-w-5xl mx-auto px-4 lg:px-8 py-4 lg:py-6 pb-24 lg:pb-6">
 
         <div className="card mb-4 lg:mb-5">
@@ -100,7 +129,9 @@ export default function ComparePage() {
           <p className="text-sm text-[var(--muted)] mb-3">
             {myGroup
               ? <>Когда у тебя ({shortGroupName(myGroup.name)} · {myGroup.year} курс) и у выбранной группы одновременно нет пар.</>
-              : "Сначала укажи свою группу в кабинете."}
+              : groupsError
+                ? "Не удалось загрузить группы — нет связи с сервером."
+                : "Сначала укажи свою группу в кабинете."}
           </p>
           {myGroup && (
             <>
@@ -114,14 +145,21 @@ export default function ComparePage() {
 
         {myGroup && otherGroup && loading && <SkeletonRooms />}
 
-        {ready && activeDays.length === 0 && (
+        {ready && weekMismatch && (
+          <div className="text-center py-16 text-[var(--muted)]">
+            <p>Эта неделя есть в расписании не у обеих групп</p>
+            <p className="text-xs mt-1">Выберите другую неделю — часто подходит «Эта неделя»</p>
+          </div>
+        )}
+
+        {ready && !weekMismatch && activeDays.length === 0 && (
           <div className="text-center py-16 text-[var(--muted)]">
             <p>На этой неделе занятий нет ни у одной из групп</p>
             <p className="text-xs mt-1">Сессия или каникулы — сравнивать нечего</p>
           </div>
         )}
 
-        {ready && activeDays.length > 0 && (
+        {ready && !weekMismatch && activeDays.length > 0 && (
           <div className="card">
             <p className="text-sm mb-3">
               Общих свободных пар: <b style={{ color: "var(--primary)" }}>{commonFree}</b>
@@ -192,6 +230,19 @@ export default function ComparePage() {
           <div className="text-center py-16 text-[var(--muted)]">
             <p>Выбери группу выше</p>
             <p className="text-xs mt-1">Покажем, когда вы оба свободны</p>
+          </div>
+        )}
+
+        {!myGroup && groupsError && (
+          <div className="text-center py-16 text-[var(--muted)]">
+            <p>Нет связи с сервером</p>
+            <button
+              onClick={loadGroups}
+              className="mt-3 px-3 py-1.5 rounded-lg text-xs font-semibold text-white"
+              style={{ background: "var(--primary)" }}
+            >
+              Повторить
+            </button>
           </div>
         )}
       </main>
