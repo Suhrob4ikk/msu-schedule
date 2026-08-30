@@ -23,7 +23,9 @@ export default function RadialProgress({
 }) {
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
-  const p = Math.min(1, Math.max(0, progress));
+  // NaN/Infinity (например, если время пары пришло битым) превратили бы
+  // stroke-dashoffset в мусор и кольцо просто исчезло бы. Считаем такое нулём.
+  const p = Number.isFinite(progress) ? Math.min(1, Math.max(0, progress)) : 0;
   const offset = c * (1 - p);
 
   return (

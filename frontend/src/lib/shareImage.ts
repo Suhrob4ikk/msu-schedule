@@ -137,6 +137,8 @@ export async function shareScheduleImage(opts: {
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  // Освобождаем ссылку не сразу: часть браузеров отменяет скачивание, если
+  // blob-URL отозвать в том же кадре, в котором по нему кликнули.
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
   return "downloaded";
 }

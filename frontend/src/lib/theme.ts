@@ -9,6 +9,8 @@
  * явного варианта. Класс `dark` на <html> ставит инлайновый скрипт в
  * layout.tsx (до первого кадра, чтобы не мигало), дальше — функции отсюда.
  */
+import { silenceViewTransition, type ViewTransitionHandle } from "./viewTransition";
+
 export type ThemePref = "light" | "dark" | "system";
 
 export const THEME_KEY = "theme";
@@ -36,7 +38,7 @@ export function setThemePref(pref: ThemePref): void {
 
 /** startViewTransition есть не во всех браузерах и не во всех версиях типов DOM. */
 type DocumentWithViewTransition = Document & {
-  startViewTransition?: (callback: () => void) => { finished: Promise<void> };
+  startViewTransition?: (callback: () => void) => ViewTransitionHandle;
 };
 
 /**
@@ -70,13 +72,17 @@ export function setThemePrefAnimated(pref: ThemePref, origin: { x: number; y: nu
   root.style.setProperty("--reveal-r", `${radius}px`);
   root.classList.add("theme-switching");
 
-  doc.startViewTransition(apply).finished.finally(() => {
-    root.classList.remove("theme-switching");
-    // Убираем за собой: инлайновые переменные нужны только на время анимации
-    root.style.removeProperty("--reveal-x");
-    root.style.removeProperty("--reveal-y");
-    root.style.removeProperty("--reveal-r");
-  });
+  const transition = doc.startViewTransition(apply);
+  silenceViewTransition(transition);
+  transition.finished
+    .finally(() => {
+      root.classList.remove("theme-switching");
+      // Убираем за собой: инлайновые переменные нужны только на время анимации
+      root.style.removeProperty("--reveal-x");
+      root.style.removeProperty("--reveal-y");
+      root.style.removeProperty("--reveal-r");
+    })
+    .catch(() => { /* см. silenceViewTransition */ });
 }
 
 /**

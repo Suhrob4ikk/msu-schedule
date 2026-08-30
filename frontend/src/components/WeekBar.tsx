@@ -13,6 +13,13 @@ interface Props {
   onWeekChange: (weekStart: string) => void;
   /** Текущая выбранная неделя (controlled из родителя) */
   selectedWeekStart?: string;
+  /**
+   * Недель узнать не удалось: сети нет или база пуста (её стирает каждый
+   * деплой Render, и до первой синхронизации список действительно пустой).
+   * Без этого сигнала страницы, которые ждут неделю от полосы, оставались бы
+   * пустыми навсегда — без ошибки и без единого запроса.
+   */
+  onUnavailable?: () => void;
 }
 
 const MONTHS = ["янв","фев","мар","апр","май","июн","июл","авг","сен","окт","ноя","дек"];
@@ -47,30 +54,38 @@ function isCurrentWeek(weekStart: string): boolean {
   return today >= start && today <= end;
 }
 
-export default function WeekBar({ onWeekChange, selectedWeekStart }: Props) {
+export default function WeekBar({ onWeekChange, selectedWeekStart, onUnavailable }: Props) {
   const [weeks, setWeeks] = useState<WeekOption[]>([]);
 
   useEffect(() => {
-    api.getAllWeeks().then(ws => {
-      setWeeks(ws);
-      // Если родитель ещё не выбрал неделю — по умолчанию ВСЕГДА текущая
-      // (не восстанавливаем прошлый выбор между визитами)
-      if (!selectedWeekStart && ws.length > 0) {
-        const current = ws.find(w => isCurrentWeek(w.week_start));
-        const initial = (current ?? ws.find(w => w.is_latest) ?? ws[0]).week_start;
-        onWeekChange(initial);
-      }
-    });
+    api.getAllWeeks()
+      .then(ws => {
+        setWeeks(ws);
+        if (selectedWeekStart) return;
+        // Если родитель ещё не выбрал неделю — по умолчанию ВСЕГДА текущая
+        // (не восстанавливаем прошлый выбор между визитами)
+        if (ws.length > 0) {
+          const current = ws.find(w => isCurrentWeek(w.week_start));
+          const initial = (current ?? ws.find(w => w.is_latest) ?? ws[0]).week_start;
+          onWeekChange(initial);
+          return;
+        }
+        onUnavailable?.();
+      })
+      // Без catch отказ уходил в unhandled rejection, а страница, ждущая
+      // неделю, молча оставалась пустой.
+      .catch(() => onUnavailable?.());
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Не рендерим если только одна неделя
   if (weeks.length <= 1) return null;
 
+  // Раньше здесь ещё писался ключ selected_week_start и рассылался
+  // синтетический StorageEvent «для других вкладок». Ключ никто не читал, а
+  // dispatchEvent на своём же window до других вкладок и не доходит —
+  // настоящие storage-события шлёт сам браузер. Обе строки убраны.
   const handleSelect = (weekStart: string) => {
-    localStorage.setItem("selected_week_start", weekStart);
     onWeekChange(weekStart);
-    // Уведомляем другие вкладки через storage event
-    window.dispatchEvent(new StorageEvent("storage", { key: "selected_week_start", newValue: weekStart }));
   };
 
   return (

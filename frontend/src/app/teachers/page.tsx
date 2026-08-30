@@ -24,11 +24,19 @@ export default function TeachersPage() {
   // монтирования — иначе hydration mismatch (#418).
   const [selectedWeekStart, setSelectedWeekStart] = useState<string>("");
 
+  // Отдельно от «список пустой»: без связи страница показывала «Нет
+  // результатов», как будто преподавателей действительно нет, и повторить
+  // было нечем.
+  const [listError, setListError] = useState(false);
+
   const loadTeachers = useCallback(async (weekStart: string) => {
     setLoadingTeachers(true);
+    setListError(false);
     try {
       const data = await api.getTeachers(weekStart || undefined);
       setTeachers(data);
+    } catch {
+      setListError(true);
     } finally {
       setLoadingTeachers(false);
     }
@@ -37,6 +45,13 @@ export default function TeachersPage() {
   useEffect(() => {
     if (selectedWeekStart) loadTeachers(selectedWeekStart);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Полоса недель не смогла назвать неделю (нет сети или база ещё пуста после
+  // деплоя): грузим без неё — бэкенд отдаст последнюю. Иначе список
+  // преподавателей навсегда оставался бы пустым с надписью «Нет результатов».
+  const handleNoWeeks = useCallback(() => {
+    if (!selectedWeekStart) loadTeachers("");
+  }, [selectedWeekStart, loadTeachers]);
 
   // Переход из расписания по клику на ФИО: /teachers?teacher=<id>.
   // Читаем адрес после монтирования, а не через useSearchParams — иначе
@@ -88,7 +103,7 @@ export default function TeachersPage() {
   return (
     <div className="min-h-screen">
       <Header />
-      <WeekBar onWeekChange={handleWeekChange} selectedWeekStart={selectedWeekStart} />
+      <WeekBar onWeekChange={handleWeekChange} selectedWeekStart={selectedWeekStart} onUnavailable={handleNoWeeks} />
       <main className="max-w-7xl mx-auto px-4 lg:px-8 py-4 lg:py-6 pb-24 lg:pb-6">
 
         {/* Поиск — скрываем на мобиле в режиме детали */}
@@ -113,7 +128,19 @@ export default function TeachersPage() {
           <div className={`lg:col-span-1 ${mobileView === "detail" ? "hidden lg:block" : ""}`}>
             <div className="card h-[calc(100vh-320px)] lg:h-[calc(100vh-240px)] overflow-y-auto">
               {loadingTeachers && <SkeletonRows rows={9} label="Загружаем преподавателей" />}
-              {!loadingTeachers && filtered.length === 0 && (
+              {!loadingTeachers && listError && teachers.length === 0 && (
+                <div className="text-center py-4">
+                  <p className="text-[var(--muted)] text-sm lg:text-base">Нет связи с сервером</p>
+                  <button
+                    onClick={() => loadTeachers(selectedWeekStart)}
+                    className="mt-2 px-3 py-1.5 rounded-lg text-xs font-semibold text-white"
+                    style={{ background: "var(--primary)" }}
+                  >
+                    Повторить
+                  </button>
+                </div>
+              )}
+              {!loadingTeachers && !listError && filtered.length === 0 && (
                 <p className="text-[var(--muted)] text-sm lg:text-base text-center py-4">Нет результатов</p>
               )}
               {filtered.map(t => (

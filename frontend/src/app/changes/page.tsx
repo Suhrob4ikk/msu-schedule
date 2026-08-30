@@ -81,7 +81,6 @@ export default function ChangesPage() {
   useEffect(() => {
     if (!ready) return;
     load(onlyMine ? profileGroupId : null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, onlyMine, profileGroupId]);
 
   return (

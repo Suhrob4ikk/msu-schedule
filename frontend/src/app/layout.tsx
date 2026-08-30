@@ -39,9 +39,12 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
+  // Цвет системной панели браузера. Тёмное значение — тот же --background из
+  // globals.css (#0b0d10); раньше здесь оставался сине-сланцевый #0f172a от
+  // старой палитры, и панель браузера не совпадала с фоном страницы.
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#0e9b72" },
-    { media: "(prefers-color-scheme: dark)", color: "#0f172a" },
+    { media: "(prefers-color-scheme: dark)", color: "#0b0d10" },
   ],
   width: "device-width",
   initialScale: 1,

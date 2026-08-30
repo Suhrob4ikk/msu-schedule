@@ -222,6 +222,27 @@ export default function HomePage() {
     return () => { off(); window.clearTimeout(timer); };
   }, [loadGroup]);
 
+  // «Идёт сейчас», «перемена» и «на сегодня всё» приходят с сервера и привязаны
+  // к текущей минуте, а вкладку (особенно установленную как приложение) держат
+  // открытой часами. Без этого утренняя пара так и висела бы «идёт сейчас»
+  // вечером, а отсчёт до конца замирал на нуле. Спрашиваем раз в минуту, пока
+  // вкладка видима, и сразу при возврате к ней. Ответ моложе минуты берётся из
+  // кэша (TTL_NOW), так что лишних запросов это не создаёт.
+  useEffect(() => {
+    const refreshNow = () => {
+      if (document.hidden) return;
+      const g = selectedGroupRef.current;
+      if (!g) return;
+      api.getNow(g.id).then(setNowItems).catch(() => { /* нет сети — оставляем что было */ });
+    };
+    const id = window.setInterval(refreshNow, 60_000);
+    document.addEventListener("visibilitychange", refreshNow);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", refreshNow);
+    };
+  }, []);
+
   const restoreProfileGroup = useCallback(() => {
     if (profileGroup) {
       loadGroup(profileGroup);

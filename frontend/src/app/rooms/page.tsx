@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Header from "@/components/Header";
 import WeekBar from "@/components/WeekBar";
 import { SkeletonRooms } from "@/components/Skeletons";
@@ -55,20 +55,38 @@ export default function RoomsPage() {
   // монтирования — иначе первый клиентский рендер расходится с сервером (#418).
   const [selectedWeekStart, setSelectedWeekStart] = useState<string>("");
 
+  // Полоса недель не смогла назвать неделю (нет сети или база ещё пуста после
+  // деплоя) — грузим без week_start, бэкенд отдаст последнюю. Без этого экран
+  // навсегда оставался бы на скелетоне: запрос не уходил вообще.
+  const [weeksUnknown, setWeeksUnknown] = useState(false);
+  /** Запрос упал: «нет связи» и «данных нет» — разные сообщения. */
+  const [loadError, setLoadError] = useState(false);
+  /** Счётчик для кнопки «Повторить»: меняется — эффект перезапускается. */
+  const [retryTick, setRetryTick] = useState(0);
+
   useEffect(() => {
-    if (!selectedWeekStart) return;
+    if (!selectedWeekStart && !weeksUnknown) return;
     let cancelled = false;
     setLoading(true);
-    api.getFreeRooms(day, pair, selectedWeekStart)
+    setLoadError(false);
+    api.getFreeRooms(day, pair, selectedWeekStart || undefined)
       .then(result => { if (!cancelled) setRooms(result); })
+      // Без catch отказ уходил в unhandled rejection, а на экране оставался
+      // прошлый список — теперь честно показываем, что связи нет.
+      .catch(() => { if (!cancelled) { setRooms([]); setLoadError(true); } })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [day, pair, selectedWeekStart]);
+  }, [day, pair, selectedWeekStart, weeksUnknown, retryTick]);
 
   const handleWeekChange = (weekStart: string) => {
     setSelectedWeekStart(weekStart);
     setWeekBarReady(true);
   };
+
+  const handleNoWeeks = useCallback(() => {
+    setWeeksUnknown(true);
+    setWeekBarReady(true);
+  }, []);
 
   const freeRooms = rooms.filter(r => r.is_free);
   const busyRooms = rooms.filter(r => !r.is_free);
@@ -76,7 +94,7 @@ export default function RoomsPage() {
   return (
     <div className="min-h-screen">
       <Header />
-      <WeekBar onWeekChange={handleWeekChange} selectedWeekStart={selectedWeekStart} />
+      <WeekBar onWeekChange={handleWeekChange} selectedWeekStart={selectedWeekStart} onUnavailable={handleNoWeeks} />
       <main className="max-w-5xl mx-auto px-4 lg:px-8 py-4 lg:py-6 pb-24 lg:pb-6">
 
         {/* Фильтры */}
@@ -209,7 +227,20 @@ export default function RoomsPage() {
 
         {!loading && rooms.length === 0 && weekBarReady && (
           <div className="text-center py-16 text-[var(--muted)]">
-            <p>Данных нет для выбранной недели</p>
+            {loadError ? (
+              <>
+                <p>Нет связи с сервером</p>
+                <button
+                  onClick={() => setRetryTick(t => t + 1)}
+                  className="mt-3 px-3 py-1.5 rounded-lg text-xs font-semibold text-white"
+                  style={{ background: "var(--primary)" }}
+                >
+                  Повторить
+                </button>
+              </>
+            ) : (
+              <p>Данных нет для выбранной недели</p>
+            )}
           </div>
         )}
       </main>

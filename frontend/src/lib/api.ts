@@ -467,12 +467,10 @@ export const api = {
       method: 'POST',
     }).then(r => r.json()).catch(() => null),
 
-  // Принудительная синхронизация (требует ADMIN_SECRET в заголовке)
-  syncNow: (force = false, adminSecret: string) =>
-    fetch(`${API_BASE}/admin/sync?force=${force}`, {
-      method: 'POST',
-      headers: { 'X-Admin-Secret': adminSecret },
-    }).then(r => r.json()),
+  // Ручной запуск синхронизации здесь не держим: это единственное место, куда
+  // просился бы ADMIN_SECRET, а всё, что попало в клиентский код веба,
+  // попадает и в браузер пользователя. Синхронизация запускается из скрытой
+  // панели /dev по её собственному токену (см. app/dev/page.tsx).
 
   // Web Push (public_key=null если пуш не настроен на сервере)
   getVapidKey: () =>

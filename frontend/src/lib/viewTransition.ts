@@ -4,9 +4,30 @@ import type { MouseEvent } from "react";
 import type { useRouter } from "next/navigation";
 
 /** startViewTransition есть не во всех браузерах и не во всех версиях типов DOM. */
-type DocumentWithViewTransition = Document & {
-  startViewTransition?: (callback: () => void) => { finished: Promise<void> };
+export type ViewTransitionHandle = {
+  finished: Promise<void>;
+  /** Есть не везде; отклоняется, если переход прервали. */
+  ready?: Promise<void>;
+  updateCallbackDone?: Promise<void>;
 };
+type DocumentWithViewTransition = Document & {
+  startViewTransition?: (callback: () => void) => ViewTransitionHandle;
+};
+
+/**
+ * Гасит отказы всех промисов перехода.
+ *
+ * Прерванный переход — штатное дело: человек быстро тапнул две вкладки подряд,
+ * браузер отменил незаконченную анимацию и отклонил ready/finished
+ * (InvalidStateError). Без этого каждый такой тап падал в консоль как
+ * unhandled promise rejection.
+ */
+export function silenceViewTransition(t: ViewTransitionHandle): void {
+  const hush = () => { /* прерванный переход — не ошибка */ };
+  t.finished.catch(hush);
+  t.ready?.catch(hush);
+  t.updateCallbackDone?.catch(hush);
+}
 
 /**
  * Оборачивает переход между страницами в View Transitions API — тот же
@@ -28,9 +49,11 @@ export function startViewTransitionNav(navigate: () => void): void {
   }
 
   root.classList.add("page-transitioning");
-  doc.startViewTransition(navigate).finished.finally(() => {
-    root.classList.remove("page-transitioning");
-  });
+  const transition = doc.startViewTransition(navigate);
+  silenceViewTransition(transition);
+  transition.finished
+    .finally(() => { root.classList.remove("page-transitioning"); })
+    .catch(() => { /* см. silenceViewTransition */ });
 }
 
 /**

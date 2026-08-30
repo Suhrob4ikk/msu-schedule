@@ -217,8 +217,17 @@ export default function ProfilePage() {
   // у импорта featuresUnlocked.
   const featuresLocked = !featuresUnlocked();
 
+  // Список групп не пришёл — на первом запуске без сети это тупик: под
+  // «НАПРАВЛЕНИЕ» пусто, выбрать нечего, и почему — неизвестно. Показываем
+  // честную причину и кнопку «Повторить».
+  const [groupsError, setGroupsError] = useState(false);
+  const loadGroups = useCallback(() => {
+    setGroupsError(false);
+    api.getGroups().then(setGroups).catch(() => setGroupsError(true));
+  }, []);
+
   useEffect(() => {
-    api.getGroups().then(setGroups).catch(() => { });
+    loadGroups();
     const savedName = localStorage.getItem("user_name") ?? "";
     const savedGroup = localStorage.getItem("selected_group_id");
     const deviceId = localStorage.getItem("msu_device_id_v2");
@@ -228,7 +237,7 @@ export default function ProfilePage() {
     setIsSetup(setup);
     setIsEditing(setup);
     setHydrated(true);
-  }, []);
+  }, [loadGroups]);
 
   const selectedGroup = groups.find(g => g.id === Number(selectedGroupId));
 
@@ -351,11 +360,27 @@ export default function ProfilePage() {
               <label className="block text-xs font-semibold mb-1.5 tracking-wider" style={{ color: "var(--muted)", textTransform: "uppercase" }}>
                 Группа
               </label>
-              <GroupSelector
-                groups={groups}
-                value={selectedGroup ?? null}
-                onChange={g => setSelectedGroupId(g.id)}
-              />
+              {groups.length === 0 && groupsError ? (
+                <div
+                  className="rounded-xl px-4 py-3 text-sm flex items-center justify-between gap-3 flex-wrap"
+                  style={{ background: "var(--card)", border: "0.5px solid var(--border)", color: "var(--muted)" }}
+                >
+                  <span>Список групп не загрузился — нет связи с сервером.</span>
+                  <button
+                    onClick={loadGroups}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white shrink-0"
+                    style={{ background: "var(--primary)" }}
+                  >
+                    Повторить
+                  </button>
+                </div>
+              ) : (
+                <GroupSelector
+                  groups={groups}
+                  value={selectedGroup ?? null}
+                  onChange={g => setSelectedGroupId(g.id)}
+                />
+              )}
             </div>
 
             {/* Кнопка сохранить */}
