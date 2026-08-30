@@ -143,7 +143,9 @@ async function rawFetch<T>(path: string, timeout: number): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-const isTimeout = (e: unknown) => e instanceof Error && e.name === 'AbortError';
+// По имени, а не по классу — так же, как в мобильном src/api.ts.
+const isTimeout = (e: unknown) =>
+  typeof e === 'object' && e !== null && (e as { name?: string }).name === 'AbortError';
 
 /**
  * Одна сетевая попытка на путь: если два компонента спросили одно и то же
