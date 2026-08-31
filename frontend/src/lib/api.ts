@@ -504,6 +504,10 @@ const TTL_LONG = 30 * 60_000;   // списки: группы, недели
 const TTL_DATA = 10 * 60_000;   // расписания, преподаватели, аудитории
 const TTL_FEED = 3 * 60_000;    // лента изменений
 const TTL_NOW  = 60_000;        // «идёт сейчас» — устаревает быстро
+// Версия приложения. Пять минут, как в мобильном приложении и как кэш самого
+// бэкенда: смысл этого запроса — узнать о новом релизе быстро. С TTL_LONG
+// (30 минут) сайт полчаса после выпуска предлагал скачать прошлую версию.
+const TTL_VERSION = 5 * 60_000;
 
 /** Пути, на обновление которых подписываются страницы (см. onApiUpdate). */
 export const paths = {
@@ -562,7 +566,7 @@ export const api = {
 
   /** Последняя версия Android-приложения и ссылка на её APK (источник — GitHub Releases). */
   getAppVersion: () =>
-    fetchApi<AppVersionInfo>("/app/version", TTL_LONG),
+    fetchApi<AppVersionInfo>("/app/version", TTL_VERSION),
 
   // Личный кабинет
   subscribe: (sessionId: string, groupId: number) =>
