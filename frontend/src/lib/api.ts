@@ -151,19 +151,56 @@ const isTimeout = (e: unknown) =>
  * Одна сетевая попытка на путь: если два компонента спросили одно и то же
  * одновременно, запрос уйдёт один, а ответ получат оба.
  */
-function revalidate<T>(path: string, volatile: boolean, allowRetry: boolean): Promise<T> {
+/**
+ * На мобильной сети большинство сбоев — не тайм-аут: секундная потеря
+ * сигнала, смена вышки, оборванный DNS-запрос. fetch() падает на это
+ * мгновенно с обычной сетевой ошибкой (не AbortError), и раньше здесь не
+ * было ни одной повторной попытки — офлайн-плашка загоралась при живом
+ * интернете просто потому, что первая попытка совпала с секундным сбоем.
+ * Мобильный src/api.ts — то же самое, менять синхронно.
+ */
+const RETRY_DELAY_MS = 1_000;
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+async function fetchWithRetry<T>(path: string): Promise<T> {
+  try {
+    return await rawFetch<T>(path, FETCH_TIMEOUT_MS);
+  } catch (e) {
+    if (isTimeout(e)) {
+      // Долгий тайм-аут — почти всегда просыпающийся Render. Пауза не нужна:
+      // сервер уже стартовал, просто ждём его дольше.
+      try {
+        return await rawFetch<T>(path, COLD_START_TIMEOUT_MS);
+      } catch (e2) {
+        if (isTimeout(e2)) throw new Error('Сервер не отвечает — проверьте соединение');
+        throw e2;
+      }
+    }
+    // Не тайм-аут — похоже на секундный сбой сети. Даём ему пройти самому
+    // и пробуем ещё раз; если и это тайм-аут, значит сервер и правда спит —
+    // добиваем длинным ожиданием, а не сдаёмся на полпути.
+    await sleep(RETRY_DELAY_MS);
+    try {
+      return await rawFetch<T>(path, FETCH_TIMEOUT_MS);
+    } catch (e2) {
+      if (isTimeout(e2)) {
+        try {
+          return await rawFetch<T>(path, COLD_START_TIMEOUT_MS);
+        } catch (e3) {
+          if (isTimeout(e3)) throw new Error('Сервер не отвечает — проверьте соединение');
+          throw e3;
+        }
+      }
+      throw e2; // тот же сбой второй раз подряд — дальше ждать не поможет
+    }
+  }
+}
+
+function revalidate<T>(path: string, volatile: boolean): Promise<T> {
   const running = _inflight.get(path);
   if (running) return running as Promise<T>;
 
-  const p = (async () => {
-    try {
-      return await rawFetch<T>(path, FETCH_TIMEOUT_MS);
-    } catch (e) {
-      // Тайм-аут при пустом кэше — почти всегда просыпающийся Render. Ждём дольше.
-      if (allowRetry && isTimeout(e)) return await rawFetch<T>(path, COLD_START_TIMEOUT_MS);
-      throw e;
-    }
-  })()
+  const p = fetchWithRetry<T>(path)
     .then(data => {
       const prev = _mem.get(path);
       putEntry(path, data, volatile);
@@ -186,13 +223,13 @@ async function fetchApi<T>(path: string, ttl = 180_000, volatile = false): Promi
 
   // 2. Протухшее — отдаём сразу, обновляем в фоне (stale-while-revalidate).
   if (entry) {
-    revalidate<T>(path, volatile, false).catch(() => { /* нет сети — остаёмся на кэше */ });
+    revalidate<T>(path, volatile).catch(() => { /* нет сети — остаёмся на кэше */ });
     return entry.data as T;
   }
 
   // 3. Показать нечего — ждём сеть.
   try {
-    return await revalidate<T>(path, volatile, true);
+    return await revalidate<T>(path, volatile);
   } catch (e) {
     // Сеть упала, но сохранённое есть (например, память пуста после перезагрузки) —
     // отдаём его: офлайн-режим важнее свежести.
