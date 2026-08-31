@@ -352,6 +352,12 @@ export interface Lesson {
   group: { id: number; name: string; year: number; faculty_code: string | null } | null;
 }
 
+export interface AppVersionInfo {
+  version: string;
+  download_url: string | null;
+  notes: string;
+}
+
 export interface TodayItem {
   pair_number: string;
   pair_time_start: string;
@@ -553,6 +559,10 @@ export const api = {
 
   getIcsUrl: (groupId: number) =>
     `${API_BASE}/export/ics/${groupId}`,
+
+  /** Последняя версия Android-приложения и ссылка на её APK (источник — GitHub Releases). */
+  getAppVersion: () =>
+    fetchApi<AppVersionInfo>("/app/version", TTL_LONG),
 
   // Личный кабинет
   subscribe: (sessionId: string, groupId: number) =>

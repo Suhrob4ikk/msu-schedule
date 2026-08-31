@@ -1,5 +1,5 @@
 import html2canvas from "html2canvas";
-import { Lesson } from "./api";
+import { Lesson, shortGroupName } from "./api";
 
 // Фиксированные hex-цвета, а не CSS-переменные/Tailwind — html2canvas умеет
 // не все современные цветовые функции (oklch из Tailwind 4), а тут нужен
@@ -19,12 +19,31 @@ function escapeHtml(s: string): string {
   return div.innerHTML;
 }
 
+/**
+ * Что писать в строке под предметом.
+ *
+ * В расписании группы человеку важно, КТО ведёт, — там преподаватель.
+ * В расписании преподавателя он и так знает, кто это, и важно другое —
+ * У КОГО пара. Поэтому там на том же месте группа.
+ */
+export type ShareSubtitle = "teacher" | "group";
+
+/** Короткая метка недели для шапки картинки («1 – 7 сен»). */
+export function weekRangeLabel(weekStart: string): string {
+  const start = new Date(weekStart + "T00:00:00");
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  const months = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
+  return `${start.getDate()} – ${end.getDate()} ${months[end.getMonth()]}`;
+}
+
 /** Строит картинку расписания (карточка) и возвращает PNG-блоб. null, если пар нет. */
 async function buildScheduleImage(opts: {
   groupLabel: string;
   weekLabel: string;
   lessonsByDay: Record<string, Lesson[]>;
   dayLabels: Record<string, string>;
+  subtitle?: ShareSubtitle;
 }): Promise<Blob | null> {
   const days = Object.entries(opts.lessonsByDay);
   if (days.length === 0) return null;
@@ -70,7 +89,10 @@ async function buildScheduleImage(opts: {
       time.style.cssText = `font-size:12px;font-weight:700;color:${BRAND.muted};width:44px;flex-shrink:0;line-height:1.5;`;
       time.innerHTML = `${l.pair_time_start}<br/>${l.pair_time_end}`;
 
-      const meta = [l.lesson_type, l.room?.name ? `ауд. ${l.room.name}` : null, l.teacher?.name]
+      const who = opts.subtitle === "group"
+        ? (l.group ? `${shortGroupName(l.group.name)} · ${l.group.year} курс` : null)
+        : l.teacher?.name;
+      const meta = [l.lesson_type, l.room?.name ? `ауд. ${l.room.name}` : null, who]
         .filter(Boolean).join(" · ");
 
       const info = document.createElement("div");
@@ -109,6 +131,7 @@ export async function shareScheduleImage(opts: {
   weekLabel: string;
   lessonsByDay: Record<string, Lesson[]>;
   dayLabels: Record<string, string>;
+  subtitle?: ShareSubtitle;
 }): Promise<ShareImageResult> {
   let blob: Blob | null;
   try {

@@ -7,6 +7,7 @@ import Header from "@/components/Header";
 import { useRouter } from "next/navigation";
 import { getPushStatus, subscribePush, unsubscribePush, type PushStatus } from "@/lib/push";
 import InviteCard from "@/components/InviteCard";
+import AppDownloadCard from "@/components/AppDownloadCard";
 import ThemeSetting from "@/components/ThemeSetting";
 
 import { featuresUnlocked, daysUntilUnlock, markGroupChosen } from "@/lib/features";
@@ -448,6 +449,7 @@ export default function ProfilePage() {
         {!isSetup && (
           <div className="flex flex-col gap-2.5 mt-2">
             <InviteCard />
+            <AppDownloadCard />
             {!featuresLocked && <SkipStats />}
             {!featuresLocked && (
               <button

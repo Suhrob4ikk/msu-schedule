@@ -7,7 +7,7 @@ import WeekBar from "@/components/WeekBar";
 import DaySchedule from "@/components/DaySchedule";
 import { ScheduleSkeleton } from "@/components/Skeletons";
 import { api, prefetch, paths, onApiUpdate, Group, Lesson, TodayItem, Stats, WeekInfo, DAYS_ORDER, breakLabel, shortGroupName } from "@/lib/api";
-import { shareScheduleImage } from "@/lib/shareImage";
+import { shareScheduleImage, weekRangeLabel } from "@/lib/shareImage";
 import { useSwipe } from "@/lib/useSwipe";
 import { featuresUnlocked } from "@/lib/features";
 import { todayIso } from "@/lib/studyData";
@@ -30,15 +30,6 @@ const DAY_SHORT: Record<string, string> = {
   понедельник: "Пн", вторник: "Вт", среда: "Ср",
   четверг: "Чт", пятница: "Пт", суббота: "Сб", воскресенье: "Вс",
 };
-
-// Короткая метка недели для шапки картинки-шаринга («1 – 7 сентября»)
-function weekRangeLabel(weekStart: string): string {
-  const start = new Date(weekStart + "T00:00:00");
-  const end = new Date(start);
-  end.setDate(start.getDate() + 6);
-  const months = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
-  return `${start.getDate()} – ${end.getDate()} ${months[end.getMonth()]}`;
-}
 
 // Дата конкретного дня недели по дате её начала — для чисел на пилюлях
 // фильтра и определения "сегодня" даже когда у дня нет ни одной пары.

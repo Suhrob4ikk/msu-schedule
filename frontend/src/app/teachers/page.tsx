@@ -6,6 +6,7 @@ import WeekBar from "@/components/WeekBar";
 import LessonCard from "@/components/LessonCard";
 import { SkeletonRows, SkeletonCards } from "@/components/Skeletons";
 import { api, Teacher, Lesson, DAYS_ORDER } from "@/lib/api";
+import { shareScheduleImage, weekRangeLabel } from "@/lib/shareImage";
 
 const DAY_LABELS: Record<string, string> = {
   понедельник: "Понедельник", вторник: "Вторник", среда: "Среда",
@@ -100,6 +101,27 @@ export default function TeachersPage() {
     return acc;
   }, {} as Record<string, Lesson[]>);
 
+  // Та же картинка, что и у расписания группы, только в строке под предметом
+  // не преподаватель (он тут и так в заголовке), а группа — «у кого пара».
+  const [sharing, setSharing] = useState(false);
+  const handleShareImage = useCallback(async () => {
+    if (!selected || sharing) return;
+    setSharing(true);
+    try {
+      const result = await shareScheduleImage({
+        groupLabel: selected.name,
+        weekLabel: selectedWeekStart ? weekRangeLabel(selectedWeekStart) : "",
+        lessonsByDay,
+        dayLabels: DAY_LABELS,
+        subtitle: "group",
+      });
+      if (result === "empty") alert("У преподавателя нет пар на этой неделе — делиться нечем.");
+      if (result === "error") alert("Не получилось создать картинку. Попробуйте ещё раз.");
+    } finally {
+      setSharing(false);
+    }
+  }, [selected, selectedWeekStart, lessonsByDay, sharing]);
+
   return (
     <div className="min-h-screen">
       <Header />
@@ -189,7 +211,21 @@ export default function TeachersPage() {
             )}
             {selected && !loading && (
               <>
-                <h2 className="font-bold text-base lg:text-xl mb-3 lg:mb-4">{selected.name}</h2>
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-3 lg:mb-4">
+                  <h2 className="font-bold text-base lg:text-xl">{selected.name}</h2>
+                  {Object.keys(lessonsByDay).length > 0 && (
+                    <button
+                      onClick={handleShareImage}
+                      disabled={sharing}
+                      className="flex items-center gap-1 px-3 py-2 rounded-lg border border-[var(--border)] text-[var(--muted)] text-sm hover:border-[var(--primary)] hover:text-[var(--primary)] transition-all active:scale-95 disabled:opacity-50"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 12v7a2 2 0 002 2h12a2 2 0 002-2v-7M16 6l-4-4-4 4M12 2v13" />
+                      </svg>
+                      {sharing ? "Готовим картинку..." : "Поделиться картинкой"}
+                    </button>
+                  )}
+                </div>
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-x-5">
                   {Object.entries(lessonsByDay).map(([day, dayLessons]) => (
                     <div key={day} className="mb-4 lg:mb-5">

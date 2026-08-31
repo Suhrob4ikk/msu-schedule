@@ -21,10 +21,20 @@ export default function Header() {
   const router = useRouter();
 
   // Бейдж «есть новые изменения»: сверяем время последнего изменения своей
-  // группы с локальной меткой «последний раз смотрел». Отметка о просмотре
-  // ставится на самой странице /changes при загрузке — здесь только чтение.
+  // группы с локальной меткой «последний раз смотрел». Отметку о просмотре
+  // ставит сама страница /changes при загрузке — здесь только чтение.
+  //
+  // Пересчитываем на каждом переходе, а не один раз. Шапка живёт в общем
+  // макете и при переходах между страницами не пересоздаётся: раньше точка,
+  // загоревшись, висела до полной перезагрузки страницы — человек заходил в
+  // «Изменения», всё прочитывал, а она оставалась. Заход на саму страницу
+  // гасит её сразу, не дожидаясь ответа сервера.
   const [hasNewChanges, setHasNewChanges] = useState(false);
   useEffect(() => {
+    if (pathname === "/changes") {
+      setHasNewChanges(false);
+      return;
+    }
     const savedGroup = localStorage.getItem("selected_group_id");
     const groupId = savedGroup ? Number(savedGroup) : undefined;
     api.getChanges(groupId)
@@ -32,10 +42,10 @@ export default function Header() {
         const latest = changes[0]?.detected_at;
         if (!latest) return;
         const lastSeen = localStorage.getItem(CHANGES_LAST_SEEN_KEY);
-        if (!lastSeen || new Date(latest) > new Date(lastSeen)) setHasNewChanges(true);
+        setHasNewChanges(!lastSeen || new Date(latest) > new Date(lastSeen));
       })
       .catch(() => {});
-  }, []);
+  }, [pathname]);
 
   return (
     <header className="sticky top-0 z-50 bg-[var(--background)] border-b border-[var(--border)] shadow-sm">
