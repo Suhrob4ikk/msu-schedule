@@ -1,10 +1,12 @@
 import html2canvas from "html2canvas";
 import { Lesson, shortGroupName } from "./api";
 
-// Фиксированные hex-цвета, а не CSS-переменные/Tailwind — html2canvas умеет
-// не все современные цветовые функции (oklch из Tailwind 4), а тут нужен
-// предсказуемый снимок независимо от темы страницы.
-const BRAND = {
+// Фиксированные hex-цвета, а не CSS-переменные/Tailwind: html2canvas умеет
+// не все современные цветовые функции (oklch из Tailwind 4), и снимок с ними
+// вышел бы чёрно-белым. Поэтому палитры прописаны руками — но их две, и
+// выбирается та же, в какой человек сейчас смотрит сайт: раньше картинка
+// всегда была тёмной, и в светлой теме это выглядело как ошибка.
+const DARK = {
   bg: "#0b1220",
   card: "#121a2b",
   border: "#22304a",
@@ -12,6 +14,22 @@ const BRAND = {
   fg: "#e7eaef",
   muted: "#8b94a3",
 };
+
+const LIGHT = {
+  bg: "#f3f5f8",
+  card: "#ffffff",
+  border: "#e6e9ee",
+  primary: "#0e9b72",
+  fg: "#14181c",
+  muted: "#5b6677",
+};
+
+/** Тему берём с самой страницы: класс dark на <html> ставит layout.tsx. */
+function palette() {
+  const dark = typeof document !== "undefined"
+    && document.documentElement.classList.contains("dark");
+  return dark ? DARK : LIGHT;
+}
 
 function escapeHtml(s: string): string {
   const div = document.createElement("div");
@@ -47,6 +65,8 @@ async function buildScheduleImage(opts: {
 }): Promise<Blob | null> {
   const days = Object.entries(opts.lessonsByDay);
   if (days.length === 0) return null;
+
+  const BRAND = palette();
 
   const wrap = document.createElement("div");
   Object.assign(wrap.style, {

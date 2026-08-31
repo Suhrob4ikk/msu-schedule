@@ -445,11 +445,13 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* Статистика, экспорт и история изменений */}
+        {/* Статистика, экспорт и история изменений.
+            Порядок: сначала своё (пропуски, выгрузка), потом переходы, потом
+            приложение и приглашение — единственные два блока «наружу». Раньше
+            QR стоял первым и разрывал пару «переключатель Пропуски» →
+            «статистика пропусков». */}
         {!isSetup && (
           <div className="flex flex-col gap-2.5 mt-2">
-            <InviteCard />
-            <AppDownloadCard />
             {!featuresLocked && <SkipStats />}
             {!featuresLocked && (
               <button
@@ -478,6 +480,8 @@ export default function ProfilePage() {
                 Сравнить с другой группой
               </span>
             </a>
+            <AppDownloadCard />
+            <InviteCard />
           </div>
         )}
 
