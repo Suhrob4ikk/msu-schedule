@@ -1,6 +1,6 @@
 // Версия кеша — меняй при каждом деплое если нужно принудительно сбросить
-const CACHE_STATIC = 'msu-static-v5';
-const CACHE_API    = 'msu-api-v5';
+const CACHE_STATIC = 'msu-static-v6';
+const CACHE_API    = 'msu-api-v6';
 
 // Страницы и ассеты для предварительного кеширования при установке
 const PRECACHE_URLS = [
@@ -63,10 +63,16 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // 2. API запросы (внешний домен) — Network First с кеш-fallback.
+  // 2. API запросы — Network First с кеш-fallback.
   //    Основной кэш теперь в самом приложении (lib/api.ts: память + localStorage),
   //    здесь — только страховка на случай, когда localStorage недоступен.
-  const isApi = url.hostname !== self.location.hostname;
+  //
+  //    Раньше API узнавали по чужому домену (Render). Теперь API отдаётся с
+  //    нашего же домена через прокси /backend/* (см. next.config.ts), и проверка
+  //    по домену перестала срабатывать: запросы к API проваливались в пункт 3
+  //    «страницы приложения» и в офлайне получали в ответ /offline.html — то есть
+  //    HTML вместо JSON, на котором fetch падал бы разбором, а не сетевой ошибкой.
+  const isApi = url.pathname.startsWith('/backend/');
   if (isApi) {
     // «Идёт сейчас» и личные данные привязаны к текущей минуте и к пользователю —
     // отдать их из кеша значит показать неправду. Их не кешируем совсем.

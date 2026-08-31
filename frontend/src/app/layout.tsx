@@ -5,16 +5,11 @@ import BottomNav from "@/components/BottomNav";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import InstallPrompt from "@/components/InstallPrompt";
 
-// Бэкенд живёт на другом домене (Render). Без preconnect браузер начинает
-// DNS + TLS только в момент первого fetch — это 100-300 мс сверху на самом
-// важном запросе. Здесь он открывает соединение параллельно с загрузкой HTML.
-const API_ORIGIN = (() => {
-  try {
-    return new URL(process.env.NEXT_PUBLIC_API_URL || "https://msu-schedule.onrender.com/api").origin;
-  } catch {
-    return "";
-  }
-})();
+// Раньше здесь был <link rel="preconnect"> на домен Render: бэкенд жил на
+// другом домене, и без preconnect браузер начинал DNS + TLS только в момент
+// первого fetch. Теперь API отдаётся с этого же домена через прокси
+// (/backend/* → Render, см. next.config.ts) — соединение уже открыто, тем же,
+// которым загрузилась страница, и preconnect стал не нужен.
 
 const manrope = Manrope({
   subsets: ["latin", "cyrillic"],
@@ -56,12 +51,6 @@ export default function RootLayout({
   return (
     <html lang="ru" className="h-full" suppressHydrationWarning>
       <head>
-        {API_ORIGIN && (
-          <>
-            <link rel="preconnect" href={API_ORIGIN} crossOrigin="anonymous" />
-            <link rel="dns-prefetch" href={API_ORIGIN} />
-          </>
-        )}
         {/* Устанавливаем тему до рендера, чтобы избежать вспышки */}
         <script
           dangerouslySetInnerHTML={{

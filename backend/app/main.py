@@ -245,3 +245,18 @@ def root():
 @app.get("/health")
 def health():
     return {"status": "ok", "migration": MIGRATION_STATUS}
+
+
+# Тот же ответ, но под префиксом /api.
+#
+# Megafon TJ (мобильный интернет) молча роняет пакеты до IP-диапазона Render,
+# поэтому клиенты ходят на бэкенд не напрямую, а через прокси на Vercel:
+# https://frontend-ten-nu-80.vercel.app/backend/* → https://msu-schedule.onrender.com/api/*
+# Корневой /health в этот префикс не попадает — а мобильному приложению он
+# нужен для проверки связи. Отсюда алиас.
+#
+# Сам Render проверяет живость сервиса по корневому /health (см. render.yaml),
+# его убирать нельзя.
+@app.get("/api/health")
+def health_api():
+    return health()

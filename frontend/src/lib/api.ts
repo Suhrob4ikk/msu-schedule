@@ -1,10 +1,8 @@
-// URL бэкенда — единственный источник правды в next.config.ts (там же fallback).
+// Адрес бэкенда — единственный источник правды в next.config.ts.
+// Это путь на нашем же домене ("/backend"), а не адрес Render: до Render с
+// мобильного интернета Megafon TJ не достучаться, поэтому запросы идут через
+// прокси на Vercel. Подробности — в комментарии в next.config.ts.
 const API_BASE = process.env.NEXT_PUBLIC_API_URL!;
-
-/** Origin бэкенда — для <link rel="preconnect"> в layout.tsx. */
-export const API_ORIGIN = (() => {
-  try { return new URL(API_BASE).origin; } catch { return ''; }
-})();
 
 // ─── Кэш ответов API ─────────────────────────────────────────────────────────
 //
