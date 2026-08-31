@@ -265,6 +265,66 @@ function buildQuery(params: Record<string, string | number | undefined | null | 
   return parts.length ? '?' + parts.join('&') : '';
 }
 
+// ─── Привязка выбранной группы ───────────────────────────────────────────────
+//
+// Выбранная группа хранится по числовому id. Этого оказалось мало: база на
+// бесплатном тарифе Render эфемерная, и раньше при каждом её пересоздании id
+// групп перетасовывались. Человек молча начинал смотреть чужое расписание —
+// название на экране бралось из локального кэша и оставалось своим, а пары
+// приходили чужие. Ошибка без единого сообщения об ошибке.
+//
+// Первопричину убрали в бэкенде: id теперь считается из названия, курса и
+// факультета (stable_group_id в models.py) и больше не зависит от порядка
+// вставки. Здесь — вторая линия обороны на случай, если группу всё же
+// переименуют в msu.tj: рядом с id храним «отпечаток» группы и при
+// расхождении верим ему, а не номеру.
+//
+// Если не сошлось ни то ни другое — стираем выбор. Пустой выбор приложение
+// понимает и отправляет человека выбрать группу заново; неверный id тихо
+// показывал бы чужое расписание.
+
+const PROFILE_GROUP_KEY = 'selected_group_id';
+const VIEWED_GROUP_KEY = 'schedule_view_group_id';
+const GROUP_PIN_KEY = 'selected_group_pin';
+
+const groupPin = (g: { name: string; year: number }) => `${g.year}|${g.name}`;
+
+/** Запомнить группу, выбранную человеком. Вызывать там же, где пишется id. */
+export function rememberGroup(g: { name: string; year: number }): void {
+  if (!hasLS()) return;
+  try { localStorage.setItem(GROUP_PIN_KEY, groupPin(g)); } catch { /* приватный режим */ }
+}
+
+function repairSavedGroup(groups: Group[]): void {
+  if (!hasLS() || groups.length === 0) return;
+  try {
+    const savedId = Number(localStorage.getItem(PROFILE_GROUP_KEY));
+    if (!savedId) return;
+
+    const byId = groups.find(g => g.id === savedId);
+    if (byId) {
+      // Всё сходится — заодно освежаем отпечаток (у тех, кто обновился, его ещё нет).
+      localStorage.setItem(GROUP_PIN_KEY, groupPin(byId));
+    } else {
+      const pin = localStorage.getItem(GROUP_PIN_KEY);
+      const byPin = pin ? groups.find(g => groupPin(g) === pin) : undefined;
+      if (byPin) {
+        localStorage.setItem(PROFILE_GROUP_KEY, String(byPin.id));
+      } else {
+        localStorage.removeItem(PROFILE_GROUP_KEY);
+        localStorage.removeItem(GROUP_PIN_KEY);
+      }
+    }
+
+    // «Последняя просмотренная» — вещь одноразовая: если её больше нет в
+    // списке, просто забываем, и экран вернётся к своей группе.
+    const viewed = Number(localStorage.getItem(VIEWED_GROUP_KEY));
+    if (viewed && !groups.some(g => g.id === viewed)) {
+      localStorage.removeItem(VIEWED_GROUP_KEY);
+    }
+  } catch { /* приватный режим */ }
+}
+
 export interface Group {
   id: number;
   name: string;
@@ -451,7 +511,10 @@ export const paths = {
 
 export const api = {
   getGroups: (facultyCode?: string) =>
-    fetchApi<Group[]>(paths.groups(facultyCode), TTL_LONG),
+    fetchApi<Group[]>(paths.groups(facultyCode), TTL_LONG).then(gs => {
+      repairSavedGroup(gs);
+      return gs;
+    }),
 
   getGroupSchedule: (groupId: number, day?: string, weekId?: number) =>
     fetchApi<Lesson[]>(paths.groupSchedule(groupId, day, weekId), TTL_DATA),

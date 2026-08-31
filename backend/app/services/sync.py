@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.models import (
     Faculty, Group, Teacher, Room, WeekSchedule,
-    Lesson, ScheduleChange, SyncLog
+    Lesson, ScheduleChange, SyncLog, stable_group_id
 )
 from app.services.parser import (
     download_xls, parse_xls_file, get_remote_last_modified,
@@ -36,14 +36,18 @@ def get_or_create_faculty(db: Session, code: str) -> Faculty:
     return faculty
 
 
-def get_or_create_group(db: Session, faculty_id: int, name: str, year: int,
+def get_or_create_group(db: Session, faculty: Faculty, name: str, year: int,
                          sheet_idx: int, block_idx: int) -> Group:
     group = db.query(Group).filter_by(
-        faculty_id=faculty_id, name=name, year=year
+        faculty_id=faculty.id, name=name, year=year
     ).first()
     if not group:
+        # id задаём сами, а не автоинкрементом: иначе он зависел бы от порядка
+        # вставки, а тот гуляет от деплоя к деплою. Почему это важно — большой
+        # комментарий у stable_group_id() в models.py.
         group = Group(
-            faculty_id=faculty_id,
+            id=stable_group_id(faculty.code, name, year),
+            faculty_id=faculty.id,
             name=name,
             year=year,
             sheet_index=sheet_idx,
@@ -218,7 +222,7 @@ def save_schedule_to_db(db: Session, parsed: dict, file_last_modified: Optional[
 
     for group_data in parsed["groups"]:
         group = get_or_create_group(
-            db, faculty.id,
+            db, faculty,
             group_data["name"], group_data["year"],
             group_data["sheet_index"], group_data["block_index"]
         )

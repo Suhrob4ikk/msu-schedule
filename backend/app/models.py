@@ -4,6 +4,7 @@ from sqlalchemy import (
     ForeignKey, UniqueConstraint, Enum as SAEnum, Index
 )
 from sqlalchemy.orm import relationship
+import hashlib
 import enum
 from app.database import Base
 
@@ -62,8 +63,37 @@ class Faculty(Base):
     groups = relationship("Group", back_populates="faculty")
 
 
+def stable_group_id(faculty_code: str, name: str, year: int) -> int:
+    """
+    Постоянный id группы — считается из её названия, курса и факультета.
+
+    Зачем это вообще. База на бесплатном тарифе Render эфемерная и
+    пересоздаётся при каждом деплое, а раньше id были обычным автоинкрементом
+    в порядке вставки. Порядок же гулял: sync_all() синхронизирует оба
+    факультета через asyncio.gather, и кто первым допишет свои группы — как
+    повезёт. В результате после деплоя «ПМиИ 3 курс» из группы №7 становилась
+    №19, а №7 доставалась «Международным отношениям».
+
+    Клиенты (и сайт, и приложение) хранят выбранную группу именно по id.
+    То есть после каждого деплоя человек молча начинал смотреть чужое
+    расписание: название на экране своё — из локального кэша, — а пары чужие.
+    Ошибка без единого сообщения об ошибке, самый дорогой вид.
+
+    Теперь id не зависит ни от порядка вставки, ни от того, добавили ли выше
+    по списку новую группу: пока название, курс и факультет те же — id тот же,
+    хоть сто деплоев подряд.
+
+    31 бит: помещается и в INTEGER SQLite, и в знаковое 32-битное целое на
+    любом клиенте. Для двух десятков групп вероятность совпадения id
+    исчезающе мала (порядка 10^-7).
+    """
+    key = f"{faculty_code}|{year}|{name}".encode("utf-8")
+    return int.from_bytes(hashlib.sha1(key).digest()[:4], "big") & 0x7FFFFFFF
+
+
 class Group(Base):
     __tablename__ = "groups"
+    # Не автоинкремент: значение задаётся явно через stable_group_id().
     id = Column(Integer, primary_key=True)
     faculty_id = Column(Integer, ForeignKey("faculties.id"), nullable=False)
     name = Column(String(200), nullable=False)    # ПРИКЛАДНАЯ МАТЕМАТИКА И ИНФОРМАТИКА

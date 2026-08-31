@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { api, Group, shortGroupName } from "@/lib/api";
+import { api, Group, shortGroupName, rememberGroup } from "@/lib/api";
 import GroupSelector from "@/components/GroupSelector";
 import Header from "@/components/Header";
 import { useRouter } from "next/navigation";
@@ -251,6 +251,9 @@ export default function ProfilePage() {
     localStorage.setItem("user_name", name.trim());
     localStorage.setItem("selected_group_id", String(selectedGroupId));
     localStorage.setItem("schedule_view_group_id", String(selectedGroupId));
+    // Рядом с номером запоминаем название и курс: если номер когда-нибудь
+    // разойдётся со списком групп, восстановимся по ним (см. lib/api.ts).
+    if (selectedGroup) rememberGroup(selectedGroup);
     // Отмечаем момент выбора: по нему решаем, спрашивать ли про курс после
     // смены учебного года (новичков спрашивать не нужно).
     markGroupChosen();

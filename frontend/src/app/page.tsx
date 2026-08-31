@@ -192,11 +192,23 @@ export default function HomePage() {
     api.getGroups()
       .then(gs => {
         setGroups(gs);
-        const profile = gs.find(x => x.id === profileId) ?? null;
+
+        // getGroups по пути чинит сохранённый выбор, если номера групп
+        // разошлись со списком (см. repairSavedGroup в lib/api.ts), поэтому
+        // читаем localStorage заново, а не берём прочитанное выше.
+        const repairedProfileId = Number(localStorage.getItem("selected_group_id"));
+        if (!repairedProfileId) {
+          // Восстановить не удалось — лучше попросить выбрать группу заново,
+          // чем показать чужое расписание или пустой экран.
+          router.push("/profile");
+          return;
+        }
+        setProfileGroupId(repairedProfileId);
+        const profile = gs.find(x => x.id === repairedProfileId) ?? null;
         setProfileGroup(profile);
 
-        const initialGroupId = Number(viewedGroup ?? savedGroup);
-        const g = gs.find(x => x.id === initialGroupId);
+        const repairedViewed = Number(localStorage.getItem("schedule_view_group_id"));
+        const g = gs.find(x => x.id === (repairedViewed || repairedProfileId));
         if (g) loadGroup(g);
       })
       .catch(() => setError("Нет соединения с сервером"));
