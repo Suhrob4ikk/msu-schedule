@@ -47,12 +47,22 @@ export default function ChangesPage() {
   const [profileGroupId, setProfileGroupId] = useState<number | null>(null);
   const [profileGroupLabel, setProfileGroupLabel] = useState<string>("");
   const [onlyMine, setOnlyMine] = useState(false);
+  // Курс по id группы — для подписи в карточке изменения. Сервер отдаёт
+  // только group_id и голое название («ГЕОЛОГИЯ»), а групп с одинаковым
+  // названием на разных курсах несколько — без курса не понять, о ком речь.
+  const [yearByGroupId, setYearByGroupId] = useState<Record<number, number>>({});
   // Пока не прочитали группу из localStorage, грузить нечего: иначе первый
   // проход эффекта тянул ленту по всем факультетам, а второй — уже по своей
   // группе. Два запроса подряд вместо одного.
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    // Список групп нужен всегда (для курса в карточках), а не только тем,
+    // у кого выбрана своя группа — поэтому запрос вынесен из ветки ниже.
+    api.getGroups().then(groups => {
+      setYearByGroupId(Object.fromEntries(groups.map(g => [g.id, g.year])));
+    }).catch(() => {});
+
     const saved = localStorage.getItem("selected_group_id");
     if (!saved) { setReady(true); return; }
     const id = Number(saved);
@@ -154,7 +164,10 @@ export default function ChangesPage() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className={tagClass}>{label}</span>
                     <span className="text-xs font-semibold">{c.faculty_code}</span>
-                    <span className="text-xs text-[var(--muted)]">{shortGroupName(c.group_name ?? "")}</span>
+                    <span className="text-xs text-[var(--muted)]">
+                      {shortGroupName(c.group_name ?? "")}
+                      {c.group_id != null && yearByGroupId[c.group_id] != null ? ` · ${yearByGroupId[c.group_id]} курс` : ""}
+                    </span>
                     {c.day_of_week && c.pair_number && (
                       <span className="text-xs text-[var(--muted)]">
                         {DAY_LABELS[c.day_of_week]}{changeDate(c) ? `, ${changeDate(c)}` : ""} · {c.pair_number} пара
