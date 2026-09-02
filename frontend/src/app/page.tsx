@@ -600,7 +600,7 @@ export default function HomePage() {
             цифры в самостоятельные мини-виджеты вместо текста на фоне карточки. */}
         {stats && stats.total_lessons_week >= 3 && (
           <div className="card mb-4 lg:mb-5">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 lg:gap-3">
+            <div className="grid grid-cols-3 gap-2 lg:gap-3">
               <div className="text-center rounded-xl py-2.5 lg:py-3.5" style={{ background: "var(--primary-soft)" }}>
                 <div className="text-2xl lg:text-4xl font-bold tabular-nums text-[var(--primary)]">{stats.total_lessons_week}</div>
                 <div className="text-xs lg:text-sm text-[var(--muted)] mt-1">пар в неделю</div>
@@ -612,12 +612,6 @@ export default function HomePage() {
               <div className="text-center rounded-xl py-2.5 lg:py-3.5" style={{ background: "var(--primary-soft)" }}>
                 <div className="text-2xl lg:text-4xl font-bold tabular-nums text-[var(--primary)]">{stats.unique_teachers}</div>
                 <div className="text-xs lg:text-sm text-[var(--muted)] mt-1">преподавателей</div>
-              </div>
-              <div className="text-center rounded-xl py-2.5 lg:py-3.5" style={{ background: "var(--primary-soft)" }}>
-                <div className="text-2xl lg:text-4xl font-bold tabular-nums text-[var(--primary)]">
-                  {stats.most_loaded_day ? DAY_SHORT[stats.most_loaded_day] : "—"}
-                </div>
-                <div className="text-xs lg:text-sm text-[var(--muted)] mt-1">загруженный день</div>
               </div>
             </div>
           </div>
