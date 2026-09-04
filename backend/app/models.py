@@ -230,6 +230,11 @@ class UserRegistration(Base):
     group_id = Column(Integer, ForeignKey("groups.id"), nullable=True)
     registered_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    # Токен для push через Expo (https://exp.host/--/api/v2/push/send) — мгновенное
+    # уведомление об изменении расписания СВОЕЙ группы, независимо от того, открыто
+    # ли приложение. NULL, пока не выдано разрешение на уведомления или пока на
+    # телефоне не настроен FCM (см. notify_group_changes в services/push.py).
+    expo_push_token = Column(String(200), nullable=True)
     group = relationship("Group")
 
 

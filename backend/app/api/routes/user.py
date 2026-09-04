@@ -57,6 +57,27 @@ def register_user(
     return {"ok": True}
 
 
+@router.post("/push-token")
+def set_push_token(device_id: str, token: str, db: Session = Depends(get_db)):
+    """Сохраняет Expo push-токен устройства — для мгновенных уведомлений об
+    изменении расписания СВОЕЙ группы (см. notify_group_changes в services/push.py).
+
+    Обновляется чаще, чем регистрация: токен может смениться (переустановка,
+    сброс данных приложения), а разрешение на уведомления могут дать не сразу
+    при онбординге, а позже, из кабинета. Поэтому отдельный эндпоинт, а не
+    ещё один параметр в /register.
+    """
+    reg = db.query(UserRegistration).filter_by(device_id=device_id).first()
+    if not reg:
+        # Регистрации ещё нет (не должно случаться при обычном порядке экранов,
+        # но лучше тихо промолчать, чем уронить клиент 404-й) — токен просто
+        # пропадает, приложение попробует прислать его снова при следующем запуске.
+        return {"ok": False}
+    reg.expo_push_token = token
+    db.commit()
+    return {"ok": True}
+
+
 @router.get("/notes/{session_id}")
 def get_notes(session_id: str, db: Session = Depends(get_db)):
     """Заметки пользователя к парам."""

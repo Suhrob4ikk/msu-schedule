@@ -165,6 +165,20 @@ async def lifespan(app: FastAPI):
         else:
             MIGRATION_STATUS += "; group_id: уже есть"
 
+        # expo_push_token — мгновенные push-уведомления об изменениях в приложении
+        # (см. notify_group_changes в services/push.py). Своя таблица, своя проверка:
+        # не хотим, чтобы ошибка в ней прервала уже готовую миграцию schedule_changes.
+        try:
+            reg_cols = [c["name"] for c in sa_inspect(engine).get_columns("user_registrations")]
+            if "expo_push_token" not in reg_cols:
+                with engine.begin() as conn:
+                    conn.execute(text("ALTER TABLE user_registrations ADD COLUMN expo_push_token VARCHAR(200)"))
+                MIGRATION_STATUS += "; expo_push_token: добавлена"
+            else:
+                MIGRATION_STATUS += "; expo_push_token: уже есть"
+        except Exception as e:
+            MIGRATION_STATUS += f"; expo_push_token: ошибка — {e}"
+
         # Дозаполняем старые записи без week_start. Файл с расписанием новой недели
         # приходит в конце текущей (пт–вс) — тогда изменение относится к СЛЕДУЮЩЕМУ
         # понедельнику; правки в пн–чт относятся к текущей неделе.

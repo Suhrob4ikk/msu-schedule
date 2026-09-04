@@ -1,8 +1,16 @@
-"""Отправка Web Push уведомлений: изменения расписания + напоминания о зачётах/экзаменах."""
+"""Отправка push-уведомлений: изменения расписания + напоминания о зачётах/экзаменах.
+
+Два независимых канала на разные аудитории:
+- Web Push (pywebpush, VAPID) — браузеры, подписавшиеся на сайте.
+- Expo Push (send_expo_push) — мобильное приложение. Отдельный канал, потому что
+  протоколы несовместимы: браузер понимает Web Push, Android-приложение — нет
+  (у него нет service worker'а), а у Expo — свой шлюз до FCM/APNs.
+"""
 
 import json
 import logging
 from datetime import date, timedelta
+import httpx
 from pywebpush import webpush, WebPushException
 
 from app.core.config import settings
@@ -111,6 +119,50 @@ def notify_group_changes(db, group_name: str, faculty_code: str, changes_count: 
                 sub.push_endpoint = None
                 sub.push_keys = None
         db.commit()
+
+    # Тот же текст уходит в мобильное приложение — уже не через браузер,
+    # а через Expo Push, единственный канал, который может разбудить нативное
+    # приложение мгновенно, даже если оно закрыто.
+    from app.models import UserRegistration
+    tokens = [
+        r.expo_push_token for r in
+        db.query(UserRegistration)
+        .filter(
+            UserRegistration.group_id.in_(group_ids),
+            UserRegistration.expo_push_token.isnot(None),
+        )
+        .all()
+    ]
+    if tokens:
+        send_expo_push(tokens, f"Расписание изменилось — {label}", body)
+
+
+def send_expo_push(tokens: list[str], title: str, body: str) -> None:
+    """Шлёт push через Expo — https://exp.host/--/api/v2/push/send.
+
+    Ничего, кроме токенов, для доставки не нужно: сервер, доставляющий пуш до
+    Google/Apple, держит Expo — не нужен ни свой Firebase Server Key в коде,
+    ни отдельная библиотека. Единственное разовое условие — на телефоне должен
+    быть настроен FCM (google-services.json в сборке) и у проекта в Expo должны
+    быть загружены его учётные данные (`eas credentials`), иначе Expo просто не
+    сможет достучаться до Google. Без этого условия токен на телефоне вообще не
+    появится (getExpoPushTokenAsync упадёт на мобильной стороне) — так что если
+    tokens пуст, до этой функции дело просто не доходит.
+
+    Один запрос на всех: Expo принимает пакет уведомлений за раз (до 100),
+    так не гоняем по HTTP-запросу на каждого подписчика группы.
+    """
+    messages = [{"to": t, "title": title, "body": body, "sound": "default"} for t in tokens]
+    try:
+        r = httpx.post(
+            "https://exp.host/--/api/v2/push/send",
+            json=messages,
+            headers={"Content-Type": "application/json", "Accept": "application/json"},
+            timeout=10,
+        )
+        r.raise_for_status()
+    except Exception as e:
+        logger.warning(f"Expo push не отправился: {e}")
 
 
 # ─── Уведомления о зачётах / экзаменах ───────────────────────────────────────
