@@ -54,7 +54,7 @@ export default function RootLayout({
         {/* Устанавливаем тему до рендера, чтобы избежать вспышки */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var e=document.documentElement;var t=localStorage.getItem('theme');var isDark=t==='dark'||(t!=='light'&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(isDark){e.classList.add('dark');}if(localStorage.getItem('accent')==='blue'){var v=isDark?{'--primary':'#2f9bff','--primary-strong':'#5db4ff','--primary-soft':'#0d2340','--ring':'rgba(47, 155, 255, 0.4)'}:{'--primary':'#168bff','--primary-strong':'#0a6fd6','--primary-soft':'#e3f0ff','--ring':'rgba(22, 139, 255, 0.35)'};for(var k in v){e.style.setProperty(k,v[k]);}}}catch(err){}})();`,
+            __html: `(function(){try{var e=document.documentElement;var t=localStorage.getItem('theme');var isDark=t==='dark'||(t!=='light'&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(isDark){e.classList.add('dark');}if(localStorage.getItem('accent')==='blue'){var v=isDark?{'--primary':'#2563eb','--primary-strong':'#60a5fa','--primary-soft':'#17294a','--ring':'rgba(96, 165, 250, 0.4)'}:{'--primary':'#2563eb','--primary-strong':'#1d4ed8','--primary-soft':'#dbeafe','--ring':'rgba(37, 99, 235, 0.35)'};for(var k in v){e.style.setProperty(k,v[k]);}}}catch(err){}})();`,
           }}
         />
       </head>

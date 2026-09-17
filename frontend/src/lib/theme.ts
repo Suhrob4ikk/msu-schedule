@@ -120,16 +120,16 @@ export type AccentPref = "green" | "blue";
 export const ACCENT_KEY = "accent";
 
 const BLUE_LIGHT = {
-  "--primary": "#168bff",
-  "--primary-strong": "#0a6fd6",
-  "--primary-soft": "#e3f0ff",
-  "--ring": "rgba(22, 139, 255, 0.35)",
+  "--primary": "#2563eb",
+  "--primary-strong": "#1d4ed8",
+  "--primary-soft": "#dbeafe",
+  "--ring": "rgba(37, 99, 235, 0.35)",
 };
 const BLUE_DARK = {
-  "--primary": "#2f9bff",
-  "--primary-strong": "#5db4ff",
-  "--primary-soft": "#0d2340",
-  "--ring": "rgba(47, 155, 255, 0.4)",
+  "--primary": "#2563eb",
+  "--primary-strong": "#60a5fa",
+  "--primary-soft": "#17294a",
+  "--ring": "rgba(96, 165, 250, 0.4)",
 };
 const ACCENT_VARS = Object.keys(BLUE_LIGHT);
 

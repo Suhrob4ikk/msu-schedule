@@ -5,7 +5,7 @@ import { getAccentPref, setAccentPref, type AccentPref } from "@/lib/theme";
 
 const OPTIONS: Array<{ value: AccentPref; label: string; swatch: string }> = [
   { value: "green", label: "Изумруд", swatch: "#0e9b72" },
-  { value: "blue", label: "Синий", swatch: "#168bff" },
+  { value: "blue", label: "Синий", swatch: "#2563eb" },
 ];
 
 /**
