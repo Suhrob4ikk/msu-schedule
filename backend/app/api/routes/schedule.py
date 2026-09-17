@@ -660,6 +660,21 @@ def get_free_rooms(
                     free_until = PAIR_TIMES[PAIR_ORDER[last_free_idx]][1]
             result.append({"room_name": room_name, "is_free": True, "free_until": free_until})
 
+    # Сначала свободные (по номеру), затем занятые — те, что освободятся
+    # раньше, выше: это самый частый вопрос при выборе, куда идти.
+    def _sort_key(r):
+        if r["is_free"]:
+            return (0, r["room_name"])
+        until = r.get("occupied_until")
+        if until:
+            h, m = until.split(":")
+            minutes = int(h) * 60 + int(m)
+        else:
+            minutes = 24 * 60
+        return (1, minutes, r["room_name"])
+
+    result.sort(key=_sort_key)
+
     _FREE_ROOMS_CACHE[cache_key] = (result, _time_mod.time())
     return result
 
