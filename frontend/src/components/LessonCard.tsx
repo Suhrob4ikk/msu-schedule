@@ -49,6 +49,13 @@ const typeKind: Record<string, string> = {
 
 interface Props {
   lesson: Lesson;
+  /**
+   * Ещё пары, слитые с этой в одну карточку — идущие подряд без окна,
+   * с тем же предметом/преподавателем/аудиторией/типом (см. groupConsecutive
+   * в DaySchedule.tsx). Заголовок карточки один на всех, а кнопка «Пропуск»
+   * и заметка — свои у каждой пары (нельзя пропустить только половину пары).
+   */
+  mergedWith?: Lesson[];
   showGroup?: boolean;
   showAttendance?: boolean;
   showNotes?: boolean;
@@ -61,9 +68,114 @@ interface Props {
   links?: boolean;
 }
 
-export default function LessonCard({ lesson, showGroup, showAttendance, showNotes, compactTime, links }: Props) {
+export default function LessonCard({ lesson, mergedWith, showGroup, showAttendance, showNotes, compactTime, links }: Props) {
   const shortGroup = lesson.group ? shortGroupName(lesson.group.name) : null;
   const kind = lesson.lesson_type ? (typeKind[lesson.lesson_type] || "default") : "default";
+  const allLessons = mergedWith?.length ? [lesson, ...mergedWith] : [lesson];
+  const lastLesson = allLessons[allLessons.length - 1];
+
+  return (
+    <div className="card lesson-accent mb-2 lg:mb-2.5" data-kind={kind}>
+      {/* Номер пары + время + тип */}
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <span className="lesson-tag lesson-time">
+          {allLessons.length > 1 ? `${allLessons.length} пары` : `${lesson.pair_number} пара`}
+          {!compactTime && lesson.pair_time_start && ` · ${lesson.pair_time_start}–${lastLesson.pair_time_end}`}
+        </span>
+        {lesson.lesson_type && (
+          <span className={`lesson-tag ${typeTagClass[lesson.lesson_type] || ""}`}>
+            {typeLabels[lesson.lesson_type] || lesson.lesson_type}
+          </span>
+        )}
+      </div>
+
+      {/* Название предмета */}
+      <p className="font-semibold text-base lg:text-lg leading-snug mb-2" style={{ color: "var(--foreground)" }}>
+        {lesson.subject}
+      </p>
+
+      {/* Преподаватель, аудитория, группа */}
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm lg:text-base" style={{ color: "var(--muted)" }}>
+        {lesson.teacher && (
+          links ? (
+            <Link
+              href={`/teachers?teacher=${lesson.teacher.id}`}
+              className="flex items-center gap-1 hover:text-[var(--primary)] transition-colors"
+              title={`Расписание ${lesson.teacher.name}`}
+            >
+              {teacherIcon}
+              <span className="underline decoration-dotted decoration-from-font underline-offset-2">
+                {lesson.teacher.name}
+              </span>
+            </Link>
+          ) : (
+            <span className="flex items-center gap-1">
+              {teacherIcon}
+              {lesson.teacher.name}
+            </span>
+          )
+        )}
+        {lesson.room && (
+          links ? (
+            <Link
+              href={`/rooms?day=${encodeURIComponent(lesson.day_of_week)}&pair=${encodeURIComponent(lesson.pair_number)}`}
+              className="flex items-center gap-1 hover:text-[var(--primary)] transition-colors"
+              title={`Кто ещё занят в это время`}
+            >
+              {roomIcon}
+              <span className="underline decoration-dotted decoration-from-font underline-offset-2">
+                Ауд. {lesson.room.name}
+              </span>
+            </Link>
+          ) : (
+            <span className="flex items-center gap-1">
+              {roomIcon}
+              Ауд. {lesson.room.name}
+            </span>
+          )
+        )}
+        {showGroup && lesson.group && shortGroup && (
+          <span className="flex min-w-0 items-center gap-1">
+            <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
+            </svg>
+            <span className="truncate">{lesson.group.year} курс · {shortGroup}</span>
+          </span>
+        )}
+      </div>
+
+      {/* Пропуск и заметка — свои у каждой слитой пары (см. mergedWith в Props) */}
+      {(showAttendance || showNotes) && allLessons.map((l, i) => (
+        <LessonActions
+          key={l.id}
+          lesson={l}
+          showAttendance={showAttendance}
+          showNotes={showNotes}
+          pairLabel={allLessons.length > 1 ? `${l.pair_number} пара · ${l.pair_time_start}–${l.pair_time_end}` : undefined}
+          first={i === 0}
+        />
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Кнопка «Отметить пропуск» + заметка для ОДНОЙ пары. Вынесена из LessonCard,
+ * чтобы у слитых подряд пар (см. mergedWith) у каждой было своё состояние —
+ * иначе один useState на всех не позволил бы отметить пропуск только
+ * половины объединённого блока.
+ */
+function LessonActions({
+  lesson, showAttendance, showNotes, pairLabel, first,
+}: {
+  lesson: Lesson;
+  showAttendance?: boolean;
+  showNotes?: boolean;
+  /** Показывается только когда карточка объединяет несколько пар. */
+  pairLabel?: string;
+  /** Первому блоку в объединённой карточке верхняя граница не нужна. */
+  first: boolean;
+}) {
   // На экзаменах/зачётах/консультациях посещаемость не отмечают — кнопки не показываем
   const attendanceApplicable = !/экзамен|зач|конс/i.test(lesson.lesson_type ?? "");
 
@@ -134,79 +246,20 @@ export default function LessonCard({ lesson, showGroup, showAttendance, showNote
     persistNote(note, next);
   };
 
+  const showSkipRow = showAttendance && canMarkSkip;
+  if (!showSkipRow && !showNotes) return null;
+
   return (
-    <div className="card lesson-accent mb-2 lg:mb-2.5" data-kind={kind}>
-      {/* Номер пары + время + тип */}
-      <div className="flex items-center justify-between gap-2 mb-2">
-        <span className="lesson-tag lesson-time">
-          {lesson.pair_number} пара
-          {!compactTime && lesson.pair_time_start && ` · ${lesson.pair_time_start}–${lesson.pair_time_end}`}
-        </span>
-        {lesson.lesson_type && (
-          <span className={`lesson-tag ${typeTagClass[lesson.lesson_type] || ""}`}>
-            {typeLabels[lesson.lesson_type] || lesson.lesson_type}
-          </span>
-        )}
-      </div>
-
-      {/* Название предмета */}
-      <p className="font-semibold text-base lg:text-lg leading-snug mb-2" style={{ color: "var(--foreground)" }}>
-        {lesson.subject}
-      </p>
-
-      {/* Преподаватель, аудитория, группа */}
-      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm lg:text-base" style={{ color: "var(--muted)" }}>
-        {lesson.teacher && (
-          links ? (
-            <Link
-              href={`/teachers?teacher=${lesson.teacher.id}`}
-              className="flex items-center gap-1 hover:text-[var(--primary)] transition-colors"
-              title={`Расписание ${lesson.teacher.name}`}
-            >
-              {teacherIcon}
-              <span className="underline decoration-dotted decoration-from-font underline-offset-2">
-                {lesson.teacher.name}
-              </span>
-            </Link>
-          ) : (
-            <span className="flex items-center gap-1">
-              {teacherIcon}
-              {lesson.teacher.name}
-            </span>
-          )
-        )}
-        {lesson.room && (
-          links ? (
-            <Link
-              href={`/rooms?day=${encodeURIComponent(lesson.day_of_week)}&pair=${encodeURIComponent(lesson.pair_number)}`}
-              className="flex items-center gap-1 hover:text-[var(--primary)] transition-colors"
-              title={`Кто ещё занят в это время`}
-            >
-              {roomIcon}
-              <span className="underline decoration-dotted decoration-from-font underline-offset-2">
-                Ауд. {lesson.room.name}
-              </span>
-            </Link>
-          ) : (
-            <span className="flex items-center gap-1">
-              {roomIcon}
-              Ауд. {lesson.room.name}
-            </span>
-          )
-        )}
-        {showGroup && lesson.group && shortGroup && (
-          <span className="flex min-w-0 items-center gap-1">
-            <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
-            </svg>
-            <span className="truncate">{lesson.group.year} курс · {shortGroup}</span>
-          </span>
-        )}
-      </div>
+    <div className={first ? "mt-3 pt-3 border-t border-[var(--border)]" : "mt-2.5 pt-2.5 border-t border-[var(--border)]"}>
+      {pairLabel && (
+        <p className="text-[11px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted)" }}>
+          {pairLabel}
+        </p>
+      )}
 
       {/* Пропуск: отмечаем только то, что пропустили */}
-      {showAttendance && canMarkSkip && (
-        <div className="flex items-center mt-3 pt-3 border-t border-[var(--border)]">
+      {showSkipRow && (
+        <div className="flex items-center">
           <button
             onClick={toggleSkip}
             aria-pressed={skipped}
@@ -235,7 +288,7 @@ export default function LessonCard({ lesson, showGroup, showAttendance, showNote
 
       {/* Заметки */}
       {showNotes && (
-        <div className="mt-3 pt-3 border-t border-[var(--border)]">
+        <div className={showSkipRow ? "mt-3" : ""}>
           {!editingNote && (
             note ? (
               /* Компактная строка-индикатор: заметка видна, клик — редактирование */

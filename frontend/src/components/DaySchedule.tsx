@@ -2,7 +2,7 @@
 
 import { useMemo, type CSSProperties } from "react";
 import LessonCard from "./LessonCard";
-import { Lesson, gapBetween, leadingGap, humanDuration } from "@/lib/api";
+import { Lesson, gapBetween, leadingGap, humanDuration, PAIR_NUMBERS } from "@/lib/api";
 
 /**
  * Один день расписания в виде вертикального таймлайна.
@@ -23,6 +23,29 @@ const toMin = (t: string): number => {
 const pad = (n: number) => String(n).padStart(2, "0");
 
 type LessonState = "past" | "current" | "future";
+
+/** Пары считаются одним занятием, если идут подряд без окна и совпадают
+ *  по предмету, преподавателю, аудитории и типу — иначе «2 пары» ввело бы
+ *  в заблуждение, будто это одно и то же занятие, а не совпадение подряд. */
+function sameBlock(a: Lesson, b: Lesson): boolean {
+  return a.subject === b.subject
+    && (a.teacher?.id ?? null) === (b.teacher?.id ?? null)
+    && (a.room?.id ?? null) === (b.room?.id ?? null)
+    && a.lesson_type === b.lesson_type
+    && PAIR_NUMBERS.indexOf(b.pair_number) - PAIR_NUMBERS.indexOf(a.pair_number) === 1;
+}
+
+/** Группирует отсортированный по парам список дня в блоки подряд идущих
+ *  одинаковых пар — по одной карточке на блок вместо нескольких подряд. */
+function groupConsecutive(lessons: Lesson[]): Lesson[][] {
+  const runs: Lesson[][] = [];
+  for (const l of lessons) {
+    const run = runs[runs.length - 1];
+    if (run && sameBlock(run[run.length - 1], l)) run.push(l);
+    else runs.push([l]);
+  }
+  return runs;
+}
 
 interface Props {
   /** «Понедельник» */
@@ -51,30 +74,34 @@ export default function DaySchedule({
     ? new Date(dayDate).toLocaleDateString("ru-RU", { day: "numeric", month: "long" })
     : null;
 
-  // Состояние каждой пары. Пока не смонтировались (nowMinutes = null) — всё
-  // «будущее»: так серверный и первый клиентский рендер совпадают.
+  // Подряд идущие одинаковые пары — одной карточкой (см. groupConsecutive).
+  const runs = useMemo(() => groupConsecutive(lessons), [lessons]);
+
+  // Состояние каждого блока пар. Пока не смонтировались (nowMinutes = null) —
+  // всё «будущее»: так серверный и первый клиентский рендер совпадают.
   const states = useMemo<LessonState[]>(
-    () => lessons.map(l => {
-      if (!todayIso || !l.lesson_date) return "future";
-      if (l.lesson_date < todayIso) return "past";
-      if (l.lesson_date > todayIso) return "future";
+    () => runs.map(run => {
+      const first = run[0], last = run[run.length - 1];
+      if (!todayIso || !first.lesson_date) return "future";
+      if (first.lesson_date < todayIso) return "past";
+      if (first.lesson_date > todayIso) return "future";
       if (nowMinutes == null) return "future";
-      if (nowMinutes >= toMin(l.pair_time_end)) return "past";
-      if (nowMinutes >= toMin(l.pair_time_start)) return "current";
+      if (nowMinutes >= toMin(last.pair_time_end)) return "past";
+      if (nowMinutes >= toMin(first.pair_time_start)) return "current";
       return "future";
     }),
-    [lessons, todayIso, nowMinutes],
+    [runs, todayIso, nowMinutes],
   );
 
-  // Перед какой парой встанет маркер «сейчас».
+  // Перед каким блоком встанет маркер «сейчас».
   // Только между парами: про «день ещё не начался» и «на сегодня всё» и так
   // говорят карточки наверху страницы, дублировать не нужно.
   const nowMarkerAt = useMemo(() => {
     if (!isToday || nowMinutes == null) return -1;
     if (states.includes("current")) return -1; // идёт пара — её точка и так горит
-    const idx = lessons.findIndex(l => toMin(l.pair_time_start) > nowMinutes);
+    const idx = runs.findIndex(run => toMin(run[0].pair_time_start) > nowMinutes);
     return idx > 0 ? idx : -1;
-  }, [isToday, nowMinutes, states, lessons]);
+  }, [isToday, nowMinutes, states, runs]);
 
   const nowLabel = nowMinutes == null
     ? ""
@@ -108,13 +135,15 @@ export default function DaySchedule({
       </h2>
 
       <div className="tl-rail" data-dim={dimPast ? "1" : undefined}>
-        {lessons.map((lesson, i) => {
+        {runs.map((run, i) => {
+          const lesson = run[0];
+          const last = run[run.length - 1];
           // Окно = пропущенный слот пары. Обычный перерыв между соседними
           // парами (включая обед III→IV) окном не считается. У первой пары
           // дня сравнивать не с чем — leadingGap меряет от начала дня (I
           // пара), а не от предыдущего занятия.
           const gap = i > 0
-            ? gapBetween(lessons[i - 1].pair_number, lesson.pair_number)
+            ? gapBetween(runs[i - 1][runs[i - 1].length - 1].pair_number, lesson.pair_number)
             : leadingGap(lesson.pair_number);
           const state = states[i];
 
@@ -147,7 +176,7 @@ export default function DaySchedule({
                   >
                     {lesson.pair_time_start}
                   </span>
-                  <span className="block opacity-60">{lesson.pair_time_end}</span>
+                  <span className="block opacity-60">{last.pair_time_end}</span>
                 </span>
                 <span
                   className={`tl-dot${state === "current" ? " now-dot" : ""}`}
@@ -157,6 +186,7 @@ export default function DaySchedule({
                 />
                 <LessonCard
                   lesson={lesson}
+                  mergedWith={run.length > 1 ? run.slice(1) : undefined}
                   compactTime
                   links
                   showAttendance={showAttendance}
