@@ -250,7 +250,7 @@ function LessonActions({
   if (!showSkipRow && !showNotes) return null;
 
   return (
-    <div className={first ? "mt-3 pt-3 border-t border-[var(--border)]" : "mt-2.5 pt-2.5 border-t border-[var(--border)]"}>
+    <div className={first ? "mt-2.5 pt-2.5 border-t border-[var(--border)]" : "mt-1.5 pt-1.5 border-t border-[var(--border)]"}>
       {pairLabel && (
         <p className="text-[11px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted)" }}>
           {pairLabel}
