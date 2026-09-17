@@ -34,6 +34,7 @@ export function setThemePref(pref: ThemePref): void {
   // от «ещё ни разу не трогал», а инлайновый скрипт обрабатывает оба одинаково.
   localStorage.setItem(THEME_KEY, pref);
   document.documentElement.classList.toggle("dark", resolveDark(pref));
+  applyAccent(); // у синего акцента разные оттенки для светлой/тёмной темы
 }
 
 /** startViewTransition есть не во всех браузерах и не во всех версиях типов DOM. */
@@ -94,8 +95,64 @@ export function watchSystemTheme(onChange: (dark: boolean) => void): () => void 
   const handler = (e: MediaQueryListEvent) => {
     if (getThemePref() !== "system") return;
     document.documentElement.classList.toggle("dark", e.matches);
+    applyAccent();
     onChange(e.matches);
   };
   mq.addEventListener("change", handler);
   return () => mq.removeEventListener("change", handler);
+}
+
+/**
+ * Цвет акцента — отдельно от светлой/тёмной темы. «Изумруд» — фирменный
+ * зелёный (по умолчанию, как было всегда), «Синий» — альтернативная палитра
+ * для тех, кому синий привычнее как основной UI-акцент. Статус «свободно» /
+ * «занято» на аудиториях зелёным/красным не завязан на этот выбор — те цвета
+ * заданы отдельно (см. app/rooms/page.tsx), поэтому смена акцента их не трогает.
+ *
+ * Применяется через инлайн-стили на <html>, а не через CSS-класс/атрибут:
+ * Tailwind 4 (Lightning CSS) при сборке выкидывал правило вида
+ * `[data-accent="blue"] { --primary: ... }` как "неиспользуемое" — переменная
+ * нигде не читалась внутри самого CSS-файла напрямую. Инлайн-стиль такой
+ * оптимизации не подвержен в принципе.
+ */
+export type AccentPref = "green" | "blue";
+
+export const ACCENT_KEY = "accent";
+
+const BLUE_LIGHT = {
+  "--primary": "#168bff",
+  "--primary-strong": "#0a6fd6",
+  "--primary-soft": "#e3f0ff",
+  "--ring": "rgba(22, 139, 255, 0.35)",
+};
+const BLUE_DARK = {
+  "--primary": "#2f9bff",
+  "--primary-strong": "#5db4ff",
+  "--primary-soft": "#0d2340",
+  "--ring": "rgba(47, 155, 255, 0.4)",
+};
+const ACCENT_VARS = Object.keys(BLUE_LIGHT);
+
+export function getAccentPref(): AccentPref {
+  const saved = localStorage.getItem(ACCENT_KEY);
+  return saved === "blue" ? "blue" : "green";
+}
+
+/** Пересчитывает инлайн-переменные акцента под текущие пару (акцент × тема).
+ *  Нужно звать не только при смене акцента, но и при смене светлая/тёмная —
+ *  у синего акцента для них разные оттенки (см. BLUE_LIGHT/BLUE_DARK). */
+export function applyAccent(): void {
+  const root = document.documentElement;
+  const pref = getAccentPref();
+  if (pref !== "blue") {
+    ACCENT_VARS.forEach(k => root.style.removeProperty(k));
+    return;
+  }
+  const vars = root.classList.contains("dark") ? BLUE_DARK : BLUE_LIGHT;
+  Object.entries(vars).forEach(([k, v]) => root.style.setProperty(k, v));
+}
+
+export function setAccentPref(pref: AccentPref): void {
+  localStorage.setItem(ACCENT_KEY, pref);
+  applyAccent();
 }

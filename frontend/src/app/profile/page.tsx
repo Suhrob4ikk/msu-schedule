@@ -9,6 +9,7 @@ import { getPushStatus, subscribePush, unsubscribePush, type PushStatus } from "
 import InviteCard from "@/components/InviteCard";
 import AppDownloadCard from "@/components/AppDownloadCard";
 import ThemeSetting from "@/components/ThemeSetting";
+import AccentSetting from "@/components/AccentSetting";
 
 import { featuresUnlocked, daysUntilUnlock, markGroupChosen } from "@/lib/features";
 import { collectSkips, collectNotes, type SkipStats as SkipStatsType } from "@/lib/studyData";
@@ -427,6 +428,7 @@ export default function ProfilePage() {
             </p>
             <div className="flex flex-col gap-2.5">
               <ThemeSetting />
+              <AccentSetting />
               <NotificationToggle
                 sessionId={typeof window !== "undefined" ? (localStorage.getItem("msu_device_id_v2") ?? "") : ""}
                 groupId={selectedGroupId}
