@@ -76,8 +76,9 @@ export default function LessonCard({ lesson, mergedWith, showGroup, showAttendan
 
   return (
     <div className="card lesson-accent mb-2 lg:mb-2.5" data-kind={kind}>
-      {/* Номер пары + время + тип */}
-      <div className="flex items-center justify-between gap-2 mb-2">
+      {/* Номер пары + время + тип — рядом, не растянуты по краям карточки:
+          иначе между короткими тегами остаётся пустая полоса. */}
+      <div className="flex items-center gap-2 mb-2">
         <span className="lesson-tag lesson-time">
           {allLessons.length > 1 ? `${allLessons.length} пары` : `${lesson.pair_number} пара`}
           {!compactTime && lesson.pair_time_start && ` · ${lesson.pair_time_start}–${lastLesson.pair_time_end}`}

@@ -622,20 +622,23 @@ export default function HomePage() {
           <FeatureHint skips={featureAttendance} notes={featureNotes} />
         )}
 
-        {/* Фильтр по дню — «Вся неделя» в одном ряду с днями, того же размера,
-            чтобы ряд менялся (переносился) как единое целое, а не жила
-            отдельной широкой кнопкой над ними. */}
+        {/* Фильтр по дню — «Вся неделя» отдельной широкой кнопкой сверху
+            (как в приложении), сами дни — своим рядом под ней. В общем ряду
+            с днями кнопка либо терялась среди одинаковых пилюль, либо не
+            помещалась на узких экранах. */}
         {selectedGroup && (
-          <div className="flex gap-1.5 lg:gap-3 flex-wrap mb-4 lg:mb-5 mt-2">
-            <button
-              onClick={() => setSelectedDay("all")}
-              className={`flex items-center px-3 lg:px-5 min-h-[44px] rounded-lg text-xs lg:text-base font-medium transition-all active:scale-95 ${selectedDay === "all"
-                ? "bg-[var(--primary)] text-white"
-                : "bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)]"
-                }`}
-            >
-              Вся неделя
-            </button>
+          <button
+            onClick={() => setSelectedDay("all")}
+            className={`w-full flex items-center justify-center min-h-[44px] rounded-lg text-sm lg:text-base font-bold transition-all active:scale-95 mt-2 mb-2 ${selectedDay === "all"
+              ? "bg-[var(--primary)] text-white"
+              : "bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)]"
+              }`}
+          >
+            Вся неделя
+          </button>
+        )}
+        {selectedGroup && (
+          <div className="flex gap-1.5 lg:gap-3 flex-wrap mb-4 lg:mb-5">
             {visibleDays.map(day => {
               const hasLessons = lessons.some(l => l.day_of_week === day);
               const isActive = selectedDay === day;

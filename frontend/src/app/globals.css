@@ -152,10 +152,14 @@ h1, h2 { letter-spacing: -0.015em; }
 .dark .lesson-accent[data-kind="lecture"]  { border-left-color: #60a5fa; }
 .dark .lesson-accent[data-kind="default"]  { border-left-color: #4b5563; }
 
-/* Время пары — моноширинный «билетный» стиль */
+/* Время пары — моноширинный «билетный» стиль. Крупнее и жирнее обычного
+   тега: номер пары/время — самая важная информация в карточке, не должна
+   выглядеть такой же второстепенной пилюлей, как тип занятия. */
 .lesson-time {
   font-family: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", monospace;
   letter-spacing: -0.01em;
+  font-size: 15px;
+  font-weight: 700;
 }
 
 /* ═════════════════════════════════════════════════════════════════════════
