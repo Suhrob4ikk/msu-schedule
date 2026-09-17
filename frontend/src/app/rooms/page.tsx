@@ -187,7 +187,7 @@ export default function RoomsPage() {
                       key={r.room_name}
                       className="flex flex-col items-center px-2.5 py-1 rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30"
                     >
-                      <span className="text-sm font-semibold text-green-700 dark:text-green-400 leading-tight">{r.room_name}</span>
+                      <span className="text-sm font-semibold text-green-700 dark:text-green-400 leading-tight">Ауд. {r.room_name}</span>
                       <span className="text-[10px] text-green-700/70 dark:text-green-400/70 leading-tight">
                         {r.free_until ? `до ${r.free_until}` : "весь день"}
                       </span>
@@ -209,7 +209,7 @@ export default function RoomsPage() {
                   return (
                     <div key={r.room_name} className="rounded-xl border-l-[3px] border-l-red-400 bg-red-50 dark:bg-red-950/20 px-3 py-2.5">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-semibold">{r.room_name}</span>
+                        <span className="text-sm font-semibold">Ауд. {r.room_name}</span>
                         {r.occupied_until && (
                           <span className="text-xs text-red-600/80 dark:text-red-400/80">до {r.occupied_until}</span>
                         )}
