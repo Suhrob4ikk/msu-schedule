@@ -49,6 +49,7 @@ export default function RoomsPage() {
     free_until?: string | null; occupied_until?: string | null;
   }>>([]);
   const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
   // «Свободно сейчас» нажали вечером или в воскресенье — показываем пояснение
   const [noSlotHint, setNoSlotHint] = useState(false);
   const [weekBarReady, setWeekBarReady] = useState(false);
@@ -89,8 +90,11 @@ export default function RoomsPage() {
     setWeekBarReady(true);
   }, []);
 
-  const freeRooms = rooms.filter(r => r.is_free);
-  const busyRooms = rooms.filter(r => !r.is_free);
+  const searchedRooms = search.trim()
+    ? rooms.filter(r => r.room_name.toLowerCase().includes(search.trim().toLowerCase()))
+    : rooms;
+  const freeRooms = searchedRooms.filter(r => r.is_free);
+  const busyRooms = searchedRooms.filter(r => !r.is_free);
 
   return (
     <div className="min-h-screen">
@@ -101,6 +105,14 @@ export default function RoomsPage() {
         {/* Фильтры */}
         <div className="card mb-4 lg:mb-5">
           <h1 className="font-bold text-lg lg:text-2xl mb-3">Свободные аудитории</h1>
+
+          <input
+            type="search"
+            placeholder="Найти аудиторию, например 105..."
+            className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 lg:py-3 text-base mb-4 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
 
           {/* Быстрый переход к текущей паре — самый частый вопрос «где сейчас свободно» */}
           <button
