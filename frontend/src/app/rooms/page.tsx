@@ -46,6 +46,7 @@ export default function RoomsPage() {
   const [rooms, setRooms] = useState<Array<{
     room_name: string; is_free: boolean; occupied_by?: string;
     occupied_list?: string[]; conflict?: boolean;
+    free_until?: string | null; occupied_until?: string | null;
   }>>([]);
   const [loading, setLoading] = useState(false);
   // «Свободно сейчас» нажали вечером или в воскресенье — показываем пояснение
@@ -184,9 +185,12 @@ export default function RoomsPage() {
                   {freeRooms.map(r => (
                     <span
                       key={r.room_name}
-                      className="px-2.5 py-1 rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 text-sm font-semibold text-green-700 dark:text-green-400"
+                      className="flex flex-col items-center px-2.5 py-1 rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30"
                     >
-                      {r.room_name}
+                      <span className="text-sm font-semibold text-green-700 dark:text-green-400 leading-tight">{r.room_name}</span>
+                      <span className="text-[10px] text-green-700/70 dark:text-green-400/70 leading-tight">
+                        {r.free_until ? `до ${r.free_until}` : "весь день"}
+                      </span>
                     </span>
                   ))}
                 </div>
@@ -206,6 +210,9 @@ export default function RoomsPage() {
                     <div key={r.room_name} className="rounded-xl border-l-[3px] border-l-red-400 bg-red-50 dark:bg-red-950/20 px-3 py-2.5">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-semibold">{r.room_name}</span>
+                        {r.occupied_until && (
+                          <span className="text-xs text-red-600/80 dark:text-red-400/80">до {r.occupied_until}</span>
+                        )}
                         {r.conflict && (
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-500 text-white">
                             {entries.length} группы одновременно

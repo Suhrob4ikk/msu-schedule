@@ -562,7 +562,11 @@ def get_free_rooms(
         if w:
             latest_week_ids.append(w.id)
 
-    occupied = (
+    PAIR_ORDER = ["I", "II", "III", "IV", "V"]
+
+    # Весь день, а не только запрошенная пара — нужно, чтобы посчитать,
+    # до какого времени аудитория останется свободной/занятой (см. ниже).
+    day_lessons = (
         db.query(Lesson)
         .options(
             joinedload(Lesson.room),
@@ -572,7 +576,6 @@ def get_free_rooms(
         .filter(
             Lesson.week_schedule_id.in_(latest_week_ids),
             Lesson.day_of_week == day_of_week.lower(),
-            Lesson.pair_number == pair_number.upper(),
             Lesson.room_id.isnot(None),
         )
         .all()
@@ -596,10 +599,11 @@ def get_free_rooms(
 
     # В одной аудитории может стоять несколько групп (общая лекция — или ошибка
     # в расписании). Раньше словарь перезаписывался и оставалась только последняя,
-    # то есть накладка просто пропадала с глаз. Собираем все.
-    occupied_map: dict[str, list[str]] = {}
-    for l in occupied:
-        if l.room:
+    # то есть накладка просто пропадала с глаз. Собираем все, теперь по каждой
+    # паре дня отдельно — чтобы посчитать «свободна/занята до».
+    occupied_by_pair: dict[str, dict[str, list[str]]] = {}
+    for l in day_lessons:
+        if l.room and l.pair_number in PAIR_ORDER:
             type_suffix = f" · {l.lesson_type}" if l.lesson_type else ""
             tname = override_teacher_name(l.subject, l.teacher.name) or l.teacher.name if l.teacher else None
             teacher_name = f" · {tname}" if tname else ""
@@ -614,12 +618,24 @@ def get_free_rooms(
             tokens = l.room.name.split()
             room_names = tokens if len(tokens) > 1 and all(t in canonical_set for t in tokens) else [l.room.name]
             for rn in room_names:
-                occupied_map.setdefault(rn, []).append(entry)
+                occupied_by_pair.setdefault(rn, {}).setdefault(l.pair_number, []).append(entry)
+
+    req_pair = pair_number.upper()
+    req_idx = PAIR_ORDER.index(req_pair) if req_pair in PAIR_ORDER else None
 
     result = []
     for room_name in sorted(canonical_set):
-        if room_name in occupied_map:
-            entries = occupied_map[room_name]
+        pairs_map = occupied_by_pair.get(room_name, {})
+        entries = pairs_map.get(req_pair)
+        if entries:
+            # Занята — до какого времени, идя по следующим парам, пока
+            # аудитория остаётся занятой (не обязательно той же группой).
+            until_idx = req_idx
+            if req_idx is not None:
+                j = req_idx
+                while j < len(PAIR_ORDER) and PAIR_ORDER[j] in pairs_map:
+                    until_idx = j
+                    j += 1
             result.append({
                 "room_name": room_name,
                 "is_free": False,
@@ -628,9 +644,21 @@ def get_free_rooms(
                 # Списком — для новых клиентов и подсветки накладок
                 "occupied_list": entries,
                 "conflict": len(entries) > 1,
+                "occupied_until": PAIR_TIMES[PAIR_ORDER[until_idx]][1] if until_idx is not None else None,
             })
         else:
-            result.append({"room_name": room_name, "is_free": True})
+            # Свободна — до какого времени, пока следующие пары тоже свободны.
+            # None означает «до конца дня» (свободна на всех оставшихся парах).
+            free_until = None
+            if req_idx is not None:
+                j = req_idx
+                last_free_idx = req_idx
+                while j < len(PAIR_ORDER) and PAIR_ORDER[j] not in pairs_map:
+                    last_free_idx = j
+                    j += 1
+                if j < len(PAIR_ORDER):
+                    free_until = PAIR_TIMES[PAIR_ORDER[last_free_idx]][1]
+            result.append({"room_name": room_name, "is_free": True, "free_until": free_until})
 
     _FREE_ROOMS_CACHE[cache_key] = (result, _time_mod.time())
     return result
