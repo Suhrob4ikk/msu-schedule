@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import ThemeToggle from "./ThemeToggle";
@@ -30,6 +31,14 @@ export default function Header() {
   // «Изменения», всё прочитывал, а она оставалась. Заход на саму страницу
   // гасит её сразу, не дожидаясь ответа сервера.
   const [hasNewChanges, setHasNewChanges] = useState(false);
+  // Иконка приложения в полный размер — по клику на лого в шапке
+  const [logoOpen, setLogoOpen] = useState(false);
+  useEffect(() => {
+    if (!logoOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setLogoOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [logoOpen]);
   useEffect(() => {
     if (pathname === "/changes") {
       setHasNewChanges(false);
@@ -51,16 +60,25 @@ export default function Header() {
     <header className="sticky top-0 z-50 bg-[var(--background)] border-b border-[var(--border)] shadow-sm">
       <div className="max-w-7xl mx-auto px-4 lg:px-8">
         <div className="flex items-center h-14 lg:h-16 gap-4 lg:gap-6">
-          {/* Лого */}
-          <Link href="/" onClick={viewTransitionNavClick(router, "/")} className="flex items-center gap-2 shrink-0">
-            <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-lg bg-[var(--primary)] flex items-center justify-center">
-              <span className="text-white text-xs lg:text-sm font-bold">МГУ</span>
-            </div>
-            <div className="hidden sm:block">
+          {/* Лого. Сама иконка — кнопка: открывает её в полном размере
+              (её часто хотят рассмотреть перед установкой приложения).
+              Название рядом осталось ссылкой на главную, чтобы способ
+              вернуться домой из шапки никуда не делся. */}
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => setLogoOpen(true)}
+              aria-label="Посмотреть иконку приложения"
+              className="shrink-0 rounded-lg transition-all active:scale-90"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element -- маленький статичный логотип, next/image тут избыточен */}
+              <img src="/logo.png" alt="Иконка приложения" className="w-8 h-8 lg:w-10 lg:h-10 block" />
+            </button>
+            <Link href="/" onClick={viewTransitionNavClick(router, "/")} className="hidden sm:block">
               <span className="font-bold text-sm lg:text-base">МГУ Душанбе</span>
               <span className="hidden lg:block text-xs text-[var(--muted)]">Расписание занятий</span>
-            </div>
-          </Link>
+            </Link>
+          </div>
 
           {/* Навигация — только на десктопе */}
           <nav className="hidden lg:flex items-center gap-1 lg:gap-2 flex-1">
@@ -90,6 +108,35 @@ export default function Header() {
           {pathname !== "/profile" && <ThemeToggle />}
         </div>
       </div>
+
+      {/* Иконка в полный размер. Через портал в <body>: сама шапка — sticky
+          с z-50 и создаёт свой слой, поэтому оверлей, оставленный внутри неё,
+          не смог бы её же и затемнить. Клик мимо картинки или Escape — закрыть. */}
+      {logoOpen && createPortal(
+        <div
+          className="fixed inset-0 z-[70] flex flex-col items-center justify-center gap-5 p-6 bg-black/80"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Иконка приложения"
+          onClick={() => setLogoOpen(false)}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element -- статичный файл иконки, next/image тут не нужен */}
+          <img
+            src="/icon-512.png"
+            alt="Иконка приложения «МГУ Душанбе — Расписание занятий»"
+            className="anim-rise w-full max-w-[280px] sm:max-w-[340px] aspect-square object-contain rounded-[22%] shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          />
+          <button
+            type="button"
+            onClick={() => setLogoOpen(false)}
+            className="px-5 h-11 rounded-full text-sm font-semibold text-white border border-white/30 transition-all active:scale-95 hover:bg-white/10"
+          >
+            Закрыть
+          </button>
+        </div>,
+        document.body,
+      )}
     </header>
   );
 }

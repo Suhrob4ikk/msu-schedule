@@ -7,28 +7,53 @@ import { Lesson, shortGroupName } from "./api";
 // выбирается та же, в какой человек сейчас смотрит сайт: раньше картинка
 // всегда была тёмной, и в светлой теме это выглядело как ошибка.
 const DARK = {
-  bg: "#0b1220",
-  card: "#121a2b",
-  border: "#22304a",
-  primary: "#0e9b72",
-  fg: "#e7eaef",
-  muted: "#8b94a3",
+  bg: "#0d0c13",
+  card: "#18151f",
+  border: "#2a2734",
+  fg: "#f3f1f6",
+  muted: "#8b8594",
 };
 
 const LIGHT = {
   bg: "#f3f5f8",
   card: "#ffffff",
   border: "#e6e9ee",
-  primary: "#0e9b72",
   fg: "#14181c",
   muted: "#5b6677",
 };
 
-/** Тему берём с самой страницы: класс dark на <html> ставит layout.tsx. */
+// Цвет левой полоски и бейджа типа занятия — тот же принцип, что у
+// .lesson-accent/.lesson-tag-* в globals.css, только продублирован тут
+// руками: html2canvas не читает классы из настоящего стиля страницы.
+const KIND_COLORS: Record<string, { light: string; dark: string; bgLight: string; bgDark: string }> = {
+  exam: { light: "#c5303a", dark: "#ff8a8e", bgLight: "#fdeaeb", bgDark: "rgba(255,97,102,0.16)" },
+  practice: { light: "#4a44c9", dark: "#b6b2f7", bgLight: "#ecebfb", bgDark: "rgba(140,135,243,0.18)" },
+  lecture: { light: "#1d4ed8", dark: "#93c5fd", bgLight: "#eff6ff", bgDark: "rgba(59,130,246,0.16)" },
+  default: { light: "#64748b", dark: "#94a3b8", bgLight: "#f1f5f9", bgDark: "rgba(148,163,184,0.16)" },
+};
+
+const KIND_BY_TYPE: Record<string, string> = {
+  ЭКЗАМЕН: "exam", Экзамен: "exam", ЗАЧЕТ: "exam", Зачёт: "exam",
+  ПРАКТИКА: "practice", Практика: "practice", ПЗ: "practice",
+  ЛК: "lecture", ЛЕКЦИЯ: "lecture", Лекция: "lecture",
+};
+
+const TYPE_LABELS: Record<string, string> = {
+  ЗАЧЕТ: "Зачёт", ЭКЗАМЕН: "Экзамен",
+  ПРАКТИКА: "Практика", Практика: "Практика", ПЗ: "Практика",
+  ЛК: "Лекция", ЛЕКЦИЯ: "Лекция", Лекция: "Лекция",
+};
+
+/** Тему берём с самой страницы: класс dark на <html> ставит layout.tsx.
+ *  Акцент — тоже с неё же (--primary), чтобы картинка совпадала с тем,
+ *  что человек выбрал в кабинете (синий по умолчанию или изумруд). */
 function palette() {
   const dark = typeof document !== "undefined"
     && document.documentElement.classList.contains("dark");
-  return dark ? DARK : LIGHT;
+  const base = dark ? DARK : LIGHT;
+  const primary = (typeof document !== "undefined"
+    && getComputedStyle(document.documentElement).getPropertyValue("--primary").trim()) || "#2563eb";
+  return { ...base, primary, dark };
 }
 
 function escapeHtml(s: string): string {
@@ -84,7 +109,7 @@ async function buildScheduleImage(opts: {
   const header = document.createElement("div");
   header.style.cssText = "display:flex;align-items:center;gap:10px;margin-bottom:20px;";
   header.innerHTML = `
-    <div style="width:36px;height:36px;border-radius:10px;background:${BRAND.primary};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:#fff;flex-shrink:0;">МГУ</div>
+    <img src="/logo.png" width="36" height="36" style="flex-shrink:0;" />
     <div>
       <div style="font-weight:700;font-size:16px;">${escapeHtml(opts.groupLabel)}</div>
       <div style="font-size:12px;color:${BRAND.muted};">${escapeHtml(opts.weekLabel)}</div>
@@ -102,23 +127,32 @@ async function buildScheduleImage(opts: {
     dayBlock.appendChild(dayTitle);
 
     for (const l of lessons) {
+      const kind = l.lesson_type ? (KIND_BY_TYPE[l.lesson_type] ?? "default") : "default";
+      const kindColor = KIND_COLORS[kind];
+      const accentColor = BRAND.dark ? kindColor.dark : kindColor.light;
+
       const row = document.createElement("div");
-      row.style.cssText = `display:flex;gap:12px;padding:10px 12px;margin-bottom:6px;border-radius:10px;background:${BRAND.card};border:1px solid ${BRAND.border};`;
+      row.style.cssText = `position:relative;overflow:hidden;display:flex;gap:12px;padding:12px 14px 12px 17px;margin-bottom:8px;border-radius:14px;background:${BRAND.card};border:1px solid ${BRAND.border};`;
+      row.innerHTML = `<span style="position:absolute;left:0;top:0;bottom:0;width:3px;background:${accentColor};"></span>`;
 
       const time = document.createElement("div");
-      time.style.cssText = `font-size:12px;font-weight:700;color:${BRAND.muted};width:44px;flex-shrink:0;line-height:1.5;`;
-      time.innerHTML = `${l.pair_time_start}<br/>${l.pair_time_end}`;
+      time.style.cssText = "width:46px;flex-shrink:0;line-height:1.2;";
+      time.innerHTML = `
+        <div style="font-size:15px;font-weight:800;color:${BRAND.fg};">${l.pair_time_start}</div>
+        <div style="font-size:11px;font-weight:500;color:${BRAND.muted};margin-top:2px;">${l.pair_time_end}</div>
+      `;
 
       const who = opts.subtitle === "group"
         ? (l.group ? `${shortGroupName(l.group.name)} · ${l.group.year} курс` : null)
         : l.teacher?.name;
-      const meta = [l.lesson_type, l.room?.name ? `ауд. ${l.room.name}` : null, who]
-        .filter(Boolean).join(" · ");
+      const meta = [l.room?.name ? `ауд. ${l.room.name}` : null, who].filter(Boolean).join(" · ");
+      const typeLabel = l.lesson_type ? (TYPE_LABELS[l.lesson_type] ?? l.lesson_type) : null;
 
       const info = document.createElement("div");
       info.style.cssText = "flex:1;min-width:0;";
       info.innerHTML = `
-        <div style="font-weight:600;font-size:14px;">${escapeHtml(l.subject)}</div>
+        ${typeLabel ? `<span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;background:${BRAND.dark ? kindColor.bgDark : kindColor.bgLight};color:${accentColor};margin-bottom:5px;">${escapeHtml(typeLabel)}</span>` : ""}
+        <div style="font-weight:700;font-size:14px;color:${BRAND.fg};">${escapeHtml(l.subject)}</div>
         ${meta ? `<div style="font-size:12px;color:${BRAND.muted};margin-top:2px;">${escapeHtml(meta)}</div>` : ""}
       `;
 
@@ -136,6 +170,11 @@ async function buildScheduleImage(opts: {
 
   document.body.appendChild(wrap);
   try {
+    // Логотип — картинка, а не CSS-фон: без ожидания загрузки html2canvas
+    // мог бы снять слепок раньше, чем она отрисуется, и получить пустое место.
+    await Promise.all(
+      Array.from(wrap.querySelectorAll("img")).map(img => img.decode().catch(() => {}))
+    );
     const canvas = await html2canvas(wrap, { backgroundColor: BRAND.bg, scale: 2 });
     return await new Promise<Blob | null>(resolve => canvas.toBlob(b => resolve(b), "image/png"));
   } finally {

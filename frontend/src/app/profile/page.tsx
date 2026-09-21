@@ -49,7 +49,7 @@ function NotificationToggle({ sessionId, groupId }: { sessionId: string; groupId
   const isOn = status === "subscribed";
 
   return (
-    <div className="w-full rounded-xl border px-4 py-3" style={{ borderColor: "var(--border)", background: "var(--card)" }}>
+    <div className="card w-full">
       <div className="flex items-center justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
@@ -93,9 +93,14 @@ function NotificationToggle({ sessionId, groupId }: { sessionId: string; groupId
 }
 
 function FeatureToggle({ label, description, storageKey }: { label: string; description: string; storageKey: string }) {
-  const [enabled, setEnabled] = useState(() =>
-    typeof window !== "undefined" ? localStorage.getItem(storageKey) === "1" : false
-  );
+  // Обе функции выключены по умолчанию, пока человек не включит сам — так
+  // задумано (см. CLAUDE.md), а не забытая настройка. Стартуем с false и
+  // читаем localStorage только после монтирования — иначе первый клиентский
+  // рендер разойдётся с серверным (hydration #418).
+  const [enabled, setEnabled] = useState(false);
+  useEffect(() => {
+    setEnabled(localStorage.getItem(storageKey) === "1");
+  }, [storageKey]);
   const locked = !featuresUnlocked();
   const toggle = () => {
     if (locked) return;
@@ -106,8 +111,8 @@ function FeatureToggle({ label, description, storageKey }: { label: string; desc
   return (
     <button
       onClick={toggle}
-      className="flex items-center justify-between w-full py-3 px-4 rounded-xl border text-left"
-      style={{ background: "var(--card)", borderColor: "var(--border)", opacity: locked ? 0.6 : 1, cursor: locked ? "default" : "pointer" }}
+      className="card flex items-center justify-between w-full text-left"
+      style={{ opacity: locked ? 0.6 : 1, cursor: locked ? "default" : "pointer" }}
     >
       <div>
         <div className="flex items-center gap-2">
@@ -152,7 +157,7 @@ function SkipStats() {
   // Пропусков нет — это хорошая новость, показываем её, а не пустоту
   if (st.total === 0) {
     return (
-      <div className="w-full rounded-xl border px-4 py-3" style={{ borderColor: "var(--border)", background: "var(--card)" }}>
+      <div className="card w-full">
         <p className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>Пропуски</p>
         <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>
           Пока ни одного пропуска. Отмечай пропущенные пары в расписании — здесь будет видно, сколько их по каждому предмету.
@@ -162,11 +167,12 @@ function SkipStats() {
   }
 
   return (
-    <div className="w-full rounded-xl border px-4 py-3" style={{ borderColor: "var(--border)", background: "var(--card)" }}>
-      <p className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>Пропуски</p>
-      <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>
-        Всего пропущено: <span style={{ color: "#d43a40", fontWeight: 700 }}>{st.total} {pluralPairs(st.total)}</span>
-      </p>
+    <div className="card w-full">
+      <p className="text-sm font-semibold mb-2" style={{ color: "var(--foreground)" }}>Пропуски</p>
+      <div className="flex items-baseline gap-2 mb-1">
+        <span className="text-3xl font-extrabold" style={{ color: "#d43a40" }}>{st.total}</span>
+        <span className="text-sm" style={{ color: "var(--muted)" }}>{pluralPairs(st.total)} пропущено всего</span>
+      </div>
       <div className="flex flex-col gap-1 mt-2.5">
         {st.bySubject.map(([subject, n]) => (
           <div key={subject} className="flex items-center justify-between gap-3 text-xs">
@@ -298,12 +304,8 @@ export default function ProfilePage() {
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 pb-24 lg:pb-8">
       {/* Лого вверху */}
       <div className="flex items-center gap-2 mb-10">
-        <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white text-sm"
-          style={{ background: "var(--primary)" }}
-        >
-          МГУ
-        </div>
+        {/* eslint-disable-next-line @next/next/no-img-element -- маленький статичный логотип, next/image тут избыточен */}
+        <img src="/logo.png" alt="" className="w-10 h-10 shrink-0" />
         <div>
           <p className="font-bold text-base" style={{ color: "var(--foreground)" }}>МГУ Душанбе</p>
           <p className="text-xs" style={{ color: "var(--muted)" }}>Расписание занятий</p>
@@ -336,10 +338,14 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* Форма или кнопка изменения */}
-      <div className="w-full max-w-sm flex flex-col gap-3">
+      {/* Форма или кнопка изменения. Пока идёт регистрация (isSetup) — узкая
+          колонка, как и раньше. У зарегистрированных ниже появляется решётка
+          настроек в две колонки на широком экране (см. README редизайна),
+          поэтому сама обёртка там шире — а форма/кнопка «Изменить» внутри нее
+          всё равно остаются узкими и по центру, через свой mx-auto. */}
+      <div className={`w-full flex flex-col gap-3 ${isSetup ? "max-w-sm" : "max-w-3xl"}`}>
         {isEditing ? (
-          <>
+          <div className="w-full max-w-sm mx-auto flex flex-col gap-3">
             {/* Имя */}
             <div>
               <label className="block text-xs font-semibold mb-1.5 tracking-wider" style={{ color: "var(--muted)", textTransform: "uppercase" }}>
@@ -388,6 +394,12 @@ export default function ProfilePage() {
               )}
             </div>
 
+            {/* Цвет акцента — спрашиваем сразу при регистрации, а не прячем
+                в настройках: так его увидит каждый, а не только тот, кто
+                сам догадается зайти в «Дополнительные возможности». Необязательно,
+                поэтому кнопку «Начать» не блокирует — по умолчанию уже синий. */}
+            {isSetup && <AccentSetting />}
+
             {/* Кнопка сохранить */}
             <button
               onClick={handleSave}
@@ -408,82 +420,82 @@ export default function ProfilePage() {
                 Отмена
               </button>
             )}
-          </>
+          </div>
         ) : (
           /* Кнопка перехода в режим редактирования */
           <button
             onClick={handleChangeGroup}
-            className="w-full py-3 rounded-xl text-sm font-medium border transition-colors hover:border-[var(--primary)] hover:text-[var(--primary)]"
+            className="block w-full max-w-sm mx-auto py-3 rounded-xl text-sm font-medium border transition-colors hover:border-[var(--primary)] hover:text-[var(--primary)]"
             style={{ background: "var(--card)", borderColor: "var(--border)", color: "var(--muted)" }}
           >
             ✏ Изменить имя или группу
           </button>
         )}
 
-        {/* Дополнительные возможности — только после регистрации */}
+        {/* Дополнительные возможности — только после регистрации. На широком
+            экране — решёткой в две колонки (настройки слева, свои данные и
+            переходы справа), на мобиле — просто один поток сверху вниз в том
+            же порядке. */}
         {!isSetup && (
           <div className="pt-6 mt-2 border-t" style={{ borderColor: "var(--border)" }}>
             <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: "var(--muted)" }}>
               Дополнительные возможности
             </p>
-            <div className="flex flex-col gap-2.5">
-              <ThemeSetting />
-              <AccentSetting />
-              <NotificationToggle
-                sessionId={typeof window !== "undefined" ? (localStorage.getItem("msu_device_id_v2") ?? "") : ""}
-                groupId={selectedGroupId}
-              />
-              <FeatureToggle
-                label="Пропуски"
-                description="Отмечай только пары, которые пропустил. Здесь будет видно, сколько пропусков накопилось по каждому предмету"
-                storageKey="feature_attendance"
-              />
-              <FeatureToggle
-                label="Заметки к парам"
-                description="Домашка и что принести. Заметку можно закрепить за парой — тогда она появится в этот день каждую неделю"
-                storageKey="feature_notes"
-              />
-            </div>
-          </div>
-        )}
+            <div className="lg:grid lg:grid-cols-2 lg:gap-5 lg:items-start">
+              <div className="flex flex-col gap-2.5">
+                <ThemeSetting />
+                <AccentSetting />
+                <NotificationToggle
+                  sessionId={typeof window !== "undefined" ? (localStorage.getItem("msu_device_id_v2") ?? "") : ""}
+                  groupId={selectedGroupId}
+                />
+              </div>
 
-        {/* Статистика, экспорт и история изменений.
-            Порядок: сначала своё (пропуски, выгрузка), потом переходы, потом
-            приложение и приглашение — единственные два блока «наружу». Раньше
-            QR стоял первым и разрывал пару «переключатель Пропуски» →
-            «статистика пропусков». */}
-        {!isSetup && (
-          <div className="flex flex-col gap-2.5 mt-2">
-            {!featuresLocked && <SkipStats />}
-            {!featuresLocked && (
-              <button
-                onClick={exportMyData}
-                className="w-full py-3 rounded-xl text-sm font-medium border transition-colors hover:border-[var(--primary)] hover:text-[var(--primary)]"
-                style={{ background: "var(--card)", borderColor: "var(--border)", color: "var(--muted)" }}
-                
-              >
-                <span className="inline-flex items-center justify-center gap-2">
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M4 12v7a2 2 0 002 2h12a2 2 0 002-2v-7M16 6l-4-4-4 4M12 2v13" />
-                  </svg>
-                  Поделиться заметками и посещаемостью
-                </span>
-              </button>
-            )}
-            <a
-              href="/compare"
-              className="w-full py-3 rounded-xl text-sm font-medium border text-center transition-colors hover:border-[var(--primary)] hover:text-[var(--primary)]"
-              style={{ background: "var(--card)", borderColor: "var(--border)", color: "var(--muted)" }}
-            >
-              <span className="inline-flex items-center justify-center gap-2">
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
-                </svg>
-                Сравнить с другой группой
-              </span>
-            </a>
-            <AppDownloadCard />
-            <InviteCard />
+              {/* Переключатель функции держим рядом с её же статистикой (Пропуски →
+                  сразу под ним статистика) — раньше между ними попадала «Заметки»,
+                  разрывая эту пару. */}
+              <div className="flex flex-col gap-2.5 mt-2.5 lg:mt-0">
+                <FeatureToggle
+                  label="Пропуски"
+                  description="Отмечай только пары, которые пропустил. Здесь будет видно, сколько пропусков накопилось по каждому предмету"
+                  storageKey="feature_attendance"
+                />
+                {!featuresLocked && <SkipStats />}
+                <FeatureToggle
+                  label="Заметки к парам"
+                  description="Домашка и что принести. Заметку можно закрепить за парой — тогда она появится в этот день каждую неделю"
+                  storageKey="feature_notes"
+                />
+                {!featuresLocked && (
+                  <button
+                    onClick={exportMyData}
+                    className="w-full py-3 rounded-xl text-sm font-medium border transition-colors hover:border-[var(--primary)] hover:text-[var(--primary)]"
+                    style={{ background: "var(--card)", borderColor: "var(--border)", color: "var(--muted)" }}
+                  >
+                    <span className="inline-flex items-center justify-center gap-2">
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M4 12v7a2 2 0 002 2h12a2 2 0 002-2v-7M16 6l-4-4-4 4M12 2v13" />
+                      </svg>
+                      Поделиться заметками и посещаемостью
+                    </span>
+                  </button>
+                )}
+                <a
+                  href="/compare"
+                  className="w-full py-3 rounded-xl text-sm font-medium border text-center transition-colors hover:border-[var(--primary)] hover:text-[var(--primary)]"
+                  style={{ background: "var(--card)", borderColor: "var(--border)", color: "var(--muted)" }}
+                >
+                  <span className="inline-flex items-center justify-center gap-2">
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
+                    </svg>
+                    Сравнить с другой группой
+                  </span>
+                </a>
+                <AppDownloadCard />
+                <InviteCard />
+              </div>
+            </div>
           </div>
         )}
 
@@ -491,7 +503,7 @@ export default function ProfilePage() {
         {!isSetup && (
           <a
             href="/dev"
-            className="text-center text-xs mt-4 transition-opacity hover:opacity-100"
+            className="block text-center text-xs mt-4 transition-opacity hover:opacity-100"
             style={{ color: "var(--muted)", opacity: 0.55 }}
           >
             Режим разработчика

@@ -51,6 +51,8 @@ export default function HomePage() {
   const [featureNotes, setFeatureNotes] = useState(false);
   useEffect(() => {
     if (!featuresUnlocked()) return;
+    // Обе функции выключены, пока студент не включит сам в «Моём кабинете» —
+    // это задумано (см. CLAUDE.md), а не забытая настройка.
     setFeatureAttendance(localStorage.getItem("feature_attendance") === "1");
     setFeatureNotes(localStorage.getItem("feature_notes") === "1");
   }, []);
@@ -421,6 +423,12 @@ export default function HomePage() {
       <WeekBar onWeekChange={handleWeekChange} selectedWeekStart={selectedWeekStart} />
 
       <main className="max-w-7xl mx-auto px-4 lg:px-8 py-4 lg:py-6 pb-24 lg:pb-6 page-enter">
+        {/* На широком экране это CSS grid: «Идёт сейчас» и статистика уезжают
+            в правую липкую колонку (area-rail) рядом со списком пар, вместо
+            отдельной карточки сверху. На мобиле — просто вложенные div, поток
+            остаётся линейным в исходном порядке (см. .schedule-layout). */}
+        <div className="schedule-layout">
+        <div className="area-group">
         {/* Новый учебный год — курс не сдвигается сам, просим проверить */}
         <CourseCheckBanner />
 
@@ -438,7 +446,7 @@ export default function HomePage() {
             <div className="flex flex-wrap gap-2 mt-3">
               <a
                 href={api.getIcsUrl(selectedGroup.id)}
-                className="flex items-center gap-1 px-3 py-2 rounded-lg border border-[var(--border)] text-[var(--muted)] text-sm hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors"
+                className="flex items-center gap-1.5 px-3.5 min-h-[38px] rounded-full border border-[var(--border)] text-[var(--muted)] text-sm hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors"
                 download
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -449,7 +457,7 @@ export default function HomePage() {
               <button
                 onClick={handleShareImage}
                 disabled={sharing}
-                className="flex items-center gap-1 px-3 py-2 rounded-lg border border-[var(--border)] text-[var(--muted)] text-sm hover:border-[var(--primary)] hover:text-[var(--primary)] transition-all active:scale-95 disabled:opacity-50"
+                className="flex items-center gap-1.5 px-3.5 min-h-[38px] rounded-full border border-[var(--border)] text-[var(--muted)] text-sm hover:border-[var(--primary)] hover:text-[var(--primary)] transition-all active:scale-95 disabled:opacity-50"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 12v7a2 2 0 002 2h12a2 2 0 002-2v-7M16 6l-4-4-4 4M12 2v13" />
@@ -459,7 +467,7 @@ export default function HomePage() {
               {profileGroupId !== null && selectedGroup.id !== profileGroupId && (
                 <button
                   onClick={restoreProfileGroup}
-                  className="px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--muted)] text-sm hover:border-[var(--primary)] hover:text-[var(--primary)] transition-all active:scale-95"
+                  className="px-3.5 min-h-[38px] rounded-full border border-[var(--border)] bg-[var(--card)] text-[var(--muted)] text-sm hover:border-[var(--primary)] hover:text-[var(--primary)] transition-all active:scale-95"
                 >
                   Вернуться к моему расписанию
                 </button>
@@ -467,7 +475,9 @@ export default function HomePage() {
             </div>
           )}
         </div>
+        </div>
 
+        <div className="area-rail">
         {/* На сегодня занятия кончились — показываем ближайший учебный день */}
         {selectedGroup && !loading && tomorrowItem && (
           <div className="card lesson-now mb-4 lg:mb-5 anim-rise">
@@ -498,7 +508,13 @@ export default function HomePage() {
 
         {/* "Что сейчас" виджет — показываем только когда есть текущая или следующая пара */}
         {selectedGroup && !loading && (currentItem || nextItem) && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:gap-4 mb-4 lg:mb-5">
+          // sm:grid-cols-2 — только пока эти карточки ещё в общем потоке на всю
+          // ширину страницы (640–1023px). С lg: они переезжают в узкую правую
+          // колонку (340px, см. .area-rail) — там для двух карточек в ряд места
+          // нет, поэтому обратно в одну колонку. Сетка ориентируется на ширину
+          // ВСЕГО экрана, а не колонки, так что без lg:grid-cols-1 на широких
+          // экранах она всё равно пыталась бы поставить их по две в ряд.
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3 lg:gap-4 mb-4 lg:mb-5">
             {currentItem && (
               <div ref={nowCardRef} className="card lesson-now anim-rise">
                 <div className="flex items-center gap-2 mb-2">
@@ -599,21 +615,25 @@ export default function HomePage() {
             приём, что у бейджа «сегодня» и чипов аудитории: превращает голые
             цифры в самостоятельные мини-виджеты вместо текста на фоне карточки. */}
         {stats && stats.total_lessons_week >= 3 && (
-          <div className="card mb-4 lg:mb-5">
-            <div className="grid grid-cols-3 gap-2 lg:gap-3">
-              <div className="text-center rounded-xl py-2.5 lg:py-3.5" style={{ background: "var(--primary-soft)" }}>
-                <div className="text-2xl lg:text-4xl font-bold tabular-nums text-[var(--primary)]">{stats.total_lessons_week}</div>
-                <div className="text-xs lg:text-sm text-[var(--muted)] mt-1">пар в неделю</div>
+          // На телефоне — три плитки в ряд, на десктопе в узкой правой колонке
+          // они разворачиваются в три отдельные строки-карточки «число — подпись»
+          // (см. .rail .stat-tile в макете): три числа в ряд на 340px не влезают.
+          <div className="grid grid-cols-3 lg:grid-cols-1 gap-2 lg:gap-2.5 mb-4 lg:mb-5">
+            {[
+              { value: stats.total_lessons_week, label: "пар в неделю" },
+              { value: stats.unique_subjects, label: "предметов" },
+              { value: stats.unique_teachers, label: "преподавателей" },
+            ].map(s => (
+              <div
+                key={s.label}
+                className="card text-center py-3 lg:py-3.5 lg:px-[18px] lg:flex lg:items-center lg:justify-between lg:text-left"
+              >
+                <div className="text-2xl lg:text-[30px] font-extrabold leading-none tabular-nums text-[var(--primary)]">
+                  {s.value}
+                </div>
+                <div className="text-[11px] lg:text-xs font-semibold text-[var(--muted)] mt-1.5 lg:mt-0">{s.label}</div>
               </div>
-              <div className="text-center rounded-xl py-2.5 lg:py-3.5" style={{ background: "var(--primary-soft)" }}>
-                <div className="text-2xl lg:text-4xl font-bold tabular-nums text-[var(--primary)]">{stats.unique_subjects}</div>
-                <div className="text-xs lg:text-sm text-[var(--muted)] mt-1">предметов</div>
-              </div>
-              <div className="text-center rounded-xl py-2.5 lg:py-3.5" style={{ background: "var(--primary-soft)" }}>
-                <div className="text-2xl lg:text-4xl font-bold tabular-nums text-[var(--primary)]">{stats.unique_teachers}</div>
-                <div className="text-xs lg:text-sm text-[var(--muted)] mt-1">преподавателей</div>
-              </div>
-            </div>
+            ))}
           </div>
         )}
 
@@ -621,15 +641,20 @@ export default function HomePage() {
         {isMyGroup && (featureAttendance || featureNotes) && (
           <FeatureHint skips={featureAttendance} notes={featureNotes} />
         )}
+        </div>
 
+        <div className="area-days">
         {/* Фильтр по дню — «Вся неделя» отдельной широкой кнопкой сверху
             (как в приложении), сами дни — своим рядом под ней. В общем ряду
             с днями кнопка либо терялась среди одинаковых пилюль, либо не
-            помещалась на узких экранах. */}
+            помещалась на узких экранах. max-w — чтобы на широком экране она
+            не тянулась во весь рост колонки: там это смотрится непропорционально
+            длинной пилюлей. На телефоне контейнер и так уже уже этого предела,
+            поэтому там кнопка остаётся во всю ширину, как в приложении. */}
         {selectedGroup && (
           <button
             onClick={() => setSelectedDay("all")}
-            className={`w-full flex items-center justify-center min-h-[44px] rounded-lg text-sm lg:text-base font-bold transition-all active:scale-95 mt-2 mb-2 ${selectedDay === "all"
+            className={`w-full flex items-center justify-center h-12 rounded-2xl text-sm lg:text-base font-bold transition-all active:scale-[0.99] mb-2 ${selectedDay === "all"
               ? "bg-[var(--primary)] text-white"
               : "bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)]"
               }`}
@@ -638,7 +663,10 @@ export default function HomePage() {
           </button>
         )}
         {selectedGroup && (
-          <div className="flex gap-1.5 lg:gap-3 flex-wrap mb-4 lg:mb-5">
+          // Шесть равных плиток в один ряд — как в макете. Раньше это был
+          // flex-wrap с полными названиями дней: на десктопе он переносился
+          // на вторую строку и занимал вдвое больше высоты.
+          <div className="grid grid-cols-6 gap-1.5 lg:gap-2 mb-4 lg:mb-5">
             {visibleDays.map(day => {
               const hasLessons = lessons.some(l => l.day_of_week === day);
               const isActive = selectedDay === day;
@@ -651,7 +679,7 @@ export default function HomePage() {
                 <button
                   key={day}
                   onClick={() => setSelectedDay(day)}
-                  className={`relative flex flex-col lg:flex-row items-center gap-0.5 lg:gap-1.5 px-3 lg:px-5 min-h-[44px] rounded-lg text-xs lg:text-base font-medium transition-all active:scale-95 ${isActive
+                  className={`relative flex flex-col items-center justify-center gap-0.5 h-[60px] rounded-2xl transition-all active:scale-95 ${isActive
                     ? "bg-[var(--primary)] text-white"
                     : isToday
                       ? "bg-[var(--card)] border-[1.5px] border-[var(--primary)] text-[var(--primary)]"
@@ -668,20 +696,20 @@ export default function HomePage() {
                       сегодня
                     </span>
                   )}
-                  <span className="lg:hidden leading-tight opacity-80">{DAY_SHORT[day]}</span>
-                  <span className="hidden lg:inline">{DAY_LABELS[day]}</span>
-                  {dayNum != null && <span className="lg:hidden text-sm font-bold leading-tight">{dayNum}</span>}
-                  {dayNum != null && <span className="hidden lg:inline opacity-70">, {dayNum}</span>}
+                  <span className="text-[11px] font-semibold leading-none opacity-85">{DAY_SHORT[day]}</span>
+                  {dayNum != null && <span className="text-base font-extrabold leading-none">{dayNum}</span>}
                   {/* Точка-индикатор: есть пары, режим "вся неделя", кнопка не активна */}
                   {hasLessons && selectedDay === "all" && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--primary)] shrink-0" />
+                    <span className="absolute bottom-1.5 w-1.5 h-1.5 rounded-full bg-current opacity-60" />
                   )}
                 </button>
               );
             })}
           </div>
         )}
+        </div>
 
+        <div className="area-list">
         {/* Расписание */}
         {loading && <ScheduleSkeleton rows={4} />}
 
@@ -732,7 +760,11 @@ export default function HomePage() {
           )}
 
           <div
-            className={`grid grid-cols-1 lg:grid-cols-2 gap-x-6${selectedDay === "all" ? " day-grid" : ""}${slideDir ? ` slide-${slideDir}` : ""}`}
+            // Две колонки — только для «Вся неделя» (несколько дней подряд).
+            // На одном конкретном дне лишняя вторая колонка просто пустует,
+            // а список сжимается вдвое уже: раньше lg:grid-cols-2 стояла
+            // безусловно, независимо от того, один день показан или все.
+            className={`grid grid-cols-1${selectedDay === "all" ? " lg:grid-cols-2 day-grid" : ""} gap-x-6${slideDir ? ` slide-${slideDir}` : ""}`}
           >
             {Object.entries(lessonsByDay).map(([day, dayLessons], idx) => (
               <DaySchedule
@@ -748,6 +780,8 @@ export default function HomePage() {
               />
             ))}
           </div>
+        </div>
+        </div>
         </div>
       </main>
     </div>

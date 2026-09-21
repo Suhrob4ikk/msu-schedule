@@ -4,15 +4,15 @@ import { useEffect, useState } from "react";
 import { getAccentPref, setAccentPref, type AccentPref } from "@/lib/theme";
 
 const OPTIONS: Array<{ value: AccentPref; label: string; swatch: string }> = [
-  { value: "green", label: "Изумруд", swatch: "#0e9b72" },
   { value: "blue", label: "Синий", swatch: "#2563eb" },
+  { value: "green", label: "Изумруд", swatch: "#0e9b72" },
 ];
 
 /**
  * Выбор акцентного цвета — отдельно от светлой/тёмной темы (см. ThemeSetting).
- * «Изумруд» — фирменный цвет, был всегда; «Синий» — альтернатива для тех,
- * кому такой акцент привычнее. На зелёный/красный статус «свободно»/«занято»
- * на аудиториях это не влияет — тот цвет задан отдельно.
+ * «Синий» — акцент по умолчанию с редизайна (сен 2026); «Изумруд» — прежний
+ * фирменный цвет, оставлен для тех, кто уже привык к нему. На зелёный/красный
+ * статус «свободно»/«занято» на аудиториях это не влияет — тот цвет задан отдельно.
  */
 export default function AccentSetting() {
   // Нейтральное значение до монтирования: localStorage на сервере нет (#418).
@@ -30,7 +30,7 @@ export default function AccentSetting() {
   };
 
   return (
-    <div className="w-full rounded-xl border px-4 py-3" style={{ borderColor: "var(--border)", background: "var(--card)" }}>
+    <div className="card w-full">
       <p className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>Цвет акцента</p>
       <p className="text-xs mt-0.5 mb-2.5" style={{ color: "var(--muted)" }}>
         Кнопки, активные вкладки и ссылки — «свободно»/«занято» на аудиториях этим цветом не красится

@@ -103,15 +103,18 @@ export function watchSystemTheme(onChange: (dark: boolean) => void): () => void 
 }
 
 /**
- * Цвет акцента — отдельно от светлой/тёмной темы. «Изумруд» — фирменный
- * зелёный (по умолчанию, как было всегда), «Синий» — альтернативная палитра
- * для тех, кому синий привычнее как основной UI-акцент. Статус «свободно» /
- * «занято» на аудиториях зелёным/красным не завязан на этот выбор — те цвета
- * заданы отдельно (см. app/rooms/page.tsx), поэтому смена акцента их не трогает.
+ * Цвет акцента — отдельно от светлой/тёмной темы. С редизайна (сентябрь 2026)
+ * «Синий» — новый цвет по умолчанию для всех, кто ни разу не выбирал акцент
+ * явно; «Изумруд» — прежний фирменный зелёный, оставлен как альтернатива для
+ * тех, кто уже привык к нему. Статус «свободно» / «занято» на аудиториях
+ * зелёным/красным не завязан на этот выбор — те цвета заданы отдельно
+ * (см. app/rooms/page.tsx), поэтому смена акцента их не трогает.
  *
- * Применяется через инлайн-стили на <html>, а не через CSS-класс/атрибут:
- * Tailwind 4 (Lightning CSS) при сборке выкидывал правило вида
- * `[data-accent="blue"] { --primary: ... }` как "неиспользуемое" — переменная
+ * Синий теперь — значение по умолчанию в CSS (globals.css :root/.dark),
+ * поэтому применять его инлайн-стилями не нужно. Инлайн-переменные ставятся,
+ * только когда выбран «Изумруд» — тем же способом, что раньше был у синего:
+ * Tailwind 4 (Lightning CSS) при сборке выкидывал бы правило вида
+ * `[data-accent="green"] { --primary: ... }` как "неиспользуемое" — переменная
  * нигде не читалась внутри самого CSS-файла напрямую. Инлайн-стиль такой
  * оптимизации не подвержен в принципе.
  */
@@ -119,36 +122,36 @@ export type AccentPref = "green" | "blue";
 
 export const ACCENT_KEY = "accent";
 
-const BLUE_LIGHT = {
-  "--primary": "#2563eb",
-  "--primary-strong": "#1d4ed8",
-  "--primary-soft": "#dbeafe",
-  "--ring": "rgba(37, 99, 235, 0.35)",
+const GREEN_LIGHT = {
+  "--primary": "#0e9b72",
+  "--primary-strong": "#0c8763",
+  "--primary-soft": "#e5f4f0",
+  "--ring": "rgba(14, 155, 114, 0.35)",
 };
-const BLUE_DARK = {
-  "--primary": "#2563eb",
-  "--primary-strong": "#60a5fa",
-  "--primary-soft": "#17294a",
-  "--ring": "rgba(96, 165, 250, 0.4)",
+const GREEN_DARK = {
+  "--primary": "#0e9b72",
+  "--primary-strong": "#2dd4a7",
+  "--primary-soft": "#0e2a22",
+  "--ring": "rgba(27, 185, 139, 0.4)",
 };
-const ACCENT_VARS = Object.keys(BLUE_LIGHT);
+const ACCENT_VARS = Object.keys(GREEN_LIGHT);
 
 export function getAccentPref(): AccentPref {
   const saved = localStorage.getItem(ACCENT_KEY);
-  return saved === "blue" ? "blue" : "green";
+  return saved === "green" ? "green" : "blue";
 }
 
-/** Пересчитывает инлайн-переменные акцента под текущие пару (акцент × тема).
+/** Пересчитывает инлайн-переменные акцента под текущую пару (акцент × тема).
  *  Нужно звать не только при смене акцента, но и при смене светлая/тёмная —
- *  у синего акцента для них разные оттенки (см. BLUE_LIGHT/BLUE_DARK). */
+ *  у изумрудного акцента для них разные оттенки (см. GREEN_LIGHT/GREEN_DARK). */
 export function applyAccent(): void {
   const root = document.documentElement;
   const pref = getAccentPref();
-  if (pref !== "blue") {
+  if (pref !== "green") {
     ACCENT_VARS.forEach(k => root.style.removeProperty(k));
     return;
   }
-  const vars = root.classList.contains("dark") ? BLUE_DARK : BLUE_LIGHT;
+  const vars = root.classList.contains("dark") ? GREEN_DARK : GREEN_LIGHT;
   Object.entries(vars).forEach(([k, v]) => root.style.setProperty(k, v));
 }
 

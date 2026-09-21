@@ -135,13 +135,18 @@ export default function TeachersPage() {
             <svg className="w-4 h-4 shrink-0 mt-0.5 text-[var(--primary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
             <p className="text-xs lg:text-sm text-[var(--muted)]">Введите фамилию и нажмите на имя — откроется расписание преподавателя.</p>
           </div>
-          <input
-            type="search"
-            placeholder="Поиск по фамилии..."
-            className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 lg:py-3 text-base focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
+          <div className="relative">
+            <svg className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.3-4.3M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
+            </svg>
+            <input
+              type="search"
+              placeholder="Поиск по фамилии..."
+              className="w-full rounded-xl border border-[var(--border)] bg-[var(--background)] pl-10 pr-3 py-2 lg:py-3 text-base focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
@@ -169,12 +174,15 @@ export default function TeachersPage() {
                 <button
                   key={t.name}
                   onClick={() => loadTeacher(t)}
-                  className={`w-full text-left px-3 lg:px-4 py-3 lg:py-2.5 rounded-lg mb-1 text-sm lg:text-base transition-colors ${selected?.name === t.name
+                  className={`w-full flex items-center justify-between gap-2 text-left px-3 lg:px-4 min-h-[52px] text-sm lg:text-base font-medium border-b border-[var(--border)] last:border-0 transition-colors ${selected?.name === t.name
                       ? "bg-[var(--primary)] text-white"
                       : "hover:bg-[var(--tag-bg)] text-[var(--foreground)]"
                     }`}
                 >
                   {t.name}
+                  <svg className="w-4 h-4 shrink-0 opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9 18l6-6-6-6" />
+                  </svg>
                 </button>
               ))}
             </div>
@@ -212,12 +220,12 @@ export default function TeachersPage() {
             {selected && !loading && (
               <>
                 <div className="flex flex-wrap items-center justify-between gap-2 mb-3 lg:mb-4">
-                  <h2 className="font-bold text-base lg:text-xl">{selected.name}</h2>
+                  <h2 className="font-extrabold text-xl lg:text-2xl">{selected.name}</h2>
                   {Object.keys(lessonsByDay).length > 0 && (
                     <button
                       onClick={handleShareImage}
                       disabled={sharing}
-                      className="flex items-center gap-1 px-3 py-2 rounded-lg border border-[var(--border)] text-[var(--muted)] text-sm hover:border-[var(--primary)] hover:text-[var(--primary)] transition-all active:scale-95 disabled:opacity-50"
+                      className="flex items-center gap-1.5 px-3.5 min-h-[38px] rounded-full border border-[var(--border)] text-[var(--muted)] text-sm hover:border-[var(--primary)] hover:text-[var(--primary)] transition-all active:scale-95 disabled:opacity-50"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 12v7a2 2 0 002 2h12a2 2 0 002-2v-7M16 6l-4-4-4 4M12 2v13" />

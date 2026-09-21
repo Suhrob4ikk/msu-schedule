@@ -161,9 +161,10 @@ export default function ComparePage() {
 
         {ready && !weekMismatch && activeDays.length > 0 && (
           <div className="card">
-            <p className="text-sm mb-3">
-              Общих свободных пар: <b style={{ color: "var(--primary)" }}>{commonFree}</b>
-            </p>
+            <div className="flex items-baseline gap-2 mb-3">
+              <span className="text-3xl font-extrabold" style={{ color: "var(--primary)" }}>{commonFree}</span>
+              <span className="text-sm" style={{ color: "var(--muted)" }}>общих свободных пар</span>
+            </div>
             <div className="overflow-x-auto scrollbar-hide">
               {/* table-fixed: без него ширину колонки считает самое широкое
                   содержимое в ней — а время пары набрано пропорциональным
@@ -171,7 +172,7 @@ export default function ComparePage() {
                   шире «11:30». Квадраты под них (aspect-square) выходили
                   заметно разного размера. С фиксированной раскладкой все
                   колонки пар делят оставшееся место поровну. */}
-              <table className="w-full min-w-[420px] table-fixed border-separate" style={{ borderSpacing: "3px" }}>
+              <table className="w-full min-w-[420px] table-fixed border-separate" style={{ borderSpacing: "4px" }}>
                 <thead>
                   <tr>
                     <th className="w-12" />
@@ -211,7 +212,7 @@ export default function ComparePage() {
                             : mine ? "Пара у тебя" : `Пара у ${otherLabel}`;
                         return (
                           <td key={p} className="p-0">
-                            <div className={`w-full aspect-square rounded-md border ${cls}`} title={title} />
+                            <div className={`w-full aspect-square rounded-lg border ${cls}`} title={title} />
                           </td>
                         );
                       })}
@@ -223,19 +224,19 @@ export default function ComparePage() {
 
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-3 pt-3 border-t border-[var(--border)] text-xs text-[var(--muted)]">
               <span className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded bg-green-200 dark:bg-green-900/60 border border-green-300 dark:border-green-800 inline-block" />
+                <span className="w-3 h-3 rounded-[4px] bg-green-200 dark:bg-green-900/60 border border-green-300 dark:border-green-800 inline-block" />
                 оба свободны
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded bg-amber-100 dark:bg-amber-900/40 border border-amber-200 dark:border-amber-800 inline-block" />
+                <span className="w-3 h-3 rounded-[4px] bg-amber-100 dark:bg-amber-900/40 border border-amber-200 dark:border-amber-800 inline-block" />
                 занята твоя
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded bg-blue-100 dark:bg-blue-900/40 border border-blue-200 dark:border-blue-800 inline-block" />
+                <span className="w-3 h-3 rounded-[4px] bg-blue-100 dark:bg-blue-900/40 border border-blue-200 dark:border-blue-800 inline-block" />
                 занята {otherGroup ? `${shortGroupName(otherGroup.name)} · ${otherGroup.year} курс` : "их"}
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded bg-[var(--tag-bg)] border border-[var(--border)] inline-block" />
+                <span className="w-3 h-3 rounded-[4px] bg-[var(--tag-bg)] border border-[var(--border)] inline-block" />
                 заняты обе
               </span>
             </div>
