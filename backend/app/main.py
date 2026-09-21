@@ -2,9 +2,11 @@
 
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
 
 from app.database import engine
 from app.models import Base, CANONICAL_ROOMS
@@ -19,6 +21,29 @@ logger = logging.getLogger(__name__)
 
 # Статус миграции колонки week_start — виден в /health для диагностики
 MIGRATION_STATUS = "не запускалась"
+
+
+class HeadMethodMiddleware(BaseHTTPMiddleware):
+    """FastAPI 0.138 регистрирует GET-маршруты только под методом GET, без
+    автодобавления HEAD (регрессия по сравнению со старым поведением Starlette
+    Route — там self.methods.add("HEAD") срабатывает, а в _populate_api_route_state
+    fastapi/routing.py такой строки уже нет). Из-за этого HEAD /health отдавал 405 —
+    тот же баг, что нашли и починили в мобильном приложении, только там он прятался
+    за таймаутом. Подменяем метод на GET для маршрутизации, тело ответа отбрасываем —
+    так HEAD ведёт себя правильно на ЛЮБОМ GET-эндпоинте, без правки каждого роутера."""
+
+    async def dispatch(self, request: Request, call_next):
+        is_head = request.method == "HEAD"
+        if is_head:
+            request.scope["method"] = "GET"
+        response = await call_next(request)
+        if is_head:
+            return Response(
+                status_code=response.status_code,
+                headers=response.headers,
+                media_type=response.media_type,
+            )
+        return response
 
 
 def seed_rooms():
@@ -231,6 +256,7 @@ app = FastAPI(
 )
 
 app.add_middleware(GZipMiddleware, minimum_size=1000)
+app.add_middleware(HeadMethodMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
