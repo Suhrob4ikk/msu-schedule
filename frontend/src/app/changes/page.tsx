@@ -19,6 +19,14 @@ const typeTagClass: Record<string, string> = {
   new_week: "lesson-tag lesson-tag-new-week",
 };
 
+// Кружок-иконка перед строкой изменения (+ / − / ~), цвет по типу изменения —
+// то же деление, что у бейджа сверху, просто ещё раз, но взглядом на саму строку.
+const diffIcon: Record<string, { icon: string; className: string }> = {
+  added: { icon: "+", className: "bg-green-500/15 text-green-600 dark:text-green-400" },
+  removed: { icon: "−", className: "bg-red-500/15 text-red-600 dark:text-red-400" },
+  changed: { icon: "~", className: "bg-[var(--primary-soft)] text-[var(--primary)]" },
+};
+
 const DAY_LABELS: Record<string, string> = {
   понедельник: "Пн", вторник: "Вт", среда: "Ср",
   четверг: "Чт", пятница: "Пт", суббота: "Сб",
@@ -103,23 +111,23 @@ export default function ChangesPage() {
             Здесь видно что изменилось в расписании с последнего обновления.
           </p>
           {profileGroupId != null && (
-            <div className="flex gap-1.5 mt-3">
+            <div className="flex gap-1 mt-3 p-1 rounded-xl border border-[var(--border)] bg-[var(--background)]">
               <button
                 onClick={() => setOnlyMine(true)}
-                className={`px-3 min-h-[36px] rounded-lg text-xs font-semibold transition-all active:scale-95 ${
+                className={`flex-1 min-h-[36px] px-3 rounded-lg text-xs font-semibold transition-all active:scale-95 ${
                   onlyMine
                     ? "bg-[var(--primary)] text-white"
-                    : "bg-[var(--card)] border border-[var(--border)] text-[var(--foreground)]"
+                    : "text-[var(--foreground)]"
                 }`}
               >
                 Моя группа{profileGroupLabel ? ` · ${profileGroupLabel}` : ""}
               </button>
               <button
                 onClick={() => setOnlyMine(false)}
-                className={`px-3 min-h-[36px] rounded-lg text-xs font-semibold transition-all active:scale-95 ${
+                className={`flex-1 min-h-[36px] px-3 rounded-lg text-xs font-semibold transition-all active:scale-95 ${
                   !onlyMine
                     ? "bg-[var(--primary)] text-white"
-                    : "bg-[var(--card)] border border-[var(--border)] text-[var(--foreground)]"
+                    : "text-[var(--foreground)]"
                 }`}
               >
                 Все факультеты
@@ -158,12 +166,18 @@ export default function ChangesPage() {
           {changes.map(c => {
             const label = typeLabels[c.change_type] || c.change_type;
             const tagClass = typeTagClass[c.change_type] ?? "lesson-tag";
+            const diff = diffIcon[c.change_type];
+            // Одна строка вместо было/стало по отдельности: для "изменено" —
+            // старое → новое, для добавлено/удалено — само значение.
+            const diffText = c.change_type === "changed"
+              ? (c.old_value && c.new_value ? `${c.old_value} → ${c.new_value}` : (c.new_value ?? c.old_value))
+              : (c.new_value ?? c.old_value);
             return (
               <div key={c.id} className="card">
                 <div className="flex items-start justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className={tagClass}>{label}</span>
-                    <span className="text-xs font-semibold">{c.faculty_code}</span>
+                    <span className="text-xs font-semibold text-[var(--muted)]">{c.faculty_code}</span>
                     <span className="text-xs text-[var(--muted)]">
                       {shortGroupName(c.group_name ?? "")}
                       {c.group_id != null && yearByGroupId[c.group_id] != null ? ` · ${yearByGroupId[c.group_id]} курс` : ""}
@@ -180,20 +194,12 @@ export default function ChangesPage() {
                     })}
                   </span>
                 </div>
-                {(c.old_value || c.new_value) && (
-                  <div className="mt-2 text-xs space-y-1">
-                    {c.old_value && (
-                      <div className="flex gap-2">
-                        <span className="text-red-500 shrink-0">−</span>
-                        <span className="line-through text-[var(--muted)]">{c.old_value}</span>
-                      </div>
-                    )}
-                    {c.new_value && (
-                      <div className="flex gap-2">
-                        <span className="text-green-500 shrink-0">+</span>
-                        <span>{c.new_value}</span>
-                      </div>
-                    )}
+                {diff && diffText && (
+                  <div className="flex items-start gap-2 mt-2.5 text-sm">
+                    <span className={`flex items-center justify-center w-[18px] h-[18px] rounded-full text-xs font-bold shrink-0 mt-0.5 ${diff.className}`}>
+                      {diff.icon}
+                    </span>
+                    <span style={{ color: "var(--foreground)" }}>{diffText}</span>
                   </div>
                 )}
               </div>

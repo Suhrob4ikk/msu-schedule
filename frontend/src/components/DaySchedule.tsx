@@ -115,21 +115,22 @@ export default function DaySchedule({
     >
       {/* Липкий заголовок: держится наверху, пока идут пары этого дня — в
           «Всей неделе» иначе легко потерять, какой день сейчас перед глазами. */}
-      <h2 className="sticky top-14 lg:top-16 z-10 bg-[var(--background)] pt-1 pb-2.5 lg:pb-3 mb-2 lg:mb-2.5 border-b border-[var(--border)]">
-        <span className="flex items-center gap-2 flex-wrap">
-          <span className="font-bold text-sm lg:text-base uppercase tracking-wide">{dayLabel}</span>
-          {isToday && (
-            <span
-              className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full"
-              style={{ background: "var(--primary-soft)", color: "var(--primary)" }}
-            >
-              сегодня
-            </span>
-          )}
-        </span>
+      {/* День и дата — одной строкой, бейдж «сегодня» прижат к правому краю
+          (эталон: .section-head в макете). Раньше дата уходила на вторую
+          строку, а бейдж висел вплотную к названию дня. */}
+      <h2 className="sticky top-14 lg:top-16 z-10 bg-[var(--background)] flex items-baseline gap-2 pt-1 pb-2.5 lg:pb-3 mb-2 lg:mb-2.5 border-b border-[var(--border)]">
+        <span className="font-bold text-sm lg:text-base uppercase tracking-wide">{dayLabel}</span>
         {dateLabel && (
-          <span className="block text-xs lg:text-sm font-normal mt-0.5" style={{ color: "var(--muted)" }}>
+          <span className="text-xs lg:text-sm font-normal" style={{ color: "var(--muted)" }}>
             {dateLabel}
+          </span>
+        )}
+        {isToday && (
+          <span
+            className="ml-auto shrink-0 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full text-white"
+            style={{ background: "var(--primary)" }}
+          >
+            сегодня
           </span>
         )}
       </h2>
@@ -137,7 +138,6 @@ export default function DaySchedule({
       <div className="tl-rail" data-dim={dimPast ? "1" : undefined}>
         {runs.map((run, i) => {
           const lesson = run[0];
-          const last = run[run.length - 1];
           // Окно = пропущенный слот пары. Обычный перерыв между соседними
           // парами (включая обед III→IV) окном не считается. У первой пары
           // дня сравнивать не с чем — leadingGap меряет от начала дня (I
@@ -150,7 +150,7 @@ export default function DaySchedule({
           return (
             <div key={lesson.id}>
               {gap && (
-                <div className="relative py-2" aria-label="Окно в расписании">
+                <div className="pb-1" aria-label="Окно в расписании">
                   <span className="tl-gap-line" aria-hidden="true" />
                   <span className="text-[11px] lg:text-xs" style={{ color: "var(--muted)" }}>
                     окно {humanDuration(gap.minutes)} · свободн{gap.pairs.length > 1 ? "ы" : "а"}{" "}
@@ -160,34 +160,19 @@ export default function DaySchedule({
               )}
 
               {nowMarkerAt === i && (
-                <div className="tl-now">
+                <div className="tl-now pb-2">
                   <span className="tl-now-label">{nowLabel}</span>
                   <span className="tl-now-line" aria-hidden="true" />
                   <span className="text-[11px]" style={{ color: "var(--muted)" }}>сейчас</span>
                 </div>
               )}
 
-              <div className="tl-row relative" data-state={state}>
-                {/* Время — на рельсе, поэтому из карточки его убираем (compactTime) */}
-                <span className="tl-time" style={{ top: 19 }} aria-hidden="true">
-                  <span
-                    className="block font-semibold"
-                    style={{ color: state === "current" ? "var(--primary)" : "var(--foreground)" }}
-                  >
-                    {lesson.pair_time_start}
-                  </span>
-                  <span className="block opacity-60">{last.pair_time_end}</span>
-                </span>
-                <span
-                  className={`tl-dot${state === "current" ? " now-dot" : ""}`}
-                  data-state={state}
-                  style={{ top: 19 }}
-                  aria-hidden="true"
-                />
+              {/* Время показывает сама карточка (крупно, слева внутри) —
+                  отдельной колонки со временем снаружи больше нет. */}
+              <div className="tl-row" data-state={state}>
                 <LessonCard
                   lesson={lesson}
                   mergedWith={run.length > 1 ? run.slice(1) : undefined}
-                  compactTime
                   links
                   showAttendance={showAttendance}
                   showNotes={showNotes}

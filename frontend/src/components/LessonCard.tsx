@@ -76,15 +76,26 @@ export default function LessonCard({ lesson, mergedWith, showGroup, showAttendan
 
   return (
     <div className="card lesson-accent mb-2 lg:mb-2.5" data-kind={kind}>
-      {/* Номер пары + время + тип — рядом, не растянуты по краям карточки:
-          иначе между короткими тегами остаётся пустая полоса. */}
-      <div className="flex items-center gap-2 mb-2">
-        <span className="lesson-tag lesson-time">
+      {/* Время — крупным голым числом (без пилюли-подложки), а не текстом
+          внутри чипа: это первое, на что падает взгляд в карточке. Внутри
+          таймлайна (compactTime) прячем — время и так на рельсе слева, иначе
+          дублировалось бы дважды на расстоянии в 20px. */}
+      <div className="flex items-start gap-3 mb-2.5">
+        {!compactTime && lesson.pair_time_start && (
+          <div className="shrink-0 leading-none">
+            <div className="text-[22px] font-extrabold tabular-nums leading-[26px]" style={{ color: "var(--foreground)" }}>
+              {lesson.pair_time_start}
+            </div>
+            <div className="text-xs font-medium mt-px tabular-nums" style={{ color: "var(--muted)" }}>
+              {lastLesson.pair_time_end}
+            </div>
+          </div>
+        )}
+        <p className="flex-1 min-w-0 text-[17px] font-bold leading-[22px] pt-px" style={{ color: "var(--foreground)" }}>
           {allLessons.length > 1 ? `${allLessons.length} пары` : `${lesson.pair_number} пара`}
-          {!compactTime && lesson.pair_time_start && ` · ${lesson.pair_time_start}–${lastLesson.pair_time_end}`}
-        </span>
+        </p>
         {lesson.lesson_type && (
-          <span className={`lesson-tag ${typeTagClass[lesson.lesson_type] || ""}`}>
+          <span className={`lesson-tag shrink-0 ${typeTagClass[lesson.lesson_type] || ""}`}>
             {typeLabels[lesson.lesson_type] || lesson.lesson_type}
           </span>
         )}
@@ -146,14 +157,13 @@ export default function LessonCard({ lesson, mergedWith, showGroup, showAttendan
       </div>
 
       {/* Пропуск и заметка — свои у каждой слитой пары (см. mergedWith в Props) */}
-      {(showAttendance || showNotes) && allLessons.map((l, i) => (
+      {(showAttendance || showNotes) && allLessons.map(l => (
         <LessonActions
           key={l.id}
           lesson={l}
           showAttendance={showAttendance}
           showNotes={showNotes}
           pairLabel={allLessons.length > 1 ? `${l.pair_number} пара · ${l.pair_time_start}–${l.pair_time_end}` : undefined}
-          first={i === 0}
         />
       ))}
     </div>
@@ -167,15 +177,13 @@ export default function LessonCard({ lesson, mergedWith, showGroup, showAttendan
  * половины объединённого блока.
  */
 function LessonActions({
-  lesson, showAttendance, showNotes, pairLabel, first,
+  lesson, showAttendance, showNotes, pairLabel,
 }: {
   lesson: Lesson;
   showAttendance?: boolean;
   showNotes?: boolean;
   /** Показывается только когда карточка объединяет несколько пар. */
   pairLabel?: string;
-  /** Первому блоку в объединённой карточке верхняя граница не нужна. */
-  first: boolean;
 }) {
   // На экзаменах/зачётах/консультациях посещаемость не отмечают — кнопки не показываем
   const attendanceApplicable = !/экзамен|зач|конс/i.test(lesson.lesson_type ?? "");
@@ -251,69 +259,81 @@ function LessonActions({
   if (!showSkipRow && !showNotes) return null;
 
   return (
-    <div className={first ? "mt-2.5 pt-2.5 border-t border-[var(--border)]" : "mt-1.5 pt-1.5 border-t border-[var(--border)]"}>
+    <div className="mt-4 pt-4 border-t border-[var(--border)]">
+      {/* Заголовок пары внутри объединённой карточки: точка состояния + «I ПАРА · 08:00–09:45» */}
       {pairLabel && (
-        <p className="text-[11px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted)" }}>
-          {pairLabel}
-        </p>
+        <div className="flex items-center gap-2 mb-3">
+          <span
+            className="w-2.5 h-2.5 rounded-full shrink-0 border-[1.5px]"
+            style={{
+              borderColor: skipped ? "#c73a48" : "var(--muted)",
+              background: skipped ? "#c73a48" : "transparent",
+            }}
+            aria-hidden="true"
+          />
+          <span className="text-[15px] font-bold uppercase tracking-[0.02em]" style={{ color: "var(--foreground)" }}>
+            {pairLabel}
+          </span>
+        </div>
       )}
 
-      {/* Пропуск: отмечаем только то, что пропустили */}
-      {showSkipRow && (
-        <div className="flex items-center">
-          <button
-            onClick={toggleSkip}
-            aria-pressed={skipped}
-            className={`flex items-center gap-1.5 px-3 min-h-[32px] rounded-lg text-xs font-semibold border transition-all active:scale-95 ${
-              skipped
-                ? "bg-red-500 text-white border-red-500"
-                : "border-[var(--border)] text-[var(--muted)] hover:border-red-400 hover:text-red-600"
-            }`}
-          >
-            {skipped ? (
-              <>
-                <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.7 7.3a1 1 0 00-1.4 1.4L8.6 10l-1.3 1.3a1 1 0 101.4 1.4L10 11.4l1.3 1.3a1 1 0 001.4-1.4L11.4 10l1.3-1.3a1 1 0 00-1.4-1.4L10 8.6 8.7 7.3z" clipRule="evenodd" />
-                </svg>
-                Пропустил
-              </>
-            ) : (
-              "Отметить пропуск"
-            )}
-          </button>
-          {skipped && (
-            <span className="text-[11px] text-[var(--muted)] ml-2">нажми ещё раз, чтобы убрать</span>
+      {/* Пропуск и заметка — одной строкой: действие слева, заметка справа (как в макете) */}
+      {(showSkipRow || (showNotes && !editingNote && !note)) && (
+        <div className="flex items-center justify-between gap-2">
+          {showSkipRow ? (
+            <button
+              onClick={toggleSkip}
+              aria-pressed={skipped}
+              className={`flex items-center gap-1.5 px-3 min-h-[36px] rounded-[10px] text-[13px] font-semibold border transition-all active:scale-95 ${
+                skipped
+                  ? "bg-red-500 text-white border-red-500"
+                  : "border-[var(--border)] text-[var(--muted)] hover:border-red-400 hover:text-red-600"
+              }`}
+            >
+              <span
+                className="w-2 h-2 rounded-full shrink-0 border-[1.5px]"
+                style={{ borderColor: skipped ? "#fff" : "currentColor", background: skipped ? "#fff" : "transparent" }}
+                aria-hidden="true"
+              />
+              {skipped ? "Пропустил" : "Отметить пропуск"}
+            </button>
+          ) : (
+            <span />
+          )}
+          {showNotes && !editingNote && !note && (
+            <button
+              onClick={() => setEditingNote(true)}
+              className="flex items-center gap-1 px-2.5 min-h-[36px] rounded-[10px] text-xs text-[var(--muted)] hover:text-[var(--primary)] transition-all active:scale-95 shrink-0"
+            >
+              <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+              </svg>
+              Заметка
+            </button>
           )}
         </div>
+      )}
+      {showSkipRow && skipped && (
+        <span className="block text-[11px] mt-2" style={{ color: "var(--muted)" }}>
+          Нажми ещё раз, чтобы убрать
+        </span>
       )}
 
       {/* Заметки */}
       {showNotes && (
-        <div className={showSkipRow ? "mt-3" : ""}>
-          {!editingNote && (
-            note ? (
-              /* Компактная строка-индикатор: заметка видна, клик — редактирование */
-              <button
-                onClick={() => setEditingNote(true)}
-                className="w-full flex items-start gap-1.5 text-left text-xs leading-relaxed transition-all active:scale-[0.98] hover:opacity-80"
-                style={{ color: "var(--foreground)" }}
-              >
-                <svg className="w-3.5 h-3.5 shrink-0 mt-0.5 text-[var(--primary)]" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                </svg>
-                <span>{note}</span>
-              </button>
-            ) : (
-              <button
-                onClick={() => setEditingNote(true)}
-                className="text-xs text-[var(--muted)] hover:text-[var(--primary)] transition-all active:scale-95 flex items-center gap-1"
-              >
-                <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                </svg>
-                Добавить заметку
-              </button>
-            )
+        <div className={showSkipRow || note ? "mt-3" : ""}>
+          {!editingNote && note && (
+            /* Компактная строка-индикатор: заметка видна, клик — редактирование */
+            <button
+              onClick={() => setEditingNote(true)}
+              className="w-full flex items-start gap-1.5 text-left text-xs leading-relaxed transition-all active:scale-[0.98] hover:opacity-80"
+              style={{ color: "var(--foreground)" }}
+            >
+              <svg className="w-3.5 h-3.5 shrink-0 mt-0.5 text-[var(--primary)]" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+              </svg>
+              <span>{note}</span>
+            </button>
           )}
 
           {/* Поле редактирования смонтировано всегда — раскрывается плавно
