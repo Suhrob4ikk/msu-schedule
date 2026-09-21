@@ -120,11 +120,15 @@ export default function Header() {
           aria-label="Иконка приложения"
           onClick={() => setLogoOpen(false)}
         >
+          {/* Тот же файл, что и в шапке. icon-512.png — это другой кадр той же
+              картинки (здание целиком, с отступами), и при клике казалось, что
+              открывается чужая иконка. Показываем в нативные 256px, без
+              растягивания — иначе мылит. */}
           {/* eslint-disable-next-line @next/next/no-img-element -- статичный файл иконки, next/image тут не нужен */}
           <img
-            src="/icon-512.png"
+            src="/logo.png"
             alt="Иконка приложения «МГУ Душанбе — Расписание занятий»"
-            className="anim-rise w-full max-w-[280px] sm:max-w-[340px] aspect-square object-contain rounded-[22%] shadow-2xl"
+            className="anim-rise w-full max-w-[256px] aspect-square object-contain shadow-2xl rounded-full"
             onClick={e => e.stopPropagation()}
           />
           <button
