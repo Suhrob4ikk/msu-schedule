@@ -351,6 +351,9 @@ h1, h2 { letter-spacing: -0.015em; }
    при одном выбранном дне (одна колонка) класс не навешивается. */
 .day-grid { position: relative; }
 @media (min-width: 1024px) {
+  /* Воздух между колонками дней. Карточки двух дней иначе почти касаются
+     разделительной линии и читаются как одна слипшаяся простыня. */
+  .day-grid { column-gap: 56px; }
   .day-grid::before {
     content: "";
     position: absolute;
