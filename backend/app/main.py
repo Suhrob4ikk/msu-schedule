@@ -201,6 +201,11 @@ async def lifespan(app: FastAPI):
                 MIGRATION_STATUS += "; expo_push_token: добавлена"
             else:
                 MIGRATION_STATUS += "; expo_push_token: уже есть"
+            # app_version — кому слать push «Вышла новая версия»
+            if "app_version" not in reg_cols:
+                with engine.begin() as conn:
+                    conn.execute(text("ALTER TABLE user_registrations ADD COLUMN app_version VARCHAR(20)"))
+                MIGRATION_STATUS += "; app_version: добавлена"
         except Exception as e:
             MIGRATION_STATUS += f"; expo_push_token: ошибка — {e}"
 

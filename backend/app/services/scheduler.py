@@ -69,6 +69,36 @@ async def _run_exam_reminders():
         db.close()
 
 
+async def _run_app_update_check():
+    """Вышел новый релиз приложения на GitHub — push «Вышла новая версия»
+    тем, у кого стоит старее. Только свежий релиз (APP_UPDATE_FRESH_DAYS)."""
+    from datetime import timezone, timedelta
+    from app.api.routes.app_update import get_releases_cached
+    from app.services.push import notify_app_update, APP_UPDATE_FRESH_DAYS
+    from app.database import SessionLocal
+
+    try:
+        releases = await get_releases_cached()
+    except Exception:
+        return  # GitHub недоступен — попробуем через 10 минут
+    latest = releases[0]
+    if not latest.get("download_url") or not latest.get("published_at"):
+        return
+    published = datetime.fromisoformat(latest["published_at"].replace("Z", "+00:00"))
+    if datetime.now(timezone.utc) - published > timedelta(days=APP_UPDATE_FRESH_DAYS):
+        return
+
+    db = SessionLocal()
+    try:
+        result = notify_app_update(db, latest["version"], latest["download_url"])
+        if result["sent"] or result["errors"]:
+            logger.info(f"Push «Вышла новая версия {latest['version']}»: {result}")
+    except Exception as e:
+        logger.error(f"Не удалось разослать «новую версию»: {e}", exc_info=True)
+    finally:
+        db.close()
+
+
 def start_scheduler():
     # Проверка расписания: тик раз в 5 минут, частота — по таблице выше
     scheduler.add_job(
@@ -90,10 +120,23 @@ def start_scheduler():
         misfire_grace_time=600,
     )
 
+    # Новая версия приложения — раз в 10 минут, днём (8:00–22:00), чтобы
+    # уведомление не пришло ночью
+    scheduler.add_job(
+        _run_app_update_check,
+        trigger=CronTrigger(hour="8-21", minute="*/10", timezone=TZ),
+        id="app_update_check",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=300,
+    )
+
     scheduler.start()
     logger.info(
         "Планировщик запущен: проверка msu.tj от раз в 5 минут (суббота днём) "
-        "до раз в 2 часа (ночью), напоминания об экзаменах ежедневно в 07:00."
+        "до раз в 2 часа (ночью), напоминания об экзаменах ежедневно в 07:00, "
+        "проверка новой версии приложения раз в 10 минут днём."
     )
 
 

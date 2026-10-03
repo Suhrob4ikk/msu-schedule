@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
+from typing import Optional
 from sqlalchemy.orm import Session
 import json
 
@@ -23,6 +24,7 @@ def register_user(
     group_id: int,
     background_tasks: BackgroundTasks,
     silent: bool = False,
+    app_version: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
     """Сохраняет или обновляет регистрацию пользователя (имя + группа).
@@ -48,6 +50,8 @@ def register_user(
     else:
         reg = UserRegistration(device_id=device_id, name=name.strip(), group_id=group_id)
         db.add(reg)
+    if app_version:
+        reg.app_version = app_version[:20]
     db.commit()
 
     # Письмо — только при первой регистрации И только если такой же name+group_id ещё нет
@@ -65,7 +69,8 @@ def register_user(
 
 
 @router.post("/push-token")
-def set_push_token(device_id: str, token: str, db: Session = Depends(get_db)):
+def set_push_token(device_id: str, token: str, app_version: Optional[str] = None,
+                   db: Session = Depends(get_db)):
     """Сохраняет Expo push-токен устройства — для мгновенных уведомлений об
     изменении расписания СВОЕЙ группы (см. notify_group_changes в services/push.py).
 
@@ -81,6 +86,8 @@ def set_push_token(device_id: str, token: str, db: Session = Depends(get_db)):
         # пропадает, приложение попробует прислать его снова при следующем запуске.
         return {"ok": False}
     reg.expo_push_token = token
+    if app_version:
+        reg.app_version = app_version[:20]
     db.commit()
     return {"ok": True}
 

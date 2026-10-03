@@ -237,6 +237,52 @@ def send_expo_push(db, tokens: list[str], title: str, body: str,
     return result
 
 
+# ─── Новая версия приложения ─────────────────────────────────────────────────
+
+# Шлём только про свежий релиз: после деплоя база пустая, и без этого
+# ограничения о старом релизе напомнили бы ещё раз спустя недели.
+APP_UPDATE_FRESH_DAYS = 3
+
+
+def notify_app_update(db, version: str, download_url: str) -> dict:
+    """Push «Вышла новая версия» всем телефонам, где стоит версия старее.
+
+    Версию телефон сообщает сам (app_version в /user/register и /user/push-token).
+    NULL — значит, стоит версия старее 1.9.37, они версию ещё не сообщали.
+    Каждому телефону — один раз на версию (таблица app_update_notices).
+    Тап по уведомлению открывает ссылку на скачивание (см. app/_layout.tsx).
+    """
+    from app.models import UserRegistration, AppUpdateNotice
+    from app.api.routes.app_update import parse_version
+
+    latest = parse_version(version)
+    already = {
+        n.device_id for n in
+        db.query(AppUpdateNotice).filter(AppUpdateNotice.version == version).all()
+    }
+    regs = [
+        r for r in
+        db.query(UserRegistration).filter(UserRegistration.expo_push_token.isnot(None)).all()
+        if r.device_id not in already
+        and (not r.app_version or parse_version(r.app_version) < latest)
+    ]
+    if not regs:
+        return {"sent": 0, "errors": []}
+
+    result = send_expo_push(
+        db, [r.expo_push_token for r in regs],
+        "Вышла новая версия",
+        f"МГУ Расписание {version} — нажмите, чтобы скачать",
+        data={"kind": "app_update", "url": download_url},
+    )
+    # Отмечаем всех, кому пытались отправить: если Expo отказал по токену,
+    # повтор каждые 10 минут ничего не изменит.
+    for r in regs:
+        db.add(AppUpdateNotice(device_id=r.device_id, version=version))
+    db.commit()
+    return result
+
+
 # ─── Уведомления о зачётах / экзаменах ───────────────────────────────────────
 
 def notify_exam_week_ahead(db, week_schedule) -> None:

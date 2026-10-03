@@ -235,7 +235,21 @@ class UserRegistration(Base):
     # ли приложение. NULL, пока не выдано разрешение на уведомления или пока на
     # телефоне не настроен FCM (см. notify_group_changes в services/push.py).
     expo_push_token = Column(String(200), nullable=True)
+    # Версия приложения на телефоне («1.9.37»). По ней сервер решает, кому
+    # слать push «Вышла новая версия». NULL — версия старее 1.9.37 (они её
+    # ещё не сообщали) или регистрация пришла с сайта.
+    app_version = Column(String(20), nullable=True)
     group = relationship("Group")
+
+
+class AppUpdateNotice(Base):
+    """Кому уже отправлен push «Вышла новая версия X» — чтобы не повторять."""
+    __tablename__ = "app_update_notices"
+    __table_args__ = (UniqueConstraint("device_id", "version"),)
+    id = Column(Integer, primary_key=True)
+    device_id = Column(String(100), nullable=False)
+    version = Column(String(20), nullable=False)
+    sent_at = Column(DateTime, default=datetime.utcnow)
 
 
 class TeacherOverride(Base):

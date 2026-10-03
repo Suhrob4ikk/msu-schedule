@@ -65,6 +65,7 @@ async def _fetch_releases() -> list[dict]:
             "version": version,
             "download_url": apk["browser_download_url"] if apk else None,
             "notes": r.get("body") or "",
+            "published_at": r.get("published_at"),  # «2026-10-03T10:00:00Z»
         })
     releases.sort(key=lambda r: parse_version(r["version"]), reverse=True)
     return releases
@@ -85,28 +86,7 @@ async def get_latest_version(
     склеиваем заметки всех пропущенных релизов — чтобы человек видел, что
     нового именно с ТОЙ версии, которая стоит у него, а не только последнюю.
     """
-    now = time.time()
-    releases = _cache["releases"]
-
-    if not releases or (now - _cache["ts"]) >= _SUCCESS_TTL:
-        if (now - _cache["last_attempt"]) < _RETRY_COOLDOWN:
-            if not releases:
-                raise HTTPException(503, "Не удалось получить информацию о версии")
-            # протухший кэш, но лучше чем ошибка
-        else:
-            _cache["last_attempt"] = now
-            try:
-                releases = await _fetch_releases()
-                _cache["releases"] = releases
-                _cache["ts"] = now
-            except Exception as e:
-                logger.warning(f"Не удалось получить версию приложения с GitHub: {e}")
-                if not releases:
-                    raise HTTPException(503, "Не удалось получить информацию о версии")
-
-    if not releases:
-        raise HTTPException(503, "Не удалось получить информацию о версии")
-
+    releases = await get_releases_cached()
     latest = releases[0]
     notes = latest["notes"]
     missed_count = 0
@@ -135,3 +115,30 @@ async def get_latest_version(
         # «обновление через 3 версии». 0 — installed не передали.
         "missed_count": missed_count,
     }
+
+
+async def get_releases_cached() -> list[dict]:
+    """Релизы из кэша (5 минут) или с GitHub. Пустой список — HTTPException 503.
+    Общий для /app/version и для push «Вышла новая версия» (services/scheduler.py)."""
+    now = time.time()
+    releases = _cache["releases"]
+
+    if not releases or (now - _cache["ts"]) >= _SUCCESS_TTL:
+        if (now - _cache["last_attempt"]) < _RETRY_COOLDOWN:
+            if not releases:
+                raise HTTPException(503, "Не удалось получить информацию о версии")
+            # протухший кэш, но лучше чем ошибка
+        else:
+            _cache["last_attempt"] = now
+            try:
+                releases = await _fetch_releases()
+                _cache["releases"] = releases
+                _cache["ts"] = now
+            except Exception as e:
+                logger.warning(f"Не удалось получить версию приложения с GitHub: {e}")
+                if not releases:
+                    raise HTTPException(503, "Не удалось получить информацию о версии")
+
+    if not releases:
+        raise HTTPException(503, "Не удалось получить информацию о версии")
+    return releases
