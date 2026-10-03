@@ -188,7 +188,7 @@ export default function RoomsPage() {
               </button>
               {noSlotHint && (
                 <p className="text-xs text-[var(--muted)] -mt-2 mb-4">
-                  Сейчас занятий нет — вечер или выходной. Выбери день и пару вручную.
+                  Сейчас пар нет
                 </p>
               )}
             </div>
@@ -277,7 +277,7 @@ export default function RoomsPage() {
               <h2 className="font-semibold text-base lg:text-lg text-red-600 dark:text-red-400 flex items-center gap-2 mb-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0"></span>
                 Занятых: {busyRooms.length}
-                <span className="ml-auto text-xs font-normal text-[var(--muted)]">нажми, чтобы узнать кто</span>
+                <span className="ml-auto text-xs font-normal text-[var(--muted)]">нажмите, чтобы узнать кто</span>
               </h2>
 
               <div className="flex flex-wrap gap-2">
@@ -360,8 +360,7 @@ export default function RoomsPage() {
 
                   {r.occupied_until && (
                     <p className="text-xs mt-3" style={{ color: "var(--muted)" }}>
-                      Освободится в {r.occupied_until}. Это время считается по всем парам подряд —
-                      занимать аудиторию до него может не одна группа, а несколько.
+                      Освободится в {r.occupied_until}.
                     </p>
                   )}
                 </>

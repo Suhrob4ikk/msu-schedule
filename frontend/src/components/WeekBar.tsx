@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { api } from "@/lib/api";
+import { api, onApiUpdate, paths } from "@/lib/api";
 
 interface WeekOption {
   week_start: string;
@@ -76,6 +76,12 @@ export default function WeekBar({ onWeekChange, selectedWeekStart, onUnavailable
       // неделю, молча оставалась пустой.
       .catch(() => onUnavailable?.());
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Список недель обновился в фоне (в субботу выходит следующая неделя) —
+  // показываем новую кнопку, выбранную неделю не трогаем.
+  useEffect(() => onApiUpdate(path => {
+    if (path === paths.allWeeks) api.getAllWeeks().then(setWeeks).catch(() => null);
+  }), []);
 
   // Не рендерим если только одна неделя
   if (weeks.length <= 1) return null;

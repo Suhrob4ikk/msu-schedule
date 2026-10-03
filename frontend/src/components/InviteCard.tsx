@@ -18,7 +18,7 @@ export default function InviteCard() {
   if (!url) return null;
 
   const share = async () => {
-    const text = "МГУ Душанбе — расписание занятий, свободные аудитории и изменения. Заходи:";
+    const text = "МГУ Душанбе — расписание занятий, свободные аудитории и изменения. Заходите:";
     try {
       if (navigator.share) {
         await navigator.share({ title: "МГУ Расписание", text, url });
@@ -48,7 +48,7 @@ export default function InviteCard() {
         <QRCodeSVG value={url} size={140} fgColor="#111111" bgColor="#ffffff" />
       </div>
       <p className="text-xs text-center max-w-[240px]" style={{ color: "var(--muted)" }}>
-        Пусть отсканируют камерой телефона — откроется сайт с расписанием, ничего устанавливать не нужно.
+        Наведите камеру на QR-код
       </p>
       <button
         onClick={share}

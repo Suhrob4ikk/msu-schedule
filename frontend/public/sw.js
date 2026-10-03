@@ -1,6 +1,6 @@
 // Версия кеша — меняй при каждом деплое если нужно принудительно сбросить
-const CACHE_STATIC = 'msu-static-v6';
-const CACHE_API    = 'msu-api-v6';
+const CACHE_STATIC = 'msu-static-v7';
+const CACHE_API    = 'msu-api-v7';
 
 // Страницы и ассеты для предварительного кеширования при установке
 const PRECACHE_URLS = [
@@ -133,11 +133,13 @@ self.addEventListener('push', e => {
   try { data = { ...data, ...e.data.json() }; } catch {}
 
   // Экзаменационные напоминания получают уникальный тег (чтобы не замещали друг друга),
-  // обычные уведомления об изменениях схлопываются в одно.
+  // обычные уведомления об изменениях схлопываются в одно. «Новая неделя» —
+  // свой тег: правка, пришедшая следом, не должна её затирать.
   const isExam = data.type === 'exam';
-  const tag = isExam ? `exam-${data.exam_key ?? Date.now()}` : 'schedule-change';
+  const tag = isExam ? `exam-${data.exam_key ?? Date.now()}`
+    : data.type === 'new_week' ? 'new-week' : 'schedule-change';
 
-  e.waitUntil(
+  e.waitUntil(Promise.all([
     self.registration.showNotification(data.title, {
       body: data.body,
       icon: '/icon-192.png',
@@ -146,8 +148,12 @@ self.addEventListener('push', e => {
       renotify: true,
       vibrate: isExam ? [200, 100, 200] : [100],
       data: { url: data.url },
-    })
-  );
+    }),
+    // Открытые вкладки перезапрашивают данные сразу (components/ServerResync.tsx)
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list =>
+      list.forEach(c => c.postMessage({ type: 'push-received', kind: data.type }))
+    ),
+  ]));
 });
 
 self.addEventListener('notificationclick', e => {

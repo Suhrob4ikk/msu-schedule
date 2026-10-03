@@ -41,8 +41,7 @@ export default function CourseCheckBanner() {
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-sm lg:text-base">Начался новый учебный год</p>
           <p className="text-xs lg:text-sm mt-1 leading-relaxed" style={{ color: "var(--muted)" }}>
-            Проверьте, что выбран нужный курс — он не переключается сам. Если в прошлом
-            году вы были на первом курсе, теперь нужен второй.
+            Проверьте курс — он не переключается сам.
           </p>
           <div className="flex flex-wrap gap-2 mt-3">
             <button

@@ -293,7 +293,8 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
           <h2 style={h2}>Пользователи и уведомления</h2>
           <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
             <Stat label="зарегистр." value={users?.registered_users ?? "—"} />
-            <Stat label="push-подписки" value={users?.push_subscribers ?? "—"} />
+            <Stat label="push сайта" value={users?.push_subscribers ?? "—"} />
+            <Stat label="push приложения" value={users?.expo_tokens ?? "—"} />
           </div>
           <button style={btn} disabled={!!busy} onClick={() => act("push", () => api("/test-push", { method: "POST" }))}>
             {busy === "push" ? "…" : "Тестовый push"}

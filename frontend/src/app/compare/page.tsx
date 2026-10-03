@@ -128,10 +128,10 @@ export default function ComparePage() {
           <h1 className="font-bold text-lg lg:text-2xl mb-1">Сравнить с другой группой</h1>
           <p className="text-sm text-[var(--muted)] mb-3">
             {myGroup
-              ? <>Когда у тебя ({shortGroupName(myGroup.name)} · {myGroup.year} курс) и у выбранной группы одновременно нет пар.</>
+              ? <>Когда у вас ({shortGroupName(myGroup.name)} · {myGroup.year} курс) и у выбранной группы одновременно нет пар.</>
               : groupsError
                 ? "Не удалось загрузить группы — нет связи с сервером."
-                : "Сначала укажи свою группу в кабинете."}
+                : "Сначала укажите свою группу в кабинете."}
           </p>
           {myGroup && (
             <>
@@ -148,14 +148,12 @@ export default function ComparePage() {
         {ready && weekMismatch && (
           <div className="text-center py-16 text-[var(--muted)]">
             <p>Эта неделя есть в расписании не у обеих групп</p>
-            <p className="text-xs mt-1">Выберите другую неделю — часто подходит «Эта неделя»</p>
           </div>
         )}
 
         {ready && !weekMismatch && activeDays.length === 0 && (
           <div className="text-center py-16 text-[var(--muted)]">
             <p>На этой неделе занятий нет ни у одной из групп</p>
-            <p className="text-xs mt-1">Сессия или каникулы — сравнивать нечего</p>
           </div>
         )}
 
@@ -209,7 +207,7 @@ export default function ComparePage() {
                           ? "Оба свободны"
                           : mine && theirs
                             ? "Пары у обеих групп"
-                            : mine ? "Пара у тебя" : `Пара у ${otherLabel}`;
+                            : mine ? "Пара у вас" : `Пара у ${otherLabel}`;
                         return (
                           <td key={p} className="p-0">
                             <div className={`w-full aspect-square rounded-lg border ${cls}`} title={title} />
@@ -229,7 +227,7 @@ export default function ComparePage() {
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="w-3 h-3 rounded-[4px] bg-amber-100 dark:bg-amber-900/40 border border-amber-200 dark:border-amber-800 inline-block" />
-                занята твоя
+                занята ваша
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="w-3 h-3 rounded-[4px] bg-blue-100 dark:bg-blue-900/40 border border-blue-200 dark:border-blue-800 inline-block" />
@@ -245,8 +243,7 @@ export default function ComparePage() {
 
         {myGroup && !otherGroup && (
           <div className="text-center py-16 text-[var(--muted)]">
-            <p>Выбери группу выше</p>
-            <p className="text-xs mt-1">Покажем, когда вы оба свободны</p>
+            <p>Выберите группу выше</p>
           </div>
         )}
 

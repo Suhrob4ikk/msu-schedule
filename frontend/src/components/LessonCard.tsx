@@ -295,7 +295,7 @@ function LessonActions({
                 style={{ borderColor: skipped ? "#fff" : "currentColor", background: skipped ? "#fff" : "transparent" }}
                 aria-hidden="true"
               />
-              {skipped ? "Пропустил" : "Отметить пропуск"}
+              {skipped ? "Пропущено" : "Отметить пропуск"}
             </button>
           ) : (
             <span />
@@ -315,7 +315,7 @@ function LessonActions({
       )}
       {showSkipRow && skipped && (
         <span className="block text-[11px] mt-2" style={{ color: "var(--muted)" }}>
-          Нажми ещё раз, чтобы убрать
+          Нажмите ещё раз, чтобы убрать
         </span>
       )}
 

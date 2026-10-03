@@ -31,10 +31,7 @@ export default function AccentSetting() {
 
   return (
     <div className="card w-full">
-      <p className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>Цвет акцента</p>
-      <p className="text-xs mt-0.5 mb-2.5" style={{ color: "var(--muted)" }}>
-        Кнопки, активные вкладки и ссылки — «свободно»/«занято» на аудиториях этим цветом не красится
-      </p>
+      <p className="text-sm font-semibold mb-2.5" style={{ color: "var(--foreground)" }}>Цвет акцента</p>
       <div className="flex gap-1.5">
         {OPTIONS.map(o => {
           const active = pref === o.value;

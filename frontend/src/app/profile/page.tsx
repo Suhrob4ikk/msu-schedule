@@ -5,13 +5,13 @@ import { api, Group, shortGroupName, rememberGroup } from "@/lib/api";
 import GroupSelector from "@/components/GroupSelector";
 import Header from "@/components/Header";
 import { useRouter } from "next/navigation";
-import { getPushStatus, subscribePush, unsubscribePush, type PushStatus } from "@/lib/push";
+import { getPushStatus, subscribePush, unsubscribePush, resyncPush, type PushStatus } from "@/lib/push";
 import InviteCard from "@/components/InviteCard";
 import AppDownloadCard from "@/components/AppDownloadCard";
 import ThemeSetting from "@/components/ThemeSetting";
 import AccentSetting from "@/components/AccentSetting";
 
-import { featuresUnlocked, daysUntilUnlock, markGroupChosen } from "@/lib/features";
+import { markGroupChosen } from "@/lib/features";
 import { collectSkips, collectNotes, type SkipStats as SkipStatsType } from "@/lib/studyData";
 
 // Автооткрытие 1 сентября 2026 — см. lib/features.ts.
@@ -19,7 +19,7 @@ import { collectSkips, collectNotes, type SkipStats as SkipStatsType } from "@/l
 // загрузке страницы, и вкладка, открытая до полуночи 1 сентября, продолжала бы
 // показывать «закрыто» до обновления. Проверяем на каждый рендер.
 
-// ─── Уведомления о зачётах / экзаменах ────────────────────────────────────────────────────
+// ─── Уведомления: новая неделя, изменения, зачёты ─────────────────────────────
 function NotificationToggle({ sessionId, groupId }: { sessionId: string; groupId: number | "" }) {
   const [status, setStatus] = useState<PushStatus | "loading">("loading");
   const [busy, setBusy] = useState(false);
@@ -54,21 +54,17 @@ function NotificationToggle({ sessionId, groupId }: { sessionId: string; groupId
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
-              Уведомления о зачётах / экзаменах
+              Уведомления
             </span>
           </div>
           <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>
             {status === "denied"
               ? "Заблокированы в браузере — разрешите в настройках"
-              : isOn
-              ? "Придёт напоминание накануне и в день зачёта"
-              : "Напоминания накануне и в день зачёта / экзамена"}
+              : "Новая неделя, изменения и зачёты"}
           </p>
         </div>
 
-        {status === "denied" ? (
-          <span style={{ color: "var(--muted)", fontSize: 20 }}>🔕</span>
-        ) : isOn ? (
+        {status === "denied" ? null : isOn ? (
           <button
             onClick={handleDisable}
             disabled={busy}
@@ -101,9 +97,7 @@ function FeatureToggle({ label, description, storageKey }: { label: string; desc
   useEffect(() => {
     setEnabled(localStorage.getItem(storageKey) === "1");
   }, [storageKey]);
-  const locked = !featuresUnlocked();
   const toggle = () => {
-    if (locked) return;
     const next = !enabled;
     setEnabled(next);
     localStorage.setItem(storageKey, next ? "1" : "0");
@@ -112,28 +106,18 @@ function FeatureToggle({ label, description, storageKey }: { label: string; desc
     <button
       onClick={toggle}
       className="card flex items-center justify-between w-full text-left"
-      style={{ opacity: locked ? 0.6 : 1, cursor: locked ? "default" : "pointer" }}
     >
       <div>
-        <div className="flex items-center gap-2">
-          <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{label}</p>
-          {locked && (
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: "var(--tag-bg)", color: "var(--muted)" }}>
-              с 1 сентября
-            </span>
-          )}
-        </div>
-        <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>
-          {locked ? `${description} · откроется 1 сентября, осталось ${daysUntilUnlock()} дн.` : description}
-        </p>
+        <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{label}</p>
+        <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>{description}</p>
       </div>
       <div
         className="relative shrink-0 ml-3 w-11 h-6 rounded-full"
-        style={{ background: (!locked && enabled) ? "var(--primary)" : "var(--border)" }}
+        style={{ background: enabled ? "var(--primary)" : "var(--border)" }}
       >
         <span
           className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow"
-          style={{ transform: (!locked && enabled) ? "translateX(20px)" : "translateX(2px)" }}
+          style={{ transform: enabled ? "translateX(20px)" : "translateX(2px)" }}
         />
       </div>
     </button>
@@ -160,7 +144,7 @@ function SkipStats() {
       <div className="card w-full">
         <p className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>Пропуски</p>
         <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>
-          Пока ни одного пропуска. Отмечай пропущенные пары в расписании — здесь будет видно, сколько их по каждому предмету.
+          Пропусков нет
         </p>
       </div>
     );
@@ -206,7 +190,7 @@ async function exportMyData() {
   } catch { /* пользователь отменил шаринг — не страшно */ }
   try {
     await navigator.clipboard.writeText(text);
-    alert("Скопировано в буфер обмена — вставь в Telegram или заметки.");
+    alert("Скопировано");
   } catch { alert(text); }
 }
 
@@ -221,9 +205,6 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [isSetup, setIsSetup] = useState(true);
   const [isEditing, setIsEditing] = useState(true);
-  // Считаем на каждый рендер, а не один раз при загрузке модуля — см. комментарий
-  // у импорта featuresUnlocked.
-  const featuresLocked = !featuresUnlocked();
 
   // Список групп не пришёл — на первом запуске без сети это тупик: под
   // «НАПРАВЛЕНИЕ» пусто, выбрать нечего, и почему — неизвестно. Показываем
@@ -273,6 +254,9 @@ export default function ProfilePage() {
       localStorage.setItem("msu_device_id_v2", deviceId);
     }
     await api.registerUser(deviceId, name.trim() || "Аноним", Number(selectedGroupId));
+    // Подписка на уведомления помнит группу — без этого после смены группы
+    // уведомления продолжали бы приходить о старой.
+    resyncPush(deviceId, Number(selectedGroupId));
 
     await new Promise(r => setTimeout(r, 300));
     setSaving(false);
@@ -280,11 +264,7 @@ export default function ProfilePage() {
     router.push("/");
   };
 
-  const handleChangeGroup = () => {
-    if (confirm("Изменить имя или группу? Например при переходе на новый курс.")) {
-      setIsEditing(true);
-    }
-  };
+  const handleChangeGroup = () => setIsEditing(true);
 
   // До монтирования отдаём нейтральный экран — совпадает с SSR, убирает #418.
   if (!hydrated) {
@@ -330,14 +310,6 @@ export default function ProfilePage() {
       )}
       {!selectedGroup && <div className="mb-8" />}
 
-      {/* Подсказка — только в режиме редактирования */}
-      {isEditing && (
-        <div className="flex items-start gap-2 rounded-lg px-3 py-2 mb-4 w-full max-w-sm" style={{ background: "var(--tag-bg)" }}>
-          <svg className="w-4 h-4 shrink-0 mt-0.5" style={{ color: "var(--primary)" }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-          <p className="text-xs" style={{ color: "var(--muted)" }}>Укажи имя и группу — расписание будет открываться сразу на твою группу.</p>
-        </div>
-      )}
-
       {/* Форма или кнопка изменения. Пока идёт регистрация (isSetup) — узкая
           колонка, как и раньше. У зарегистрированных ниже появляется решётка
           настроек в две колонки на широком экране (см. README редизайна),
@@ -353,7 +325,7 @@ export default function ProfilePage() {
               </label>
               <input
                 type="text"
-                placeholder="Введи своё имя..."
+                placeholder="Ваше имя"
                 autoFocus={isSetup}
                 className="w-full rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-[var(--primary)] transition-all"
                 style={{
@@ -428,7 +400,7 @@ export default function ProfilePage() {
             className="block w-full max-w-sm mx-auto py-3 rounded-xl text-sm font-medium border transition-colors hover:border-[var(--primary)] hover:text-[var(--primary)]"
             style={{ background: "var(--card)", borderColor: "var(--border)", color: "var(--muted)" }}
           >
-            ✏ Изменить имя или группу
+            Изменить имя или группу
           </button>
         )}
 
@@ -457,29 +429,27 @@ export default function ProfilePage() {
               <div className="flex flex-col gap-2.5 mt-2.5 lg:mt-0">
                 <FeatureToggle
                   label="Пропуски"
-                  description="Отмечай только пары, которые пропустил. Здесь будет видно, сколько пропусков накопилось по каждому предмету"
+                  description="Отмечайте только пропущенные пары"
                   storageKey="feature_attendance"
                 />
-                {!featuresLocked && <SkipStats />}
+                <SkipStats />
                 <FeatureToggle
                   label="Заметки к парам"
-                  description="Домашка и что принести. Заметку можно закрепить за парой — тогда она появится в этот день каждую неделю"
+                  description="Домашка и что принести"
                   storageKey="feature_notes"
                 />
-                {!featuresLocked && (
-                  <button
-                    onClick={exportMyData}
-                    className="w-full py-3 rounded-xl text-sm font-medium border transition-colors hover:border-[var(--primary)] hover:text-[var(--primary)]"
-                    style={{ background: "var(--card)", borderColor: "var(--border)", color: "var(--muted)" }}
-                  >
-                    <span className="inline-flex items-center justify-center gap-2">
-                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M4 12v7a2 2 0 002 2h12a2 2 0 002-2v-7M16 6l-4-4-4 4M12 2v13" />
-                      </svg>
-                      Поделиться заметками и посещаемостью
-                    </span>
-                  </button>
-                )}
+                <button
+                  onClick={exportMyData}
+                  className="w-full py-3 rounded-xl text-sm font-medium border transition-colors hover:border-[var(--primary)] hover:text-[var(--primary)]"
+                  style={{ background: "var(--card)", borderColor: "var(--border)", color: "var(--muted)" }}
+                >
+                  <span className="inline-flex items-center justify-center gap-2">
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M4 12v7a2 2 0 002 2h12a2 2 0 002-2v-7M16 6l-4-4-4 4M12 2v13" />
+                    </svg>
+                    Поделиться заметками и посещаемостью
+                  </span>
+                </button>
                 <a
                   href="/compare"
                   className="w-full py-3 rounded-xl text-sm font-medium border text-center transition-colors hover:border-[var(--primary)] hover:text-[var(--primary)]"

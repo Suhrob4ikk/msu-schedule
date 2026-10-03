@@ -243,6 +243,20 @@ export function prefetch(path: string, ttl = 180_000): void {
   fetchApi(path, ttl).catch(() => { /* прогрев — необязательная операция */ });
 }
 
+/**
+ * Перезапросить всё, что уже лежит в кэше памяти, не глядя на TTL.
+ *
+ * Зовётся, когда пришёл push («вышла новая неделя», «расписание изменилось»):
+ * сервер точно знает больше нас, ждать, пока протухнет TTL, незачем. Что
+ * реально изменилось — то и вызовет onApiUpdate, страницы перечитают себя.
+ */
+export function revalidateCached(): void {
+  for (const path of _mem.keys()) {
+    if (path.startsWith('/schedule/now')) continue; // «идёт сейчас» и так раз в минуту
+    revalidate(path, false).catch(() => { /* нет сети — остаёмся на кэше */ });
+  }
+}
+
 /** Полный сброс кэша: ручное обновление должно тянуть свежие данные. */
 export function clearApiCache(): void {
   _mem.clear();
@@ -498,9 +512,12 @@ export interface Change {
 /**
  * TTL — «сколько ответ считается свежим». Если он протух, страница всё равно
  * получает данные мгновенно из кэша, а сеть спрашивается в фоне (см. fetchApi).
- * Бэкенд синхронизируется с msu.tj раз в 2 часа, поэтому минуты роли не играют.
+ * Бэкенд проверяет msu.tj от раз в 5 минут до раз в 2 часа.
  */
-const TTL_LONG = 30 * 60_000;   // списки: группы, недели
+const TTL_LONG = 30 * 60_000;   // списки групп
+// Список недель — короче: по нему страница узнаёт, что вышла новая неделя
+// (бэкенд в субботу днём проверяет msu.tj раз в 5 минут). Запрос копеечный.
+const TTL_WEEKS = 5 * 60_000;
 const TTL_DATA = 10 * 60_000;   // расписания, преподаватели, аудитории
 const TTL_FEED = 3 * 60_000;    // лента изменений
 const TTL_NOW  = 60_000;        // «идёт сейчас» — устаревает быстро
@@ -515,6 +532,7 @@ export const paths = {
   groupSchedule: (groupId: number, day?: string, weekId?: number) =>
     `/schedule/group/${groupId}${buildQuery({ day_of_week: day, week_id: weekId })}`,
   groupWeeks: (groupId: number) => `/schedule/weeks/${groupId}`,
+  allWeeks: '/schedule/weeks-all',
   teachers: (weekStart?: string) => `/schedule/teachers${buildQuery({ week_start: weekStart })}`,
   changes: (groupId?: number) => `/schedule/changes${buildQuery({ group_id: groupId })}`,
 };
@@ -530,10 +548,10 @@ export const api = {
     fetchApi<Lesson[]>(paths.groupSchedule(groupId, day, weekId), TTL_DATA),
 
   getGroupWeeks: (groupId: number) =>
-    fetchApi<WeekInfo[]>(paths.groupWeeks(groupId), TTL_LONG),
+    fetchApi<WeekInfo[]>(paths.groupWeeks(groupId), TTL_WEEKS),
 
   getAllWeeks: () =>
-    fetchApi<Array<{ week_start: string; week_number: number; is_latest: boolean }>>('/schedule/weeks-all', TTL_LONG),
+    fetchApi<Array<{ week_start: string; week_number: number; is_latest: boolean }>>(paths.allWeeks, TTL_WEEKS),
 
   getTeachers: (weekStart?: string) =>
     fetchApi<Teacher[]>(paths.teachers(weekStart), TTL_DATA),
@@ -599,9 +617,11 @@ export const api = {
     fetchApi<Array<{ id: number; group_id: number; day_of_week: string; pair_number: string; note: string }>>
       (`/user/notes/${sessionId}`),
 
-  // Регистрация пользователя — сохраняем имя + группу на сервере
-  registerUser: (deviceId: string, name: string, groupId: number) =>
-    fetch(`${API_BASE}/user/register?device_id=${encodeURIComponent(deviceId)}&name=${encodeURIComponent(name)}&group_id=${groupId}`, {
+  // Регистрация пользователя — сохраняем имя + группу на сервере.
+  // silent — тихая перерегистрация после деплоя (см. components/ServerResync.tsx),
+  // без письма владельцу о «новом пользователе».
+  registerUser: (deviceId: string, name: string, groupId: number, silent = false) =>
+    fetch(`${API_BASE}/user/register?device_id=${encodeURIComponent(deviceId)}&name=${encodeURIComponent(name)}&group_id=${groupId}${silent ? '&silent=true' : ''}`, {
       method: 'POST',
     }).then(r => r.json()).catch(() => null),
 

@@ -9,10 +9,8 @@ import { ScheduleSkeleton } from "@/components/Skeletons";
 import { api, prefetch, paths, onApiUpdate, Group, Lesson, TodayItem, Stats, WeekInfo, DAYS_ORDER, breakLabel, shortGroupName } from "@/lib/api";
 import { shareScheduleImage, weekRangeLabel } from "@/lib/shareImage";
 import { useSwipe } from "@/lib/useSwipe";
-import { featuresUnlocked } from "@/lib/features";
 import { todayIso } from "@/lib/studyData";
 import GroupSelector from "@/components/GroupSelector";
-import FeatureHint from "@/components/FeatureHint";
 import CourseCheckBanner from "@/components/CourseCheckBanner";
 import RadialProgress from "@/components/RadialProgress";
 
@@ -50,7 +48,6 @@ export default function HomePage() {
   const [featureAttendance, setFeatureAttendance] = useState(false);
   const [featureNotes, setFeatureNotes] = useState(false);
   useEffect(() => {
-    if (!featuresUnlocked()) return;
     // Обе функции выключены, пока студент не включит сам в «Моём кабинете» —
     // это задумано (см. CLAUDE.md), а не забытая настройка.
     setFeatureAttendance(localStorage.getItem("feature_attendance") === "1");
@@ -240,11 +237,21 @@ export default function HomePage() {
       if (!g) return;
       api.getNow(g.id).then(setNowItems).catch(() => { /* нет сети — оставляем что было */ });
     };
+    // Вернулись на вкладку — заодно спрашиваем список недель: в субботу днём
+    // выходит расписание на следующую. Ответ моложе 5 минут берётся из кэша
+    // (TTL_WEEKS), а если неделя появилась — onApiUpdate выше перечитает экран.
+    const onVisible = () => {
+      refreshNow();
+      const g = selectedGroupRef.current;
+      if (document.hidden || !g) return;
+      api.getGroupWeeks(g.id).catch(() => null);
+      api.getAllWeeks().catch(() => null);
+    };
     const id = window.setInterval(refreshNow, 60_000);
-    document.addEventListener("visibilitychange", refreshNow);
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       window.clearInterval(id);
-      document.removeEventListener("visibilitychange", refreshNow);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, []);
 
@@ -434,13 +441,8 @@ export default function HomePage() {
 
         {/* Выбор группы */}
         <div className="card mb-4 lg:mb-5">
-          <h1 className="font-bold text-lg lg:text-2xl mb-2 lg:mb-3">Расписание занятий МГУ Душанбе</h1>
-          {!profileGroupId && (
-            <div className="flex items-start gap-2 rounded-lg bg-[var(--tag-bg)] px-3 py-2 mb-3 lg:mb-4">
-              <svg className="w-4 h-4 shrink-0 mt-0.5 text-[var(--primary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-              <p className="text-xs lg:text-sm text-[var(--muted)]">Выберите группу ниже, затем нажмите на нужный день недели.</p>
-            </div>
-          )}
+          {/* Видимый заголовок повторял бы шапку — оставляем только для экранного диктора */}
+          <h1 className="sr-only">Расписание занятий</h1>
           <GroupSelector groups={groups} value={selectedGroup} onChange={loadGroup} collapsible />
           {selectedGroup && (
             <div className="flex flex-wrap gap-2 mt-3">
@@ -584,13 +586,6 @@ export default function HomePage() {
                       )
                     )}
                   </div>
-                  {nextItem.break_minutes != null && (
-                    <p className="text-xs text-[var(--muted)] mb-1.5">
-                      {nextItem.break_minutes <= 20
-                        ? "Не уходи далеко — скоро начнётся:"
-                        : "Дальше по расписанию:"}
-                    </p>
-                  )}
                   <p className="font-semibold text-sm lg:text-base">{nextItem.subject}</p>
                   {/* Аудиторию — отдельно и крупно: на перемене это главный вопрос */}
                   <div className="flex flex-wrap items-center gap-2 mt-2">
@@ -637,10 +632,6 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Одноразовая подсказка — только когда функции включены и только своей группе */}
-        {isMyGroup && (featureAttendance || featureNotes) && (
-          <FeatureHint skips={featureAttendance} notes={featureNotes} />
-        )}
         </div>
 
         <div className="area-days">
@@ -715,7 +706,7 @@ export default function HomePage() {
 
         {error && (
           <div className="card text-sm flex items-center justify-between gap-3 flex-wrap" style={{ borderColor: "var(--border)", color: "var(--muted)" }}>
-            <span>⚠️ {error}</span>
+            <span>{error}</span>
             <button
               onClick={() => (groups.length === 0 ? loadInitialGroups() : selectedGroup && loadGroup(selectedGroup))}
               className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white shrink-0"
@@ -738,12 +729,10 @@ export default function HomePage() {
               {selectedDay !== "all" ? (
                 <>
                   <p className="font-medium">{DAY_IN[selectedDay]} занятий нет</p>
-                  <p className="text-xs mt-1">Выходной или нет пар в этот день</p>
                 </>
               ) : (
                 <>
                   <p className="font-medium">На этой неделе занятий нет</p>
-                  <p className="text-xs mt-1">Идёт сессия или каникулы</p>
                 </>
               )}
             </div>
@@ -755,7 +744,6 @@ export default function HomePage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
               </svg>
               <p className="font-medium">Выберите группу выше</p>
-              <p className="text-xs mt-1">Чтобы увидеть расписание</p>
             </div>
           )}
 

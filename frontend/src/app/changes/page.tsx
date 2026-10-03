@@ -106,10 +106,7 @@ export default function ChangesPage() {
       <Header />
       <main className="max-w-5xl mx-auto px-4 lg:px-8 py-4 lg:py-6 pb-24 lg:pb-6">
         <div className="card mb-4">
-          <h1 className="font-bold text-lg">История изменений расписания</h1>
-          <p className="text-sm text-[var(--muted)] mt-1">
-            Здесь видно что изменилось в расписании с последнего обновления.
-          </p>
+          <h1 className="font-bold text-lg">Изменения</h1>
           {profileGroupId != null && (
             <div className="flex gap-1 mt-3 p-1 rounded-xl border border-[var(--border)] bg-[var(--background)]">
               <button
@@ -153,12 +150,7 @@ export default function ChangesPage() {
 
         {!loading && !error && changes.length === 0 && (
           <div className="text-center py-16 text-[var(--muted)]">
-            <p>{onlyMine ? "У твоей группы изменений пока нет" : "Изменений пока нет"}</p>
-            <p className="text-xs mt-1">
-              {onlyMine
-                ? "Старые записи (до этого фильтра) видно только во «Все факультеты»"
-                : "Они появятся после первого обновления расписания"}
-            </p>
+            <p>Изменений пока нет</p>
           </div>
         )}
 

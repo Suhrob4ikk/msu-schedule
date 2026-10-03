@@ -131,10 +131,6 @@ export default function TeachersPage() {
         {/* Поиск — скрываем на мобиле в режиме детали */}
         <div className={`card mb-4 lg:mb-5 ${mobileView === "detail" ? "hidden lg:block" : ""}`}>
           <h1 className="font-bold text-lg lg:text-2xl mb-2 lg:mb-3">Расписание преподавателей</h1>
-          <div className="flex items-start gap-2 rounded-lg bg-[var(--tag-bg)] px-3 py-2 mb-3 lg:mb-4">
-            <svg className="w-4 h-4 shrink-0 mt-0.5 text-[var(--primary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-            <p className="text-xs lg:text-sm text-[var(--muted)]">Введите фамилию и нажмите на имя — откроется расписание преподавателя.</p>
-          </div>
           <div className="relative">
             <svg className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.3-4.3M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
