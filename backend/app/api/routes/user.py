@@ -22,9 +22,16 @@ def register_user(
     name: str,
     group_id: int,
     background_tasks: BackgroundTasks,
+    silent: bool = False,
     db: Session = Depends(get_db),
 ):
-    """Сохраняет или обновляет регистрацию пользователя (имя + группа)."""
+    """Сохраняет или обновляет регистрацию пользователя (имя + группа).
+
+    silent=1 — тихая перерегистрация: клиенты присылают её сами при запуске и
+    возврате в приложение. База на Render стирается при каждом деплое бэкенда,
+    и без этого сервер забывал всех пользователей и их push-токены. Письмо
+    владельцу в этом режиме не отправляется — иначе после каждого деплоя
+    пришло бы по письму «новый пользователь» на каждого студента."""
     from app.services.email import send_registration_email
 
     group = db.get(Group, group_id)
@@ -45,7 +52,7 @@ def register_user(
 
     # Письмо — только при первой регистрации И только если такой же name+group_id ещё нет
     # (один человек с разных браузеров не должен слать дубли)
-    if is_new:
+    if is_new and not silent:
         duplicate = db.query(UserRegistration).filter(
             UserRegistration.name == name.strip(),
             UserRegistration.group_id == group_id,

@@ -295,28 +295,56 @@ def dev_users(db: Session = Depends(get_db)):
     return {
         "registered_users": db.query(UserRegistration).count(),
         "push_subscribers": push_count,
+        "expo_tokens": (
+            db.query(UserRegistration)
+            .filter(UserRegistration.expo_push_token.isnot(None))
+            .count()
+        ),
         "vapid_configured": bool(settings.VAPID_PUBLIC_KEY and settings.VAPID_PRIVATE_KEY),
     }
 
 
 @router.post("/test-push", dependencies=[Depends(require_dev)])
 def dev_test_push(db: Session = Depends(get_db)):
-    if not (settings.VAPID_PUBLIC_KEY and settings.VAPID_PRIVATE_KEY):
-        return {"sent": 0, "error": "VAPID-ключи не настроены на сервере"}
-    from app.services.push import send_push
-    subs = (
-        db.query(UserSubscription)
-        .filter(UserSubscription.push_endpoint.isnot(None))
-        .all()
-    )
-    sent = 0
-    for s in subs:
-        try:
-            if send_push(s.push_endpoint, s.push_keys, "Тест", "Проверка уведомлений из панели /dev"):
-                sent += 1
-        except Exception:
-            pass
-    return {"sent": sent, "total": len(subs)}
+    """Тестовое уведомление во ВСЕ каналы: браузеры (Web Push) и приложение
+    (Expo). Раньше проверялись только браузеры, и было не узнать, доходит ли
+    что-то до приложения. Ошибки Expo показываем как есть: InvalidCredentials
+    значит, что в Expo не загружен ключ Firebase (`eas credentials`)."""
+    from app.services.push import send_push, send_expo_push
+
+    title, body = "Тест", "Проверка уведомлений из панели /dev"
+
+    web_sent, subs = 0, []
+    if settings.VAPID_PUBLIC_KEY and settings.VAPID_PRIVATE_KEY:
+        subs = (
+            db.query(UserSubscription)
+            .filter(UserSubscription.push_endpoint.isnot(None))
+            .all()
+        )
+        for s in subs:
+            try:
+                if send_push(s.push_endpoint, s.push_keys, title, body):
+                    web_sent += 1
+            except Exception:
+                pass
+
+    tokens = [
+        r.expo_push_token for r in
+        db.query(UserRegistration).filter(UserRegistration.expo_push_token.isnot(None)).all()
+    ]
+    expo = send_expo_push(db, tokens, title, body) if tokens else {"sent": 0, "errors": []}
+
+    web_part = (f"сайт {web_sent} из {len(subs)}"
+                if settings.VAPID_PUBLIC_KEY else "сайт: VAPID-ключи не настроены")
+    expo_part = f"приложение {expo['sent']} из {len(tokens)}"
+    if expo["errors"]:
+        expo_part += f" (ошибки: {', '.join(sorted(set(expo['errors'])))})"
+    return {
+        "message": f"Отправлено: {web_part}; {expo_part}",
+        "sent": web_sent,
+        "total": len(subs),
+        "expo": {"sent": expo["sent"], "total": len(tokens), "errors": sorted(set(expo["errors"]))},
+    }
 
 
 # ── Просмотр сырых данных ────────────────────────────────────────────────

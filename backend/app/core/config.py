@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     DATABASE_URL: str = f"sqlite:///{os.path.abspath(_DEFAULT_DB_PATH)}"
     XLS_BASE_URL: str = "https://msu.tj/file/timetable"
     TIMETABLE_PAGE_URL: str = "https://msu.tj/ru/timetable"
+    # Больше не используется: частота проверок теперь задаётся таблицей в
+    # services/scheduler.py. Поле оставлено, потому что переменная может быть
+    # задана на Render — без поля настройки отвергли бы её и сервер не запустился бы.
     CHECK_INTERVAL_HOURS: int = 2
     DATA_DIR: str = os.path.join(os.path.dirname(__file__), "..", "..", "..", "data")
     DEBUG: bool = True

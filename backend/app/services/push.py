@@ -10,6 +10,7 @@
 import json
 import logging
 from datetime import date, timedelta
+from typing import Optional
 import httpx
 from pywebpush import webpush, WebPushException
 
@@ -84,46 +85,49 @@ def send_push(endpoint: str, keys_json: str, title: str, body: str,
 
 # ─── Уведомления об изменениях расписания ─────────────────────────────────────
 
-def notify_group_changes(db, group_name: str, faculty_code: str, changes_count: int) -> None:
-    """Отправляет уведомление подписчикам группы при изменении расписания."""
-    from app.models import UserSubscription, Group
+# Родительный падеж, сокращённо — для «5–10 окт» в уведомлении о новой неделе.
+_MONTHS_SHORT = ["янв", "фев", "мар", "апр", "мая", "июн",
+                 "июл", "авг", "сен", "окт", "ноя", "дек"]
 
-    groups = db.query(Group).filter(Group.name == group_name).all()
-    if not groups:
-        return
 
-    group_ids = [g.id for g in groups]
+def week_range_label(week_start: date) -> str:
+    """«5–10 окт» — учебная неделя пн–сб. Через границу месяца: «28 сен – 3 окт»."""
+    end = week_start + timedelta(days=5)
+    if end.month == week_start.month:
+        return f"{week_start.day}–{end.day} {_MONTHS_SHORT[end.month - 1]}"
+    return (f"{week_start.day} {_MONTHS_SHORT[week_start.month - 1]} – "
+            f"{end.day} {_MONTHS_SHORT[end.month - 1]}")
+
+
+def _notify_groups(db, group_ids: list[int], title: str, body: str, kind: str) -> dict:
+    """Одно и то же уведомление всем подписчикам перечисленных групп — и в
+    браузеры (Web Push), и в приложение (Expo). Возвращает, сколько ушло."""
+    from app.models import UserSubscription, UserRegistration
+
+    if not group_ids:
+        return {"web": 0, "expo": 0}
+
     subs = db.query(UserSubscription).filter(
         UserSubscription.group_id.in_(group_ids),
         UserSubscription.push_endpoint.isnot(None),
     ).all()
 
-    label = f"{groups[0].year} курс · {group_name}"
-    ending = "изменение" if changes_count == 1 else ("изменения" if changes_count < 5 else "изменений")
-    body = f"{changes_count} {ending} в расписании"
-
+    web_sent = 0
     stale_ids = []
     for sub in subs:
         try:
-            send_push(sub.push_endpoint, sub.push_keys,
-                      f"Расписание изменилось — {label}", body, "/")
+            if send_push(sub.push_endpoint, sub.push_keys, title, body, "/", notif_type=kind):
+                web_sent += 1
         except WebPushException:
             stale_ids.append(sub.id)
         except Exception:
             pass
-
-    if stale_ids:
-        for sid in stale_ids:
-            sub = db.get(UserSubscription, sid)
-            if sub:
-                sub.push_endpoint = None
-                sub.push_keys = None
-        db.commit()
+    _clear_stale(db, stale_ids)
+    db.commit()
 
     # Тот же текст уходит в мобильное приложение — уже не через браузер,
     # а через Expo Push, единственный канал, который может разбудить нативное
     # приложение мгновенно, даже если оно закрыто.
-    from app.models import UserRegistration
     tokens = [
         r.expo_push_token for r in
         db.query(UserRegistration)
@@ -133,36 +137,104 @@ def notify_group_changes(db, group_name: str, faculty_code: str, changes_count: 
         )
         .all()
     ]
-    if tokens:
-        send_expo_push(tokens, f"Расписание изменилось — {label}", body)
+    expo = send_expo_push(db, tokens, title, body, data={"kind": kind}) if tokens else {"sent": 0}
+    return {"web": web_sent, "expo": expo["sent"]}
 
 
-def send_expo_push(tokens: list[str], title: str, body: str) -> None:
+def notify_group_changes(db, group_id: int, changes_count: int) -> dict:
+    """Подписчикам ОДНОЙ группы — изменения внутри текущей недели.
+
+    Раньше группа искалась по названию, а название у всех курсов направления
+    одинаковое («ПРИКЛАДНАЯ МАТЕМАТИКА И ИНФОРМАТИКА»): правка у 3 курса
+    уходила всем четырём курсам, да ещё с курсом первой попавшейся группы
+    в заголовке. Теперь — строго по id."""
+    from app.models import Group
+
+    group = db.get(Group, group_id)
+    if not group:
+        return {"web": 0, "expo": 0}
+
+    label = f"{group.year} курс · {group.name}"
+    ending = "изменение" if changes_count == 1 else ("изменения" if changes_count < 5 else "изменений")
+    body = f"{changes_count} {ending} в расписании"
+    return _notify_groups(db, [group.id], f"Расписание изменилось — {label}", body, "changes")
+
+
+def notify_new_week(db, faculty_code: str, week_start: date) -> dict:
+    """Всем подписчикам групп факультета — «вышло расписание на новую неделю».
+
+    Когда звать — решает save_schedule_to_db (флаг announce_new_week): только
+    если в базе уже была более ранняя неделя. Иначе после каждого деплоя
+    (база пустая) «новыми» оказались бы все недели разом."""
+    from app.models import Group, Faculty
+
+    group_ids = [
+        g.id for g in
+        db.query(Group).join(Faculty).filter(Faculty.code == faculty_code).all()
+    ]
+    return _notify_groups(
+        db, group_ids,
+        "Вышло расписание на новую неделю",
+        f"Неделя {week_range_label(week_start)}",
+        "new_week",
+    )
+
+
+def send_expo_push(db, tokens: list[str], title: str, body: str,
+                   data: Optional[dict] = None) -> dict:
     """Шлёт push через Expo — https://exp.host/--/api/v2/push/send.
 
     Ничего, кроме токенов, для доставки не нужно: сервер, доставляющий пуш до
-    Google/Apple, держит Expo — не нужен ни свой Firebase Server Key в коде,
-    ни отдельная библиотека. Единственное разовое условие — на телефоне должен
-    быть настроен FCM (google-services.json в сборке) и у проекта в Expo должны
-    быть загружены его учётные данные (`eas credentials`), иначе Expo просто не
-    сможет достучаться до Google. Без этого условия токен на телефоне вообще не
-    появится (getExpoPushTokenAsync упадёт на мобильной стороне) — так что если
-    tokens пуст, до этой функции дело просто не доходит.
+    Google, держит Expo. Единственное разовое условие — у проекта в Expo должны
+    быть загружены учётные данные Firebase (`eas credentials`), иначе Expo не
+    достучится до Google.
 
-    Один запрос на всех: Expo принимает пакет уведомлений за раз (до 100),
-    так не гоняем по HTTP-запросу на каждого подписчика группы.
+    Ответ Expo читаем по каждому токену. Раньше смотрели только на HTTP-код,
+    а Expo отвечает 200 даже когда КАЖДОЕ уведомление отклонено (например,
+    InvalidCredentials — не загружен ключ Firebase). Ошибка терялась молча.
+    Токены с DeviceNotRegistered (приложение удалено) стираем из базы.
+
+    Возвращает {"sent": N, "errors": ["InvalidCredentials", ...]}.
     """
-    messages = [{"to": t, "title": title, "body": body, "sound": "default"} for t in tokens]
-    try:
-        r = httpx.post(
-            "https://exp.host/--/api/v2/push/send",
-            json=messages,
-            headers={"Content-Type": "application/json", "Accept": "application/json"},
-            timeout=10,
-        )
-        r.raise_for_status()
-    except Exception as e:
-        logger.warning(f"Expo push не отправился: {e}")
+    from app.models import UserRegistration
+
+    result: dict = {"sent": 0, "errors": []}
+    # Expo принимает до 100 уведомлений за один запрос
+    for i in range(0, len(tokens), 100):
+        chunk = tokens[i:i + 100]
+        messages = [{"to": t, "title": title, "body": body, "sound": "default",
+                     **({"data": data} if data else {})} for t in chunk]
+        try:
+            r = httpx.post(
+                "https://exp.host/--/api/v2/push/send",
+                json=messages,
+                headers={"Content-Type": "application/json", "Accept": "application/json"},
+                timeout=10,
+            )
+            r.raise_for_status()
+            tickets = r.json().get("data", [])
+        except Exception as e:
+            logger.warning(f"Expo push не отправился: {e}")
+            result["errors"].append(f"запрос не прошёл: {e}")
+            continue
+
+        dead = []
+        for token, ticket in zip(chunk, tickets):
+            if ticket.get("status") == "ok":
+                result["sent"] += 1
+                continue
+            err = (ticket.get("details") or {}).get("error") or ticket.get("message", "?")
+            result["errors"].append(err)
+            if err == "DeviceNotRegistered":
+                dead.append(token)
+        if dead:
+            for reg in db.query(UserRegistration).filter(UserRegistration.expo_push_token.in_(dead)).all():
+                reg.expo_push_token = None
+            db.commit()
+
+    if result["errors"]:
+        logger.warning(f"Expo push: ушло {result['sent']} из {len(tokens)}, ошибки: {sorted(set(result['errors']))}")
+    return result
 
 
 # ─── Уведомления о зачётах / экзаменах ───────────────────────────────────────
@@ -212,7 +284,7 @@ def notify_exam_week_ahead(db, week_schedule) -> None:
                             for kw in ("зачет", "зачёт"))
             kind = "Зачёт" if is_zachet else "Экзамен"
             title = f"📚 {kind} на следующей неделе"
-            body = f"{exam.subject} — {_day_label(exam)}. Успей подготовиться!"
+            body = f"{exam.subject} — {_day_label(exam)}. Успейте подготовиться!"
 
             try:
                 send_push(sub.push_endpoint, sub.push_keys,
@@ -259,12 +331,12 @@ def send_exam_daily_reminders(db) -> None:
                 notif_type = "day_before"
                 title = "⏰ Завтра зачёт!"
                 time_str = PAIR_START.get(lesson.pair_number, "")
-                body = f"{lesson.subject}{f' в {time_str}' if time_str else ''}. Готовься, ты сможешь! 💪"
+                body = f"{lesson.subject}{f' в {time_str}' if time_str else ''}. Готовьтесь, вы сможете! 💪"
             elif ed == today:
                 notif_type = "day_of"
                 title = "🍀 Сегодня зачёт!"
                 time_str = PAIR_START.get(lesson.pair_number, "")
-                body = f"{lesson.subject}{f' в {time_str}' if time_str else ''}. Удачи тебе!"
+                body = f"{lesson.subject}{f' в {time_str}' if time_str else ''}. Удачи вам!"
             else:
                 continue
 

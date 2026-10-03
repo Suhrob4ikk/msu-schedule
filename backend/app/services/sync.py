@@ -3,9 +3,11 @@
 Хранит историю за 2 недели — старые версии не удаляются сразу, становятся архивом.
 """
 
+import asyncio
 import logging
 from datetime import datetime, date, timedelta
 from typing import Optional
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
@@ -167,11 +169,13 @@ def cleanup_old_schedules(db: Session, faculty_code: str):
     db.flush()
 
 
-def save_schedule_to_db(db: Session, parsed: dict, file_last_modified: Optional[str]) -> tuple[int, int, dict]:
+def save_schedule_to_db(db: Session, parsed: dict,
+                        file_last_modified: Optional[str]) -> tuple[int, int, dict, bool]:
     """
     Сохраняет расписание в БД как новую версию.
     Старая версия той же недели архивируется (is_latest=False), не удаляется.
-    Возвращает (количество_уроков, количество_изменений, изменения_по_группам).
+    Возвращает (количество_уроков, количество_изменений,
+    {id_группы: число_изменений}, вышла_ли_новая_неделя).
     """
     faculty_code = parsed["faculty_code"]
     week_start = parsed["week_start"]
@@ -194,6 +198,22 @@ def save_schedule_to_db(db: Session, parsed: dict, file_last_modified: Optional[
         .first()
     )
 
+    # Объявлять новую неделю (запись в ленте + push) — только если в базе уже
+    # лежала более ранняя неделя этого факультета, а эта позже всех. База на
+    # Render эфемерная: после деплоя она пустая, и первая синхронизация
+    # «находит» неделю, которая вышла давно. Без этой проверки после каждого
+    # деплоя всем прилетало бы «вышло расписание», а в ленте висела бы ложная
+    # запись со временем деплоя. По той же причине не объявляем возврат файла
+    # к старой неделе.
+    latest_known = (
+        db.query(func.max(WeekSchedule.week_start))
+        .filter(WeekSchedule.faculty_code == faculty_code)
+        .scalar()
+    )
+    announce_new_week = (
+        is_new_week and latest_known is not None and week_start > latest_known
+    )
+
     # Всегда создаём новую запись (архив старой остаётся)
     week_schedule = WeekSchedule(
         week_number=week_number,
@@ -205,7 +225,7 @@ def save_schedule_to_db(db: Session, parsed: dict, file_last_modified: Optional[
     db.add(week_schedule)
     db.flush()
 
-    if is_new_week:
+    if announce_new_week:
         db.add(ScheduleChange(
             faculty_code=faculty_code,
             change_type="new_week",
@@ -218,7 +238,7 @@ def save_schedule_to_db(db: Session, parsed: dict, file_last_modified: Optional[
 
     total_lessons = 0
     total_changes = 0
-    changes_by_group: dict[str, int] = {}
+    changes_by_group: dict[int, int] = {}
 
     for group_data in parsed["groups"]:
         group = get_or_create_group(
@@ -239,7 +259,7 @@ def save_schedule_to_db(db: Session, parsed: dict, file_last_modified: Optional[
                 **change,
             ))
         if changes:
-            changes_by_group[group.name] = len(changes)
+            changes_by_group[group.id] = len(changes)
         total_changes += len(changes)
 
         for lesson_data in group_data["lessons"]:
@@ -274,7 +294,7 @@ def save_schedule_to_db(db: Session, parsed: dict, file_last_modified: Optional[
     except Exception:
         pass
 
-    return total_lessons, total_changes, changes_by_group
+    return total_lessons, total_changes, changes_by_group, announce_new_week
 
 
 def _apply_html_teachers(parsed: dict, html_map: dict) -> int:
@@ -302,13 +322,19 @@ def _apply_html_teachers(parsed: dict, html_map: dict) -> int:
 
 
 async def sync_faculty(faculty_code: str, force: bool = False,
-                       html_teacher_map: Optional[dict] = None) -> dict:
+                       html_teacher_map: Optional[dict] = None,
+                       require_head: bool = False) -> dict:
     """
     Полный цикл синхронизации для одного факультета:
     1. HEAD-запрос для проверки изменений
     2. Скачивание (если изменился)
     3. Парсинг
     4. Сохранение в БД
+
+    require_head=True — частая проверка (раз в 5–30 минут, см. scheduler.py).
+    Если msu.tj не ответил на HEAD, файл НЕ качаем: иначе любой сбой его
+    анти-бот защиты превратил бы проверку раз в 5 минут в скачивание и
+    пересохранение всего расписания раз в 5 минут. Дождёмся следующей проверки.
     """
     db = SessionLocal()
     sync_log = SyncLog(faculty_code=faculty_code, status="running")
@@ -318,6 +344,14 @@ async def sync_faculty(faculty_code: str, force: bool = False,
     try:
         # Проверяем Last-Modified без скачивания
         remote_lm = await get_remote_last_modified(faculty_code)
+
+        if not force and not remote_lm and require_head:
+            logger.info(f"[{faculty_code}] msu.tj не ответил на проверку — ждём следующей")
+            sync_log.status = "no_change"
+            sync_log.message = "msu.tj не ответил на проверку даты файла"
+            sync_log.finished_at = datetime.utcnow()
+            db.commit()
+            return {"status": "no_change", "faculty": faculty_code}
 
         if not force and remote_lm:
             last_sync = (
@@ -353,13 +387,27 @@ async def sync_faculty(faculty_code: str, force: bool = False,
             logger.warning(f"[{faculty_code}] HTML-скрапинг не удался: {e}")
 
         # Сохраняем в БД
-        total_lessons, total_changes, changes_by_group = save_schedule_to_db(db, parsed, last_modified)
+        total_lessons, total_changes, changes_by_group, new_week = save_schedule_to_db(
+            db, parsed, last_modified
+        )
 
-        # Отправляем push-уведомления подписчикам изменившихся групп
-        if total_changes > 0:
-            from app.services.push import notify_group_changes
-            for group_name, count in changes_by_group.items():
-                notify_group_changes(db, group_name, faculty_code, count)
+        # Push: вышла новая неделя — всему факультету, один раз на неделю
+        # (повторная синхронизация той же недели new_week уже не вернёт).
+        # Ошибка рассылки не должна ронять уже сохранённую синхронизацию.
+        from app.services.push import notify_group_changes, notify_new_week
+        if new_week:
+            try:
+                sent = notify_new_week(db, faculty_code, parsed["week_start"])
+                logger.info(f"[{faculty_code}] Новая неделя {parsed['week_start']}: уведомления {sent}")
+            except Exception as e:
+                logger.error(f"[{faculty_code}] Не удалось разослать «новую неделю»: {e}", exc_info=True)
+
+        # Push: правки внутри недели — каждой изменившейся группе отдельно
+        for group_id, count in changes_by_group.items():
+            try:
+                notify_group_changes(db, group_id, count)
+            except Exception as e:
+                logger.error(f"[{faculty_code}] Не удалось разослать изменения группе {group_id}: {e}")
 
         # Если расписание на следующую неделю — шлём напоминания о зачётах
         from app.services.push import notify_exam_week_ahead
@@ -398,18 +446,39 @@ async def sync_faculty(faculty_code: str, force: bool = False,
         db.close()
 
 
-async def sync_all(force: bool = False) -> list[dict]:
-    """Синхронизирует оба факультета параллельно."""
-    import asyncio
-    # Один раз собираем HTML-данные для обоих факультетов
-    try:
-        html_map = await scrape_html_teacher_map()
-    except Exception as e:
-        logger.warning(f"HTML-скрапинг в sync_all не удался: {e}")
-        html_map = {}
+# Синхронизации не должны идти одновременно: стартовая, плановая (теперь
+# частая) и ручная из /dev могли бы наложиться, и обе версии одной недели
+# сравнивались бы каждая со «своей» предыдущей — дубли изменений и пушей.
+_sync_lock = asyncio.Lock()
 
-    results = await asyncio.gather(
-        sync_faculty("ЕНФ", force=force, html_teacher_map=html_map),
-        sync_faculty("ГФ", force=force, html_teacher_map=html_map),
-    )
-    return list(results)
+
+def cleanup_sync_logs(db: Session) -> None:
+    """Журнал синхронизаций теперь пополняется раз в 5–30 минут — храним 14 дней."""
+    cutoff = datetime.utcnow() - timedelta(days=14)
+    db.query(SyncLog).filter(SyncLog.started_at < cutoff).delete()
+    db.commit()
+
+
+async def sync_all(force: bool = False, require_head: bool = False) -> list[dict]:
+    """Синхронизирует оба факультета параллельно."""
+    async with _sync_lock:
+        # Один раз собираем HTML-данные для обоих факультетов
+        try:
+            html_map = await scrape_html_teacher_map()
+        except Exception as e:
+            logger.warning(f"HTML-скрапинг в sync_all не удался: {e}")
+            html_map = {}
+
+        results = await asyncio.gather(
+            sync_faculty("ЕНФ", force=force, html_teacher_map=html_map, require_head=require_head),
+            sync_faculty("ГФ", force=force, html_teacher_map=html_map, require_head=require_head),
+        )
+
+        db = SessionLocal()
+        try:
+            cleanup_sync_logs(db)
+        except Exception as e:
+            logger.warning(f"Не удалось почистить журнал синхронизаций: {e}")
+        finally:
+            db.close()
+        return list(results)
