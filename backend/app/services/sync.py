@@ -4,6 +4,7 @@
 """
 
 import asyncio
+import json
 import logging
 from datetime import datetime, date, timedelta
 from typing import Optional
@@ -79,6 +80,74 @@ def get_or_create_room(db: Session, name: str) -> Room:
     return room
 
 
+_INITIALS = _re.compile(r"[А-ЯЁ]\.[А-ЯЁ]")
+
+
+def _teacher_set(name: Optional[str]) -> frozenset:
+    """Преподаватели пары как множество: «Иванов И.И., Петров П.П.» и тот же
+    список в другом порядке — не изменение."""
+    if not name:
+        return frozenset()
+    return frozenset(
+        p.strip().lower() for p in normalize_teacher_name(name).split(",") if p.strip()
+    )
+
+
+def _details(subject, room, teacher, lesson_type) -> dict:
+    return {
+        "subject": subject or None,
+        "room": (room or "").strip() or None,
+        "teacher": normalize_teacher_name(teacher) or None,
+        "lesson_type": lesson_type or None,
+    }
+
+
+def _lesson_details(l: Lesson) -> dict:
+    return _details(
+        l.subject,
+        l.room.name if l.room else None,
+        l.teacher.name if l.teacher else None,
+        l.lesson_type,
+    )
+
+
+def _diff_fields(old: dict, new: dict) -> list[str]:
+    """Какие поля пары реально поменялись (по ключам subject/room/teacher/lesson_type)."""
+    fields = []
+    if (old["subject"] or "").strip() != (new["subject"] or "").strip():
+        fields.append("subject")
+    if (old["room"] or "").lower() != (new["room"] or "").lower():
+        fields.append("room")
+    if (old["lesson_type"] or "").lower() != (new["lesson_type"] or "").lower():
+        fields.append("lesson_type")
+    # Преподавателя сравниваем, только когда обе стороны — настоящие ФИО с
+    # инициалами. Иначе «код кафедры → фамилия» после правки в панели /dev
+    # (замены ФИО) показалась бы студентам «заменой преподавателя».
+    ot, nt = old["teacher"] or "", new["teacher"] or ""
+    if _teacher_set(ot) != _teacher_set(nt) and (
+        (not ot or _INITIALS.search(ot)) and (not nt or _INITIALS.search(nt))
+    ):
+        fields.append("teacher")
+    return fields
+
+
+def _short_values(old: dict, new: dict, fields: list[str]) -> tuple[str, str]:
+    """Краткая подпись «было / стало» для старых клиентов. Сменился предмет —
+    названия предметов (как и раньше); иначе — только то, что поменялось."""
+    if "subject" in fields:
+        return old["subject"] or "", new["subject"] or ""
+
+    def piece(d: dict, f: str) -> str:
+        v = d[f]
+        if f == "room":
+            return f"ауд. {v}" if v else "без аудитории"
+        return v or "—"
+
+    order = [f for f in ("room", "teacher", "lesson_type") if f in fields]
+    return (" · ".join(piece(old, f) for f in order),
+            " · ".join(piece(new, f) for f in order))
+
+
 def detect_changes(db: Session, week_schedule: WeekSchedule, new_lessons: list[dict],
                    group: Group) -> list[dict]:
     """Сравнивает новое расписание с предыдущей ВЕРСИЕЙ ТОЙ ЖЕ НЕДЕЛИ
@@ -89,7 +158,11 @@ def detect_changes(db: Session, week_schedule: WeekSchedule, new_lessons: list[d
     засчитывался как десятки «added»/«removed» по каждой группе, хотя это
     просто новые данные, а не изменения. Появление новой недели фиксируется
     отдельно — одной записью ScheduleChange(change_type="new_week") на
-    факультет, см. save_schedule_to_db."""
+    факультет, см. save_schedule_to_db.
+
+    Замечаем смену предмета, аудитории, преподавателя и типа занятия. В каждую
+    запись кладём old_details/new_details — полное описание пары до и после
+    (JSON-строкой): по ним приложение рисует «ауд. 105 → ауд. 402»."""
     changes = []
 
     # Предыдущая версия ИМЕННО этой недели (не любой предыдущей)
@@ -113,22 +186,29 @@ def detect_changes(db: Session, week_schedule: WeekSchedule, new_lessons: list[d
         ).all()
     }
 
-    new_lesson_keys = {(l["day_of_week"], l["pair_number"]) for l in new_lessons}
+    new_by_key = {(l["day_of_week"], l["pair_number"]): l for l in new_lessons}
+
+    def dump(d: Optional[dict]) -> Optional[str]:
+        return json.dumps(d, ensure_ascii=False) if d else None
 
     # Удалённые пары
     for key, old in prev_lessons.items():
-        if key not in new_lesson_keys:
+        if key not in new_by_key:
+            od = _lesson_details(old)
             changes.append({
                 "change_type": "removed",
                 "day_of_week": key[0],
                 "pair_number": key[1],
                 "old_value": old.subject,
                 "new_value": None,
+                "old_details": dump(od),
+                "new_details": None,
             })
 
     # Добавленные и изменённые пары
-    for lesson in new_lessons:
-        key = (lesson["day_of_week"], lesson["pair_number"])
+    for key, lesson in new_by_key.items():
+        nd = _details(lesson["subject"], lesson.get("room"),
+                      lesson.get("teacher"), lesson.get("lesson_type"))
         if key not in prev_lessons:
             changes.append({
                 "change_type": "added",
@@ -136,16 +216,22 @@ def detect_changes(db: Session, week_schedule: WeekSchedule, new_lessons: list[d
                 "pair_number": lesson["pair_number"],
                 "old_value": None,
                 "new_value": lesson["subject"],
+                "old_details": None,
+                "new_details": dump(nd),
             })
         else:
-            old = prev_lessons[key]
-            if old.subject != lesson["subject"]:
+            od = _lesson_details(prev_lessons[key])
+            fields = _diff_fields(od, nd)
+            if fields:
+                old_value, new_value = _short_values(od, nd, fields)
                 changes.append({
                     "change_type": "changed",
                     "day_of_week": lesson["day_of_week"],
                     "pair_number": lesson["pair_number"],
-                    "old_value": old.subject,
-                    "new_value": lesson["subject"],
+                    "old_value": old_value,
+                    "new_value": new_value,
+                    "old_details": dump(od),
+                    "new_details": dump(nd),
                 })
 
     return changes

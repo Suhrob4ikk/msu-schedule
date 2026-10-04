@@ -190,6 +190,14 @@ async def lifespan(app: FastAPI):
         else:
             MIGRATION_STATUS += "; group_id: уже есть"
 
+        # old_details / new_details — «Было / Стало» по аудитории, преподавателю
+        # и типу пары (JSON-строка). У старых записей остаются NULL.
+        for col in ("old_details", "new_details"):
+            if col not in cols:
+                with engine.begin() as conn:
+                    conn.execute(text(f"ALTER TABLE schedule_changes ADD COLUMN {col} TEXT"))
+                MIGRATION_STATUS += f"; {col}: добавлена"
+
         # expo_push_token — мгновенные push-уведомления об изменениях в приложении
         # (см. notify_group_changes в services/push.py). Своя таблица, своя проверка:
         # не хотим, чтобы ошибка в ней прервала уже готовую миграцию schedule_changes.

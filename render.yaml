@@ -8,6 +8,9 @@
 # ADMIN_SECRET, DEV_PANEL_PASSWORD, RESEND_API_KEY, VAPID_PRIVATE_KEY,
 # VAPID_PUBLIC_KEY, GITHUB_API_TOKEN, NOTIFY_EMAIL, DATABASE_URL, DATA_DIR.
 #
+# Чтобы данные переживали деплой, задайте DATABASE_URL адресом Postgres (Neon) —
+# бэкенд работает и с SQLite, и с Postgres, драйвер psycopg в requirements.
+#
 # Диска (disk) на бесплатном тарифе нет — база SQLite лежит в эфемерной
 # файловой системе и пересоздаётся при каждом деплое. Само расписание от
 # этого не страдает: оно восстанавливается первой же синхронизацией с msu.tj

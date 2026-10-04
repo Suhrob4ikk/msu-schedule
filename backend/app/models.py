@@ -183,6 +183,11 @@ class ScheduleChange(Base):
     # Конкретная группа (не только направление) — для фильтра «только моя группа».
     # У старых записей (до этого поля) и у new_week (относится ко всему факультету) — NULL.
     group_id = Column(Integer, ForeignKey("groups.id"), nullable=True)
+    # Полное описание пары до и после — JSON-строкой {subject, room, teacher,
+    # lesson_type}. old_value/new_value остаются краткой подписью для старых
+    # клиентов; новые рисуют «Было / Стало» по этим полям. NULL у старых записей.
+    old_details = Column(Text, nullable=True)
+    new_details = Column(Text, nullable=True)
 
 
 class UserSubscription(Base):

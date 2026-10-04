@@ -1,5 +1,6 @@
 """Основные эндпоинты расписания."""
 
+import json
 from datetime import date, datetime, time, timedelta
 from typing import Optional, List
 from zoneinfo import ZoneInfo
@@ -839,7 +840,21 @@ def get_changes(
             "pair_number": c.pair_number,
             "old_value": c.old_value,
             "new_value": c.new_value,
+            # Полное описание пары до/после: {subject, room, teacher, lesson_type}.
+            # null у старых записей и у «новой недели».
+            "old_details": _load_details(c.old_details),
+            "new_details": _load_details(c.new_details),
             "week_start": str(c.week_start) if c.week_start else None,
         }
         for c in changes
     ]
+
+
+def _load_details(raw: Optional[str]) -> Optional[dict]:
+    if not raw:
+        return None
+    try:
+        data = json.loads(raw)
+    except ValueError:
+        return None
+    return data if isinstance(data, dict) else None

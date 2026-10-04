@@ -41,3 +41,12 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+# Neon, Render и другие хостинги отдают адрес как «postgres://…» или
+# «postgresql://…» — SQLAlchemy по такому адресу ищет старый драйвер psycopg2,
+# а в проекте стоит psycopg 3. Дописываем имя драйвера сами, чтобы адрес из
+# панели хостинга можно было вставить как есть.
+for _prefix in ("postgres://", "postgresql://"):
+    if settings.DATABASE_URL.startswith(_prefix):
+        settings.DATABASE_URL = "postgresql+psycopg://" + settings.DATABASE_URL[len(_prefix):]
+        break
