@@ -467,13 +467,14 @@ export function currentSlot(now = new Date()): { day: string; pair: string } | n
   return null;                              // занятия на сегодня кончились
 }
 
-/** Как назвать перерыв между парами: 15 минут, обед или «окно» на пол-дня. */
+/** Как назвать промежуток между парами: до 20 минут — перемена, дольше — перерыв.
+ *  Слово «окно» не используем: студентам оно непонятно. */
 export function breakLabel(minutes: number): string {
   if (minutes <= 20) return `Перемена · ${minutes} мин`;
-  if (minutes <= 90) return `Большой перерыв · ${minutes} мин`;
+  if (minutes < 60) return `Перерыв · ${minutes} мин`;
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
-  return `Окно · ${h} ч${m ? ` ${m} мин` : ""}`;
+  return `Перерыв · ${h} ч${m ? ` ${m} мин` : ""}`;
 }
 
 export interface Stats {

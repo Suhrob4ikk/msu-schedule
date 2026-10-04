@@ -150,10 +150,10 @@ export default function DaySchedule({
           return (
             <div key={lesson.id}>
               {gap && (
-                <div className="pb-1" aria-label="Окно в расписании">
+                <div className="pb-1" aria-label="Перерыв в расписании">
                   <span className="tl-gap-line" aria-hidden="true" />
                   <span className="text-[11px] lg:text-xs" style={{ color: "var(--muted)" }}>
-                    окно {humanDuration(gap.minutes)} · свободн{gap.pairs.length > 1 ? "ы" : "а"}{" "}
+                    перерыв {humanDuration(gap.minutes)} · свободн{gap.pairs.length > 1 ? "ы" : "а"}{" "}
                     {gap.pairs.join(", ")} пар{gap.pairs.length > 1 ? "ы" : "а"}
                   </span>
                 </div>
