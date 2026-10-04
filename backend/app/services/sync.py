@@ -17,7 +17,7 @@ from app.models import (
 )
 from app.services.parser import (
     download_xls, parse_xls_file, get_remote_last_modified,
-    scrape_html_teacher_map, override_teacher_name, FACULTY_FILES
+    scrape_html_teacher_map, override_teacher_name, normalize_teacher_name, FACULTY_FILES
 )
 import re as _re
 
@@ -61,6 +61,7 @@ def get_or_create_group(db: Session, faculty: Faculty, name: str, year: int,
 
 
 def get_or_create_teacher(db: Session, name: str) -> Teacher:
+    name = normalize_teacher_name(name)
     teacher = db.query(Teacher).filter_by(name=name).first()
     if not teacher:
         teacher = Teacher(name=name)

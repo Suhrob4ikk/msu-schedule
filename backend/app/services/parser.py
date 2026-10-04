@@ -58,6 +58,25 @@ BLOCKS = [
 PAIR_NUMBERS = ["I", "II", "III", "IV", "V"]
 
 
+def normalize_teacher_name(name: Optional[str]) -> Optional[str]:
+    """Приводит ФИО к единому виду: «Махмадрасулзода Б.С» и «Махмадрасулзода Б.С.»
+    — один человек, а как две разные записи они раскалывали его расписание.
+
+    Трогаем только настоящие ФИО (с инициалами). Коды кафедр («ИТУ», «английский»)
+    остаются как есть: по ним работает карта замен (TEACHER_NAME_OVERRIDES).
+    Составную запись («Балхова С.Я., Собко В.И.») нормализуем по частям."""
+    if not name:
+        return name
+    parts = []
+    for part in name.split(","):
+        part = re.sub(r"\s+", " ", part).strip()
+        if re.search(r"[А-ЯЁ]\.", part):
+            part = re.sub(r"([А-ЯЁ]\.)\s+(?=[А-ЯЁ])", r"\g<1>", part)   # «И. О.» → «И.О.»
+            part = re.sub(r"(?<=\s)([А-ЯЁ]\.[А-ЯЁ])$", r"\g<1>.", part)  # «И.О» → «И.О.»
+        parts.append(part)
+    return ", ".join(p for p in parts if p)
+
+
 def parse_subject_cell(cell_value: str) -> dict:
     """
     Разбирает строку вида:
