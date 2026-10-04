@@ -32,8 +32,16 @@ _FREE_ROOMS_CACHE: dict = {}
 _FREE_ROOMS_TTL = 900.0  # 15 минут — страховка, если кэш не сбросили вручную
 
 
+# Готовый ответ /bulk-sync. Считать его заново на каждый запрос — 5–13 секунд
+# на бесплатном Render (а мобилка ждёт первый ответ 15 секунд), хотя результат
+# одинаков для всех и меняется только при обновлении расписания.
+_BULK_SYNC_CACHE: dict = {}
+_BULK_SYNC_TTL = 600.0  # 10 минут — страховка, основной сброс из sync
+
+
 def clear_free_rooms_cache() -> None:
     _FREE_ROOMS_CACHE.clear()
+    _BULK_SYNC_CACHE.clear()
 
 
 def enrich_lesson(lesson: Lesson) -> dict:
@@ -690,6 +698,10 @@ def bulk_sync(db: Session = Depends(get_db)):
     1-2 минуты. Здесь та же выборка, но обычными вызовами внутри процесса:
     без сетевых round-trip'ов это доли секунды даже на 300+ запросах к SQLite.
     """
+    hit = _BULK_SYNC_CACHE.get("all")
+    if hit and (_time_mod.time() - hit[1]) < _BULK_SYNC_TTL:
+        return hit[0]
+
     groups = get_groups(db=db)
     weeks_all = get_all_weeks(db)
 
@@ -735,7 +747,7 @@ def bulk_sync(db: Session = Depends(get_db)):
                     day, pair, week_start=w["week_start"], db=db
                 )
 
-    return {
+    result = {
         "groups": groups,
         "weeks_all": weeks_all,
         "group_weeks": group_weeks,
@@ -745,6 +757,8 @@ def bulk_sync(db: Session = Depends(get_db)):
         "free_rooms": free_rooms,
         "generated_at": datetime.utcnow().isoformat() + "Z",
     }
+    _BULK_SYNC_CACHE["all"] = (result, _time_mod.time())
+    return result
 
 
 @router.get("/stats/{group_id}", response_model=StatsSchema)
