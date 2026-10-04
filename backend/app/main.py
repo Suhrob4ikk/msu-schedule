@@ -297,7 +297,8 @@ def root():
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "migration": MIGRATION_STATUS}
+    # db — какая база подключена (sqlite = эфемерная, postgresql = внешняя, не стирается)
+    return {"status": "ok", "db": engine.dialect.name, "migration": MIGRATION_STATUS}
 
 
 # Тот же ответ, но под префиксом /api.
