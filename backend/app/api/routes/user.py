@@ -36,6 +36,12 @@ def register_user(
     пришло бы по письму «новый пользователь» на каждого студента."""
     from app.services.email import send_registration_email
 
+    # Postgres, в отличие от SQLite, не обрезает строку длиннее колонки, а
+    # падает с ошибкой 500. Имя обрезаем, а слишком длинный id отклоняем.
+    if len(device_id) > 100:
+        raise HTTPException(400, "Слишком длинный device_id")
+    name = name.strip()[:200]
+
     group = db.get(Group, group_id)
     if not group:
         raise HTTPException(404, "Группа не найдена")
@@ -79,6 +85,8 @@ def set_push_token(device_id: str, token: str, app_version: Optional[str] = None
     при онбординге, а позже, из кабинета. Поэтому отдельный эндпоинт, а не
     ещё один параметр в /register.
     """
+    if len(token) > 200:
+        raise HTTPException(400, "Слишком длинный токен")
     reg = db.query(UserRegistration).filter_by(device_id=device_id).first()
     if not reg:
         # Регистрации ещё нет (не должно случаться при обычном порядке экранов,
