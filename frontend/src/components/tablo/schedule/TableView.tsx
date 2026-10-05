@@ -67,7 +67,29 @@ export default function TableView({ days, now, focus, dimPast, selectedKey, onOp
     shown.forEach((d, ci) => d.blocks.forEach(b => {
       cells.push({ block: b, col: ci, rowStart: rowOf[b.pairs[0]], rowEnd: rowOf[b.pairs[b.pairs.length - 1]] + 1 });
     }));
-    return { pairs, rowOf, breaks, template, cells, lastRow: row };
+    // Линии сетки: по ячейке-«слоту» на каждую пару × день. Клетка с парой на два слота
+    // (сдвоенная) — один объединённый слот; день без пар — один высокий слот.
+    const slots: Array<{ col: number; rowStart: number; rowEnd: number; empty: boolean }> = [];
+    shown.forEach((d, ci) => {
+      if (!d.blocks.length) { slots.push({ col: ci, rowStart: 2, rowEnd: row, empty: true }); return; }
+      const rows = pairs.map(p => rowOf[p]);
+      let skipUntil = 0;
+      for (const r of rows) {
+        if (r < skipUntil) continue;
+        const own = cells.filter(c => c.col === ci && c.rowStart === r);
+        const end = own.length ? Math.max(...own.map(c => c.rowEnd)) : r + 1;
+        slots.push({ col: ci, rowStart: r, rowEnd: end, empty: false });
+        skipUntil = end;
+      }
+    });
+    // Две разные пары в одно время (у педагога: физкультура для 1 и 2 курса) —
+    // одна ячейка со стопкой, а не наложение друг на друга.
+    const stacks = new Map<string, Cell[]>();
+    for (const c of cells) {
+      const k = `${c.col}|${c.rowStart}|${c.rowEnd}`;
+      stacks.set(k, [...(stacks.get(k) ?? []), c]);
+    }
+    return { pairs, rowOf, breaks, template, cells, slots, stacks: [...stacks.values()], lastRow: row };
   }, [shown]);
 
   const todayCol = shown.findIndex(d => d.date === todayIso);
@@ -111,6 +133,16 @@ export default function TableView({ days, now, focus, dimPast, selectedKey, onOp
         <div className="t-table-today" style={{ gridColumn: todayCol + 2, gridRow: `1 / ${layout.lastRow}` }} aria-hidden="true" />
       )}
 
+      {/* Угол таблицы и линии сетки */}
+      <div className="t-corner" style={{ gridColumn: 1, gridRow: 1 }} aria-hidden="true" />
+      {layout.slots.map(s => s.empty ? (
+        <div key={`s${s.col}`} className="t-slot t-tempty" style={{ gridColumn: s.col + 2, gridRow: `${s.rowStart} / ${s.rowEnd}` }}>
+          <span>пар нет</span>
+        </div>
+      ) : (
+        <div key={`s${s.col}_${s.rowStart}`} className="t-slot" style={{ gridColumn: s.col + 2, gridRow: `${s.rowStart} / ${s.rowEnd}` }} aria-hidden="true" />
+      ))}
+
       {/* Заголовки дней */}
       {shown.map((d, i) => {
         const wide = i === wideIdx;
@@ -153,13 +185,19 @@ export default function TableView({ days, now, focus, dimPast, selectedKey, onOp
         </div>
       ))}
 
-      {/* Пустые дни */}
-      {shown.map((d, i) => !d.blocks.length && (
-        <div key={`e${d.date}`} className="t-tempty" style={{ gridColumn: i + 2, gridRow: `2 / ${layout.lastRow}` }}>пар нет</div>
-      ))}
-
       {/* Пары */}
-      {layout.cells.map(c => {
+      {layout.stacks.map(group => {
+        const f = group[0];
+        const place = { gridColumn: f.col + 2, gridRow: `${f.rowStart} / ${f.rowEnd}` };
+        const nodes = group.map(c => renderCell(c, group.length > 1));
+        return group.length > 1
+          ? <div key={`k${f.col}_${f.rowStart}`} className="t-stack" style={place}>{nodes}</div>
+          : <div key={f.block.key} className="t-cellwrap" style={place}>{nodes}</div>;
+      })}
+    </div>
+  );
+
+  function renderCell(c: Cell, stacked: boolean) {
         const b = c.block;
         const l = b.lessons[0];
         const wide = c.col === wideIdx;
@@ -178,7 +216,7 @@ export default function TableView({ days, now, focus, dimPast, selectedKey, onOp
             data-cell={b.key}
             data-block={b.key}
             className={cls}
-            style={{ gridColumn: c.col + 2, gridRow: `${c.rowStart} / ${c.rowEnd}` }}
+            data-stacked={stacked || undefined}
             onClick={e => onOpen(b, e.currentTarget)}
             onKeyDown={e => onKey(e, c)}
             aria-label={blockA11y(b, status)}
@@ -235,7 +273,5 @@ export default function TableView({ days, now, focus, dimPast, selectedKey, onOp
             )}
           </button>
         );
-      })}
-    </div>
-  );
+  }
 }
