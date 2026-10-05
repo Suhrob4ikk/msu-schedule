@@ -362,11 +362,6 @@ export default function SchedulePage() {
     scrollUnderHeader(document.getElementById(wideScreen ? `wday-${d.date}` : `day-${d.date}`), true);
   }, [days, pagesOn, wideScreen]);
 
-  const onTableDay = useCallback((dayIndex: number) => {
-    changeWideView("feed");
-    requestAnimationFrame(() => requestAnimationFrame(() => scrollToDay(dayIndex)));
-  }, [scrollToDay]);
-
   // ─── Поделиться ──────────────────────────────────────────────────────────
   const shareImage = useCallback(async (which: "week" | "day") => {
     if (!group || !weekStart) return;
@@ -407,8 +402,6 @@ export default function SchedulePage() {
     { icon: "image", title: "Картинка недели", sub: "PNG, как эта неделя", onClick: () => void shareImage("week") },
     { icon: "image", title: "Картинка дня", sub: dayForImage, onClick: () => void shareImage("day") },
     { icon: "link", title: "Скопировать ссылку", sub: "Откроет эту группу и неделю", onClick: () => void copyLink() },
-    { icon: "calendarPlus", title: "Добавить в Google Календарь", href: api.getIcsUrl(group.id), download: true },
-    ...(wideScreen ? [{ icon: "print" as const, title: "Распечатать", onClick: () => window.setTimeout(() => window.print(), 50) }] : []),
   ] : [];
 
   // ─── Рендер ──────────────────────────────────────────────────────────────
@@ -429,7 +422,7 @@ export default function SchedulePage() {
       onViewMode={wideScreen ? undefined : m => { changePhoneMode(m); setGroupOpen(false); }}
       footer={layout === "phone" && group ? (
         <div className="mt-3 pt-2 border-t border-[var(--line)]">
-          <ShareList items={shareItems.filter(a => a.icon !== "print")} onDone={closeGroup} />
+          <ShareList items={shareItems} onDone={closeGroup} />
         </div>
       ) : undefined}
     />
@@ -533,7 +526,7 @@ export default function SchedulePage() {
     if (wideScreen) {
       return effectiveWide === "table" ? (
         <TableView days={days} now={now} focus={focus} dimPast={dimPast} selectedKey={sel?.key ?? null}
-          onOpen={openBlock} onDayClick={onTableDay} />
+          onOpen={openBlock} />
       ) : (
         <WideFeed days={days} now={now} focus={focus} dimPast={dimPast} selectedKey={sel?.key ?? null}
           onOpen={openBlock} twoColumns={layout === "xwide"} />

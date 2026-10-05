@@ -1,8 +1,7 @@
 "use client";
 /**
  * Подробности пары (макеты 2 и 3): тип и предмет, «Среда, 7 октября · III пара
- * / 11:30–13:00», «Преподаватель ›», «Аудитория ›», «Добавить пару в Google
- * Календарь». У идущей — «Идёт · II пара», отсчёт с полосой и «Дальше».
+ * / 11:30–13:00», «Преподаватель ›», «Аудитория ›». У идущей — «Идёт · II пара», отсчёт с полосой и «Дальше».
  *
  * Пропуски и заметки — как раньше на сайте, только у своей группы и только если
  * человек включил их в Кабинете. Формат хранения — lib/studyData.ts.
@@ -16,23 +15,6 @@ import {
 } from "@/lib/tablo/schedule";
 import Icon from "../Icon";
 import { Countdown, leftText, TypeBadge, kindTone } from "./parts";
-
-const gcalStamp = (date: string, hhmm: string) => `${date.replace(/-/g, "")}T${hhmm.replace(":", "")}00`;
-
-/** Ссылка «добавить событие» Google Календаря — время по Душанбе. */
-function gcalUrl(b: Block): string {
-  const l = b.lessons[0];
-  const q = new URLSearchParams({
-    action: "TEMPLATE",
-    text: l.subject,
-    dates: `${gcalStamp(b.date, b.start)}/${gcalStamp(b.date, b.end)}`,
-    ctz: "Asia/Dushanbe",
-  });
-  if (l.room) q.set("location", `Ауд. ${l.room.name}`);
-  const details = [kindTone(l.lesson_type)?.label, l.teacher?.name].filter(Boolean).join(" · ");
-  if (details) q.set("details", details);
-  return `https://calendar.google.com/calendar/render?${q.toString()}`;
-}
 
 function StudyTools({ block, groupId, attendance, notes, now }: {
   block: Block;
@@ -208,11 +190,6 @@ export default function LessonDetails({ block, focus, days, now, onClose, study,
       </div>
 
       {study && <StudyTools block={block} groupId={study.groupId} attendance={study.attendance} notes={study.notes} now={now} />}
-
-      <a href={gcalUrl(block)} target="_blank" rel="noopener noreferrer" className="t-drow t-drow-link t-drow-sep t-ink">
-        <Icon name="calendarPlus" size={22} />
-        <span className="t-drow-val">Добавить пару в Google Календарь</span>
-      </a>
 
       {hint && <p className="t-details-hint">{hint}</p>}
     </div>

@@ -5,7 +5,8 @@
  * столбец в 2,1 раза шире и подсвечен; в нём время со статусом («прошла»,
  * «через 1 ч 10 мин»), идущая пара залита. Между парами с перерывом больше
  * 20 минут — полоса «перерыв 1 ч · 13:00–14:00». Стрелки двигают фокус по
- * ячейкам, Enter открывает подробности.
+ * ячейкам, Enter открывает подробности. Заголовки дней — просто подписи
+ * (по ТЗ клик переключал в «Ленту», владелец решил убрать, окт 2026).
  */
 import { useMemo } from "react";
 import { PAIR_NUMBERS, PAIR_TIMES, humanDuration, BREAK_MAX_MIN } from "@/lib/api";
@@ -21,14 +22,13 @@ const pad2 = (n: number) => String(n).padStart(2, "0");
 
 interface Cell { block: Block; col: number; rowStart: number; rowEnd: number }
 
-export default function TableView({ days, now, focus, dimPast, selectedKey, onOpen, onDayClick }: {
+export default function TableView({ days, now, focus, dimPast, selectedKey, onOpen }: {
   days: DayData[];
   now: Date | null;
   focus: Focus | null;
   dimPast: boolean;
   selectedKey: string | null;
   onOpen: (b: Block, el: HTMLElement) => void;
-  onDayClick: (dayIndex: number) => void;
 }) {
   const shown = useMemo(() => days.filter(d => d.dayIndex < 6 || d.blocks.length), [days]);
   const todayIso = now ? isoOf(now) : null;
@@ -113,9 +113,8 @@ export default function TableView({ days, now, focus, dimPast, selectedKey, onOp
         const date = new Date(d.date + "T00:00:00");
         const done = isToday && !!now && d.blocks.length > 0 && d.blocks[d.blocks.length - 1].endAt <= t;
         return (
-          <button key={d.date} type="button" className={`t-th ${wide ? "t-th-wide" : ""} ${isToday ? "t-today" : ""}`}
-            style={{ gridColumn: i + 2, gridRow: 1 }} onClick={() => onDayClick(d.dayIndex)}
-            aria-label={`${DAY_FULL[d.dayIndex]}, ${date.getDate()} ${MONTHS_GEN[date.getMonth()]}: показать лентой`}>
+          <div key={d.date} className={`t-th ${wide ? "t-th-wide" : ""} ${isToday ? "t-today" : ""}`}
+            style={{ gridColumn: i + 2, gridRow: 1 }} role="heading" aria-level={3}>
             <span className="t-th-name">
               {wide ? `${DAY_FULL[d.dayIndex]}, ${date.getDate()} ${MONTHS_GEN[date.getMonth()]}` : `${DAY_SHORT[d.dayIndex]} ${date.getDate()}`}
             </span>
@@ -124,7 +123,7 @@ export default function TableView({ days, now, focus, dimPast, selectedKey, onOp
                 ? `${pad2(now.getHours())}:${pad2(now.getMinutes())} · на сегодня всё`
                 : wide ? daySub(d, now, false) : (daySub(d, now, false).split(" · ")[0])}
             </span>
-          </button>
+          </div>
         );
       })}
 

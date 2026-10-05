@@ -596,7 +596,6 @@ html.page-transitioning .t-bottom { view-transition-name: app-bottom-nav; }
   border-radius: 14px;
   text-align: left;
 }
-.t-th:hover { background: color-mix(in oklab, var(--chip) 70%, transparent); }
 .t-th-wide { padding-left: 16px; }
 .t-th-name { max-width: 100%; font-size: 22px; font-weight: 800; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .t-th.t-today .t-th-name { color: var(--ink); }
