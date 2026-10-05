@@ -52,7 +52,7 @@ export default function InviteCard() {
       </p>
       <button
         onClick={share}
-        className="w-full py-2.5 rounded-lg text-sm font-medium text-white transition-opacity"
+        className="w-full py-2.5 rounded-lg text-sm font-medium text-[var(--on-fill)] transition-opacity"
         style={{ background: "var(--primary)" }}
       >
         {copied ? "Ссылка скопирована" : "Поделиться ссылкой"}

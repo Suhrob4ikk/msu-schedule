@@ -77,6 +77,9 @@ export default function RoomsPage() {
     const q = new URLSearchParams(window.location.search);
     const qDay = q.get("day");
     const qPair = q.get("pair");
+    // ?room=105 — сразу открыть подробности этой аудитории (из «Расписания»)
+    const qRoom = q.get("room");
+    if (qRoom) setOpenRoom(qRoom);
     if (qDay && DAYS.includes(qDay)) {
       setDay(qDay);
       if (qPair && PAIR_TIMES[qPair]) setPair(qPair);
@@ -180,7 +183,7 @@ export default function RoomsPage() {
                 }}
                 className={`w-full max-w-sm mb-4 min-h-[48px] rounded-full text-sm font-bold transition-all active:scale-95 ${
                   isNowSlot
-                    ? "bg-[var(--primary)] text-white"
+                    ? "bg-[var(--primary)] text-[var(--on-fill)]"
                     : "bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)]"
                 }`}
               >
@@ -203,13 +206,13 @@ export default function RoomsPage() {
                     onClick={() => { setDay(d); setIsNowSlot(false); }}
                     className={`shrink-0 flex flex-col items-center px-4 py-2 rounded-2xl border transition-colors ${
                       day === d
-                        ? "bg-[var(--primary)] text-white border-[var(--primary)]"
+                        ? "bg-[var(--primary)] text-[var(--on-fill)] border-[var(--primary)]"
                         : "bg-[var(--card)] text-[var(--foreground)] border-[var(--border)]"
                     }`}
                   >
                     <span className="text-sm font-bold">{DAY_SHORT[d]}</span>
                     {selectedWeekStart && (
-                      <span className={`text-xs leading-tight ${day === d ? "text-white/70" : "text-[var(--muted)]"}`}>
+                      <span className={`text-xs leading-tight ${day === d ? "text-[var(--on-fill)] opacity-80" : "text-[var(--muted)]"}`}>
                         {getDayDate(d, selectedWeekStart)}
                       </span>
                     )}
@@ -226,12 +229,12 @@ export default function RoomsPage() {
                     onClick={() => { setPair(num); setIsNowSlot(false); }}
                     className={`shrink-0 flex flex-col items-center px-4 py-2 rounded-2xl border transition-colors ${
                       pair === num
-                        ? "bg-[var(--primary)] text-white border-[var(--primary)]"
+                        ? "bg-[var(--primary)] text-[var(--on-fill)] border-[var(--primary)]"
                         : "bg-[var(--card)] text-[var(--foreground)] border-[var(--border)]"
                     }`}
                   >
                     <span className="text-sm font-bold">{num}</span>
-                    <span className={`text-xs ${pair === num ? "text-white/75" : "text-[var(--muted)]"}`}>{start}</span>
+                    <span className={`text-xs ${pair === num ? "text-[var(--on-fill)] opacity-80" : "text-[var(--muted)]"}`}>{start}</span>
                   </button>
                 ))}
                 {loading && (
@@ -376,7 +379,7 @@ export default function RoomsPage() {
                 <p>Нет связи с сервером</p>
                 <button
                   onClick={() => setRetryTick(t => t + 1)}
-                  className="mt-3 px-3 py-1.5 rounded-lg text-xs font-semibold text-white"
+                  className="mt-3 px-3 py-1.5 rounded-lg text-xs font-semibold text-[var(--on-fill)]"
                   style={{ background: "var(--primary)" }}
                 >
                   Повторить

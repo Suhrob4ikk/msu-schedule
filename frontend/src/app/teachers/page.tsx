@@ -156,7 +156,7 @@ export default function TeachersPage() {
                   <p className="text-[var(--muted)] text-sm lg:text-base">Нет связи с сервером</p>
                   <button
                     onClick={() => loadTeachers(selectedWeekStart)}
-                    className="mt-2 px-3 py-1.5 rounded-lg text-xs font-semibold text-white"
+                    className="mt-2 px-3 py-1.5 rounded-lg text-xs font-semibold text-[var(--on-fill)]"
                     style={{ background: "var(--primary)" }}
                   >
                     Повторить
@@ -171,7 +171,7 @@ export default function TeachersPage() {
                   key={t.name}
                   onClick={() => loadTeacher(t)}
                   className={`w-full flex items-center justify-between gap-2 text-left px-3 lg:px-4 min-h-[52px] text-sm lg:text-base font-medium border-b border-[var(--border)] last:border-0 transition-colors ${selected?.name === t.name
-                      ? "bg-[var(--primary)] text-white"
+                      ? "bg-[var(--primary)] text-[var(--on-fill)]"
                       : "hover:bg-[var(--tag-bg)] text-[var(--foreground)]"
                     }`}
                 >

@@ -194,18 +194,59 @@ async function fetchWithRetry<T>(path: string): Promise<T> {
   }
 }
 
+// ─── Статус связи для чипа «обновлено 10:20» / «нет сети · 10:20» ──────────
+// Время последнего удачного ответа сервера хранится в localStorage: после
+// перезагрузки без сети чип честно показывает, на какое время данные.
+
+export interface NetStatus { online: boolean; lastOkAt: number | null }
+
+const LAST_OK_KEY = 'msu_last_ok';
+let _net: NetStatus | null = null;
+const _netListeners = new Set<() => void>();
+
+export function getNetStatus(): NetStatus {
+  if (!_net) {
+    let last: number | null = null;
+    try { last = Number(localStorage.getItem(LAST_OK_KEY)) || null; } catch { /* приватный режим */ }
+    _net = { online: typeof navigator === 'undefined' || navigator.onLine !== false, lastOkAt: last };
+  }
+  return _net;
+}
+
+export function onNetStatus(fn: () => void): () => void {
+  _netListeners.add(fn);
+  return () => { _netListeners.delete(fn); };
+}
+
+function setNet(next: Partial<NetStatus>): void {
+  const cur = getNetStatus();
+  if (next.online === cur.online && (next.lastOkAt ?? cur.lastOkAt) === cur.lastOkAt) return;
+  _net = { ...cur, ...next };
+  if (next.lastOkAt) {
+    try { localStorage.setItem(LAST_OK_KEY, String(next.lastOkAt)); } catch { /* приватный режим */ }
+  }
+  for (const fn of _netListeners) {
+    try { fn(); } catch { /* слушатель не должен ломать загрузку */ }
+  }
+}
+
 function revalidate<T>(path: string, volatile: boolean): Promise<T> {
   const running = _inflight.get(path);
   if (running) return running as Promise<T>;
 
   const p = fetchWithRetry<T>(path)
     .then(data => {
+      setNet({ online: true, lastOkAt: Date.now() });
       const prev = _mem.get(path);
       putEntry(path, data, volatile);
       // Сообщаем страницам, только когда данные реально изменились —
       // иначе фоновое обновление дёргало бы перерисовку впустую.
       if (prev && JSON.stringify(prev.data) !== JSON.stringify(data)) emitUpdate(path);
       return data as T;
+    }, e => {
+      // Ответ с ошибкой (500) — сеть есть; не дошёл ответ — сети нет.
+      if (!(e instanceof Error && e.message.startsWith('API error'))) setNet({ online: false });
+      throw e;
     })
     .finally(() => { _inflight.delete(path); });
 
@@ -467,14 +508,14 @@ export function currentSlot(now = new Date()): { day: string; pair: string } | n
   return null;                              // занятия на сегодня кончились
 }
 
+/** До скольких минут промежуток между парами — «перемена», дольше — «перерыв».
+ *  Так же в мобильном src/api.ts. */
+export const BREAK_MAX_MIN = 20;
+
 /** Как назвать промежуток между парами: до 20 минут — перемена, дольше — перерыв.
  *  Слово «окно» не используем: студентам оно непонятно. */
 export function breakLabel(minutes: number): string {
-  if (minutes <= 20) return `Перемена · ${minutes} мин`;
-  if (minutes < 60) return `Перерыв · ${minutes} мин`;
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return `Перерыв · ${h} ч${m ? ` ${m} мин` : ""}`;
+  return `${minutes <= BREAK_MAX_MIN ? "Перемена" : "Перерыв"} · ${humanDuration(minutes)}`;
 }
 
 export interface Stats {
@@ -508,6 +549,16 @@ export interface Change {
   old_value: string | null;
   new_value: string | null;
   week_start: string | null;
+  /** {subject, room, teacher, lesson_type} до и после — у записей с окт 2026. */
+  old_details?: ChangeDetails | null;
+  new_details?: ChangeDetails | null;
+}
+
+export interface ChangeDetails {
+  subject?: string | null;
+  room?: string | null;
+  teacher?: string | null;
+  lesson_type?: string | null;
 }
 
 /**

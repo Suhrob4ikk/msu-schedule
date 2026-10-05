@@ -1,6 +1,6 @@
 // Версия кеша — меняй при каждом деплое если нужно принудительно сбросить
-const CACHE_STATIC = 'msu-static-v7';
-const CACHE_API    = 'msu-api-v7';
+const CACHE_STATIC = 'msu-static-v8';
+const CACHE_API    = 'msu-api-v8';
 
 // Страницы и ассеты для предварительного кеширования при установке
 const PRECACHE_URLS = [

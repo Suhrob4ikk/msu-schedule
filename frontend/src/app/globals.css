@@ -3,45 +3,92 @@
 @variant dark (&:where(.dark, .dark *));
 
 /* ─────────────────────────────────────────────────────────────────────────
-   Дизайн-система «Academic Teal» — единые токены для светлой и тёмной темы.
-   Те же значения продублированы в мобильном приложении (src/theme.ts).
+   Токены «Табло» — ТЗ сайта «Расписание по образцу APK», раздел 3.
+   Темы: светлая (:root), тёмная (.dark), чёрная (.dark.black). Акцент —
+   четыре токена (--fill, --ink, --ring, --on-fill); для других цветов их
+   ставит инлайн-скрипт layout.tsx / lib/appearance.ts прямо на <html>.
+   Ниже блоком — старые имена (--primary, --card…) поверх новых токенов:
+   страницы, которые ещё не переделаны, перекрашиваются вместе со всеми.
    ───────────────────────────────────────────────────────────────────────── */
 :root {
-  --background: #f3f5f8;   /* чистый прохладный фон */
-  --foreground: #14181c;   /* почти-чёрный slate, мягче чистого чёрного */
-  --card: #ffffff;
-  --card-2: #f7f9fb;       /* вложенный/второстепенный фон */
-  --border: #e6e9ee;       /* прохладная светлая граница */
-  --primary: #2563eb;      /* синий — акцент по умолчанию с редизайна (сен 2026) */
-  --primary-strong: #1d4ed8;
-  --primary-fg: #ffffff;
-  --primary-soft: #dbeafe; /* мягкая подложка под акцент */
-  --muted: #5b6677;        /* вторичный текст, AA на светлом фоне */
-  --tag-bg: #eef1f6;
-  --tag-text: #475569;
-  --tag-border: #e3e7ee;
-  --ring: rgba(37, 99, 235, 0.35);
+  --bg: #F3F4F8;
+  --surface: #FFFFFF;
+  --chip: #EDEEF3;
+  --line: #DEE3E9;
+  --text: #121318;
+  --text-2: #4E5160;
+  --text-3: #6B6F7C;
+  --past-bg: #EBEEF5;
+  --ok-dot: #3D7E44;
+  --danger: #B42318;
+  --danger-bg: #FDE8E6;
+  --lab-bg: #EBE8FD;  --lab-text: #5035B8;   /* практика */
+  --lec-bg: #E2EEFB;  --lec-text: #1F5A9E;   /* лекция */
+  --exam-bg: #FFE7D6; --exam-text: #A33F00;  /* экзамен, зачёт */
+  --flow-bg: #DDF3EA; --flow-text: #17694A;  /* поток */
+  --free-text: #116632; --free-bg: #DCF5E6;  /* свободная аудитория */
+
+  --fill: #3F63DE;
+  --ink: #2F52C4;
+  --ring: #2443A8;
+  --on-fill: #FFFFFF;
+  --soft: color-mix(in oklab, var(--fill) 14%, var(--surface));
+  --today-col: color-mix(in oklab, var(--fill) 9%, transparent);
+  --shadow: 0 12px 32px rgba(16, 18, 24, 0.12), 0 2px 6px rgba(16, 18, 24, 0.06);
+
+  /* старые имена */
+  --background: var(--bg);
+  --foreground: var(--text);
+  --card: var(--surface);
+  --card-2: var(--chip);
+  --border: var(--line);
+  --primary: var(--fill);
+  --primary-strong: var(--ink);
+  --primary-fg: var(--on-fill);
+  --primary-soft: var(--soft);
+  --muted: var(--text-2);
+  --tag-bg: var(--chip);
+  --tag-text: var(--text-2);
+  --tag-border: var(--line);
   --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06);
   --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.06), 0 2px 4px rgba(15, 23, 42, 0.04);
 }
 
 .dark {
-  --background: #0d0c13;   /* нейтральный тёплый почти-чёрный, из редизайна (сен 2026) */
-  --foreground: #f3f1f6;
-  --card: #18151f;         /* приподнятая поверхность */
-  --card-2: #221e2c;
-  --border: #2a2734;
-  --primary: #2563eb;      /* синий — акцент по умолчанию; белый текст проходит контраст (UI 3:1) */
-  --primary-strong: #60a5fa; /* ярче — для точек/колец/акцентов (не текст) */
-  --primary-fg: #ffffff;
-  --primary-soft: #17294a;
-  --muted: #8b8594;
-  --tag-bg: #221e2c;
-  --tag-text: #a39dae;
-  --tag-border: #2a2734;
-  --ring: rgba(96, 165, 250, 0.4);
+  --bg: #0E0F13;
+  --surface: #17181D;
+  --chip: #23242B;
+  --line: #2A2C34;
+  --text: #F1F2F5;
+  --text-2: #A7ABB6;
+  --text-3: #868B99;
+  --past-bg: #23242B;
+  --ok-dot: #5FC77B;
+  --danger: #FF8A80;
+  --danger-bg: #3A1C1C;
+  --lab-bg: #272246;  --lab-text: #B3A4FF;
+  --lec-bg: #1C2940;  --lec-text: #8DB4F0;
+  --exam-bg: #47220F; --exam-text: #FFB27A;
+  --flow-bg: #15302A; --flow-text: #7FD3A8;
+  --free-text: #4ADE80; --free-bg: #12301F;
+
+  --fill: #6F8FF5;
+  --ink: #8EA8FF;
+  --ring: #B0C2FF;
+  --on-fill: #0B1020;
+  --soft: color-mix(in oklab, var(--fill) 18%, var(--surface));
+  --shadow: 0 12px 32px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.3);
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
   --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.45);
+}
+
+/* Чёрная (OLED): фон и поверхности темнее, остальное — как у тёмной. */
+.dark.black {
+  --bg: #000000;
+  --surface: #0E0F12;
+  --chip: #1A1B21;
+  --line: #24262D;
+  --past-bg: #1A1B21;
 }
 
 * { box-sizing: border-box; }
@@ -53,7 +100,7 @@ html { font-size: 16px; }
 body {
   background-color: var(--background);
   color: var(--foreground);
-  font-family: var(--font-manrope), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-onest), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   transition: background-color 0.2s, color 0.2s;
@@ -103,18 +150,15 @@ h1, h2 { letter-spacing: -0.015em; }
 }
 
 /* Гармоничная палитра типов занятий (светлая / тёмная) */
-.lesson-tag-exam      { background: #fdeaeb; color: #c5303a; border-color: #f4c9cc; }
-.dark .lesson-tag-exam{ background: rgba(255,97,102,0.16); color: #ff8a8e; border-color: rgba(255,97,102,0.30); }
+.lesson-tag-exam      { background: var(--exam-bg); color: var(--exam-text); border-color: transparent; }
 
-.lesson-tag-practice      { background: #ecebfb; color: #4a44c9; border-color: #d3d0fa; }
-.dark .lesson-tag-practice{ background: rgba(140,135,243,0.18); color: #b6b2f7; border-color: rgba(140,135,243,0.32); }
+.lesson-tag-practice      { background: var(--lab-bg); color: var(--lab-text); border-color: transparent; }
 
 /* Лекция ("ЛК") — раньше не входила ни в одну из карт соответствий (там было
    только полное слово "ЛЕКЦИЯ", а msu.tj присылает именно "ЛК"), поэтому тег
    красился нейтральным серым и сливался с карточкой. Синий — единственный
    акцент, ещё не занятый другим смыслом (экзамен/практика/лента изменений). */
-.lesson-tag-lecture      { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
-.dark .lesson-tag-lecture{ background: rgba(59,130,246,0.16); color: #93c5fd; border-color: rgba(96,165,250,0.30); }
+.lesson-tag-lecture      { background: var(--lec-bg); color: var(--lec-text); border-color: transparent; }
 
 .lesson-tag-added      { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
 .dark .lesson-tag-added{ background: rgba(16,185,129,0.15); color: #6ee7b7; border-color: rgba(52,211,153,0.28); }

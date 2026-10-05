@@ -113,7 +113,7 @@ export default function ChangesPage() {
                 onClick={() => setOnlyMine(true)}
                 className={`flex-1 min-h-[36px] px-3 rounded-lg text-xs font-semibold transition-all active:scale-95 ${
                   onlyMine
-                    ? "bg-[var(--primary)] text-white"
+                    ? "bg-[var(--primary)] text-[var(--on-fill)]"
                     : "text-[var(--foreground)]"
                 }`}
               >
@@ -123,7 +123,7 @@ export default function ChangesPage() {
                 onClick={() => setOnlyMine(false)}
                 className={`flex-1 min-h-[36px] px-3 rounded-lg text-xs font-semibold transition-all active:scale-95 ${
                   !onlyMine
-                    ? "bg-[var(--primary)] text-white"
+                    ? "bg-[var(--primary)] text-[var(--on-fill)]"
                     : "text-[var(--foreground)]"
                 }`}
               >

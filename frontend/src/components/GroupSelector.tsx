@@ -111,7 +111,7 @@ export default function GroupSelector({ groups, value, onChange, collapsible }: 
               onClick={() => onDir(dir)}
               className={`px-4 min-h-[42px] rounded-full text-sm font-semibold border transition-all duration-150 active:scale-95 ${
                 activeDir === dir
-                  ? "bg-[var(--primary)] text-white border-[var(--primary)] shadow-sm"
+                  ? "bg-[var(--primary)] text-[var(--on-fill)] border-[var(--primary)] shadow-sm"
                   : "bg-[var(--background)] border-[var(--border)] text-[var(--foreground)] hover:border-[var(--primary)] hover:text-[var(--primary)]"
               }`}
             >
@@ -131,7 +131,7 @@ export default function GroupSelector({ groups, value, onChange, collapsible }: 
                 onClick={() => onYear(year)}
                 className={`px-4 min-h-[42px] rounded-full text-sm font-semibold border transition-all duration-150 active:scale-95 ${
                   activeYear === year
-                    ? "bg-[var(--primary)] text-white border-[var(--primary)] shadow-sm"
+                    ? "bg-[var(--primary)] text-[var(--on-fill)] border-[var(--primary)] shadow-sm"
                     : "bg-[var(--background)] border-[var(--border)] text-[var(--foreground)] hover:border-[var(--primary)] hover:text-[var(--primary)]"
                 }`}
               >

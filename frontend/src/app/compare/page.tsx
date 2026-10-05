@@ -252,7 +252,7 @@ export default function ComparePage() {
             <p>Нет связи с сервером</p>
             <button
               onClick={loadGroups}
-              className="mt-3 px-3 py-1.5 rounded-lg text-xs font-semibold text-white"
+              className="mt-3 px-3 py-1.5 rounded-lg text-xs font-semibold text-[var(--on-fill)]"
               style={{ background: "var(--primary)" }}
             >
               Повторить

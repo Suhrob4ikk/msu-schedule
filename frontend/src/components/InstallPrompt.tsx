@@ -1,31 +1,16 @@
 "use client";
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
-
-function isIOS(): boolean {
-  if (typeof navigator === "undefined") return false;
-  return /iphone|ipad|ipod/i.test(navigator.userAgent);
-}
-
-function isInStandaloneMode(): boolean {
-  if (typeof window === "undefined") return false;
-  return (
-    (window.navigator as { standalone?: boolean }).standalone === true ||
-    window.matchMedia("(display-mode: standalone)").matches
-  );
-}
+import { getInstallEvent, onInstallChange, runInstall, isIOS, isStandalone } from "@/lib/install";
 
 export default function InstallPrompt() {
   const pathname = usePathname();
-  const [androidPrompt, setAndroidPrompt] = useState<(Event & {
-    prompt: () => Promise<void>;
-    userChoice: Promise<{ outcome: string }>;
-  }) | null>(null);
+  const [hasPrompt, setHasPrompt] = useState(false);
   const [showIOS, setShowIOS] = useState(false);
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    const ios = !isInStandaloneMode() && isIOS();
+    const ios = !isStandalone() && isIOS();
     setShowIOS(ios);
 
     const dismissed = localStorage.getItem("pwa_install_dismissed");
@@ -36,13 +21,17 @@ export default function InstallPrompt() {
       return () => window.clearTimeout(timer);
     }
 
-    const handler = (e: Event) => {
-      e.preventDefault();
-      setAndroidPrompt(e as typeof androidPrompt);
-      window.setTimeout(() => setVisible(true), 15000);
+    // Событие установки ловит lib/install.ts — его же использует меню аватара
+    let timer: number | undefined;
+    const sync = () => {
+      const has = !!getInstallEvent();
+      setHasPrompt(has);
+      if (has && timer === undefined) timer = window.setTimeout(() => setVisible(true), 15000);
+      if (!has) setVisible(false);
     };
-    window.addEventListener("beforeinstallprompt", handler);
-    return () => window.removeEventListener("beforeinstallprompt", handler);
+    sync();
+    const off = onInstallChange(sync);
+    return () => { off(); window.clearTimeout(timer); };
   }, []);
 
   const dismiss = () => {
@@ -55,10 +44,10 @@ export default function InstallPrompt() {
   // Инструкция для iOS: "Поделиться → На экран Домой"
   if (showIOS) {
     return (
-      <div className="fixed bottom-24 lg:bottom-6 left-4 right-4 z-[300] anim-slide-up">
+      <div className="fixed bottom-24 sm:bottom-6 left-4 right-4 z-[300] anim-slide-up">
         <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-4 shadow-2xl max-w-sm mx-auto">
           <div className="flex items-start gap-3">
-            <div className="w-11 h-11 rounded-xl bg-[var(--primary)] flex items-center justify-center shrink-0 text-white text-xs font-bold">
+            <div className="w-11 h-11 rounded-xl bg-[var(--primary)] flex items-center justify-center shrink-0 text-[var(--on-fill)] text-xs font-bold">
               МГУ
             </div>
             <div className="flex-1 min-w-0">
@@ -66,7 +55,7 @@ export default function InstallPrompt() {
               <p className="text-xs text-[var(--muted)] mt-1 leading-relaxed">
                 Нажмите{" "}
                 {/* Иконка "Поделиться" из Safari */}
-                <svg className="inline w-4 h-4 mb-0.5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                <svg className="inline w-4 h-4 mb-0.5 text-[var(--ink)]" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M10 2a1 1 0 011 1v5.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 011.414-1.414L9 8.586V3a1 1 0 011-1z" />
                   <path d="M3 10a1 1 0 011-1h1a1 1 0 010 2H5v5h10v-5h-1a1 1 0 010-2h1a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2z" />
                 </svg>{" "}
@@ -89,11 +78,11 @@ export default function InstallPrompt() {
   }
 
   // Android / Chrome: нативный prompt
-  if (androidPrompt) {
+  if (hasPrompt) {
     return (
-      <div className="fixed bottom-24 lg:bottom-6 left-4 right-4 z-[300] anim-slide-up">
-        <div className="bg-[var(--primary)] text-white rounded-2xl p-4 shadow-2xl flex items-center gap-3 max-w-sm mx-auto">
-          <div className="w-11 h-11 rounded-xl bg-white/20 flex items-center justify-center shrink-0 text-sm font-bold">
+      <div className="fixed bottom-24 sm:bottom-6 left-4 right-4 z-[300] anim-slide-up">
+        <div className="bg-[var(--primary)] text-[var(--on-fill)] rounded-2xl p-4 shadow-2xl flex items-center gap-3 max-w-sm mx-auto">
+          <div className="w-11 h-11 rounded-xl bg-black/10 flex items-center justify-center shrink-0 text-sm font-bold">
             МГУ
           </div>
           <div className="flex-1 min-w-0">
@@ -102,20 +91,16 @@ export default function InstallPrompt() {
           </div>
           <button
             onClick={async () => {
-              if (!androidPrompt) return;
-              await androidPrompt.prompt();
-              const { outcome } = await androidPrompt.userChoice;
-              if (outcome === "accepted") dismiss();
-              setAndroidPrompt(null);
+              if (await runInstall()) dismiss();
               setVisible(false);
             }}
-            className="min-h-[44px] px-3 py-2 rounded-xl bg-white text-[var(--primary)] text-sm font-bold shrink-0 hover:bg-blue-50 transition-colors"
+            className="min-h-[44px] px-3 py-2 rounded-xl bg-[var(--surface)] text-[var(--ink)] text-sm font-bold shrink-0 hover:opacity-90 transition-colors"
           >
             Установить
           </button>
           <button
             onClick={dismiss}
-            className="w-11 h-11 flex items-center justify-center text-white/60 hover:text-white shrink-0 text-xl"
+            className="w-11 h-11 flex items-center justify-center opacity-70 hover:opacity-100 shrink-0 text-xl"
             aria-label="Закрыть"
           >
             ×

@@ -28,7 +28,7 @@ const nav = [
   },
   {
     href: "/rooms",
-    label: "Аудитории",
+    label: "Ауд.",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
         <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
@@ -62,49 +62,25 @@ export default function BottomNav() {
   // Профиль — скрываем навбар только для новых пользователей (принудительная регистрация)
   if (pathname === "/profile" && !registered) return null;
 
-  const activeIdx = nav.findIndex(n => n.href === pathname);
-
+  // Нижние вкладки — только на телефоне (до 640 px), как в приложении:
+  // активная — цветом --ink и полужирно, без «таблетки». Шире — верхняя панель.
   return (
-    <nav className="bottom-nav lg:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-[var(--border)]"
-      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
-      <div className="relative flex">
-        {/* Индикатор активной вкладки — один на всю панель, поэтому при
-            переходе он ПЕРЕЕЗЖАЕТ, а не появляется на новом месте.
-            Ширина = ровно одна вкладка, сдвиг = её номер. */}
-        {activeIdx >= 0 && (
-          <span
-            className="absolute top-0 flex justify-center pointer-events-none transition-transform duration-300 ease-out"
-            style={{
-              width: `${100 / nav.length}%`,
-              transform: `translateX(${activeIdx * 100}%)`,
-            }}
-            aria-hidden="true"
+    <nav className="t-bottom sm:hidden" aria-label="Разделы" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
+      {nav.map(({ href, label, icon }) => {
+        const active = href === "/" ? pathname === "/" : pathname?.startsWith(href);
+        return (
+          <Link
+            key={href}
+            href={href}
+            onClick={viewTransitionNavClick(router, href)}
+            aria-current={active ? "page" : undefined}
+            className={`t-bottom-tab ${active ? "t-bottom-on" : ""}`}
           >
-            <span className="block w-8 h-0.5 rounded-full bg-[var(--primary)]" />
-          </span>
-        )}
-        {nav.map(({ href, label, icon }) => {
-          const active = pathname === href;
-          return (
-            <Link
-              key={href}
-              href={href}
-              onClick={viewTransitionNavClick(router, href)}
-              className={`relative flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-colors active:scale-95 ${active
-                ? "text-[var(--primary)]"
-                : "text-[var(--muted)]"
-                }`}
-            >
-              {/* Класс перехода стоит всегда — иначе увеличение иконки
-                  происходило бы скачком, без анимации */}
-              <span className={`transition-transform duration-200 ${active ? "scale-110 -translate-y-px" : ""}`}>
-                {icon}
-              </span>
-              <span className="text-[9px] font-medium leading-tight">{label}</span>
-            </Link>
-          );
-        })}
-      </div>
+            {icon}
+            <span>{label}</span>
+          </Link>
+        );
+      })}
     </nav>
   );
 }

@@ -8,8 +8,7 @@ import { useRouter } from "next/navigation";
 import { getPushStatus, subscribePush, unsubscribePush, resyncPush, type PushStatus } from "@/lib/push";
 import InviteCard from "@/components/InviteCard";
 import AppDownloadCard from "@/components/AppDownloadCard";
-import ThemeSetting from "@/components/ThemeSetting";
-import AccentSetting from "@/components/AccentSetting";
+import AppearanceSetting from "@/components/AppearanceSetting";
 
 import { markGroupChosen } from "@/lib/features";
 import { collectSkips, collectNotes, type SkipStats as SkipStatsType } from "@/lib/studyData";
@@ -224,7 +223,8 @@ export default function ProfilePage() {
     setName(savedName);
     setSelectedGroupId(savedGroup ? Number(savedGroup) : "");
     setIsSetup(setup);
-    setIsEditing(setup);
+    // ?edit=1 — «Сменить группу» из меню аватара: сразу форма выбора группы
+    setIsEditing(setup || new URLSearchParams(window.location.search).get("edit") === "1");
     setHydrated(true);
   }, [loadGroups]);
 
@@ -294,7 +294,7 @@ export default function ProfilePage() {
 
       {/* Аватар */}
       <div
-        className="w-24 h-24 rounded-full flex items-center justify-center mb-4 text-3xl font-bold text-white"
+        className="w-24 h-24 rounded-full flex items-center justify-center mb-4 text-3xl font-bold text-[var(--on-fill)]"
         style={{ background: "var(--primary)", opacity: name.trim() ? 1 : 0.4, transition: "opacity 0.2s" }}
       >
         {initials}
@@ -351,7 +351,7 @@ export default function ProfilePage() {
                   <span>Список групп не загрузился — нет связи с сервером.</span>
                   <button
                     onClick={loadGroups}
-                    className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white shrink-0"
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold text-[var(--on-fill)] shrink-0"
                     style={{ background: "var(--primary)" }}
                   >
                     Повторить
@@ -370,13 +370,13 @@ export default function ProfilePage() {
                 в настройках: так его увидит каждый, а не только тот, кто
                 сам догадается зайти в «Дополнительные возможности». Необязательно,
                 поэтому кнопку «Начать» не блокирует — по умолчанию уже синий. */}
-            {isSetup && <AccentSetting />}
+            {isSetup && <AppearanceSetting part="accent" />}
 
             {/* Кнопка сохранить */}
             <button
               onClick={handleSave}
               disabled={!selectedGroupId || saving}
-              className="w-full py-3.5 rounded-xl text-base font-semibold text-white mt-2 transition-opacity disabled:opacity-40"
+              className="w-full py-3.5 rounded-xl text-base font-semibold text-[var(--on-fill)] mt-2 transition-opacity disabled:opacity-40"
               style={{ background: "var(--primary)" }}
             >
               {saving ? "Сохраняем..." : isSetup ? "Начать" : "Сохранить"}
@@ -415,8 +415,7 @@ export default function ProfilePage() {
             </p>
             <div className="lg:grid lg:grid-cols-2 lg:gap-5 lg:items-start">
               <div className="flex flex-col gap-2.5">
-                <ThemeSetting />
-                <AccentSetting />
+                <AppearanceSetting />
                 <NotificationToggle
                   sessionId={typeof window !== "undefined" ? (localStorage.getItem("msu_device_id_v2") ?? "") : ""}
                   groupId={selectedGroupId}

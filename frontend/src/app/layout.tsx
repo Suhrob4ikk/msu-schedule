@@ -1,11 +1,14 @@
 import type { Metadata, Viewport } from "next";
-import { Manrope } from "next/font/google";
+import { Onest } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
+import "./tablo.css";
 import BottomNav from "@/components/BottomNav";
 import ServerResync from "@/components/ServerResync";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import InstallPrompt from "@/components/InstallPrompt";
+import AppearanceSync from "@/components/AppearanceSync";
+import { appearanceInitScript, MODE_BASE } from "@/lib/appearance";
 
 // Раньше здесь был <link rel="preconnect"> на домен Render: бэкенд жил на
 // другом домене, и без preconnect браузер начинал DNS + TLS только в момент
@@ -13,9 +16,12 @@ import InstallPrompt from "@/components/InstallPrompt";
 // (/backend/* → Render, см. next.config.ts) — соединение уже открыто, тем же,
 // которым загрузилась страница, и preconnect стал не нужен.
 
-const manrope = Manrope({
+// Onest — шрифт «Табло», как в приложении. next/font кладёт файлы на этот же
+// сайт (/_next/static/media), а service worker держит их в кэше, так что
+// шрифт есть и офлайн, и в установленном приложении.
+const onest = Onest({
   subsets: ["latin", "cyrillic"],
-  variable: "--font-manrope",
+  variable: "--font-onest",
   display: "swap",
 });
 
@@ -36,11 +42,11 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  // Цвет системной панели браузера. Значения — те же --background/--primary,
-  // что и в globals.css, чтобы панель браузера совпадала с фоном страницы.
+  // Цвет системной панели браузера — фон страницы. Точный цвет выбранной
+  // темы (в т. ч. «Чёрной») ставит applyAppearance после загрузки.
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#2563eb" },
-    { media: "(prefers-color-scheme: dark)", color: "#0d0c13" },
+    { media: "(prefers-color-scheme: light)", color: MODE_BASE.light.bg },
+    { media: "(prefers-color-scheme: dark)", color: MODE_BASE.dark.bg },
   ],
   width: "device-width",
   initialScale: 1,
@@ -52,26 +58,22 @@ export default function RootLayout({
   return (
     <html lang="ru" className="h-full" suppressHydrationWarning>
       <head>
-        {/* Устанавливаем тему до рендера, чтобы избежать вспышки. next/script
-            с beforeInteractive — вместо голого <script>, который React 19
-            в dev ругает предупреждением "Encountered a script tag while
-            rendering React component": сырой <script> реконсилируется как
-            обычный узел дерева и не перевыполнится при повторном рендере,
-            next/script правильно выносит его из реконсиляции. */}
+        {/* Тема и акцент — до первой отрисовки, чтобы не мигало (lib/appearance.ts).
+            next/script с beforeInteractive, а не голый <script>: React 19 в dev
+            ругается на сырой <script> внутри дерева компонентов. */}
         <Script
           id="theme-init"
           strategy="beforeInteractive"
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{var e=document.documentElement;var t=localStorage.getItem('theme');var isDark=t==='dark'||(t!=='light'&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(isDark){e.classList.add('dark');}if(localStorage.getItem('accent')==='green'){var v=isDark?{'--primary':'#0e9b72','--primary-strong':'#2dd4a7','--primary-soft':'#0e2a22','--ring':'rgba(27, 185, 139, 0.4)'}:{'--primary':'#0e9b72','--primary-strong':'#0c8763','--primary-soft':'#e5f4f0','--ring':'rgba(14, 155, 114, 0.35)'};for(var k in v){e.style.setProperty(k,v[k]);}}}catch(err){}})();`,
-          }}
+          dangerouslySetInnerHTML={{ __html: appearanceInitScript() }}
         />
       </head>
-      <body className={`${manrope.variable} min-h-full flex flex-col antialiased`}>
+      <body className={`${onest.variable} min-h-full flex flex-col antialiased`}>
         {children}
         <BottomNav />
         <InstallPrompt />
         <ServiceWorkerRegister />
         <ServerResync />
+        <AppearanceSync />
       </body>
     </html>
   );

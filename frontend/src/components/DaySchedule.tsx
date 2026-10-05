@@ -127,7 +127,7 @@ export default function DaySchedule({
         )}
         {isToday && (
           <span
-            className="ml-auto shrink-0 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full text-white"
+            className="ml-auto shrink-0 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full text-[var(--on-fill)]"
             style={{ background: "var(--primary)" }}
           >
             сегодня
