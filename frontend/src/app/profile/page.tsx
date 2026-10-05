@@ -243,6 +243,48 @@ export default function ProfilePage() {
       <Header />
       <main className="t-main t-pf-main">
         <div className="t-pf">
+          <div className="t-pf-right">
+            <AppearanceCard />
+
+            <div className="t-pf-two">
+              {origin && (
+                <section className="t-pf-card t-pf-invite">
+                  <div className="t-pf-qr"><QRCodeSVG value={origin} size={116} fgColor="#111111" bgColor="#ffffff" /></div>
+                  <div>
+                    <h3>Позвать одногруппников</h3>
+                    <p>{origin.replace(/^https?:\/\//, "")}</p>
+                    <button type="button" className="t-pf-ghost" onClick={async () => {
+                      try {
+                        if (navigator.share) { await navigator.share({ title: "МГУ Расписание", text: "МГУ Душанбе: расписание занятий. Заходите:", url: origin }); return; }
+                      } catch { return; }
+                      try { await navigator.clipboard.writeText(origin); setToast("Ссылка скопирована"); } catch { window.prompt("Ссылка", origin); }
+                    }}><Icon name="share" size={18} />Поделиться ссылкой</button>
+                  </div>
+                </section>
+              )}
+              <section className="t-pf-card t-pf-notes">
+                <h3>Напоминания и уведомления</h3>
+                <PushRow sessionId={deviceId} groupId={groupId} />
+                <p>Напоминания о зачётах и перед парой приходят в приложении для Android.</p>
+                {apk && <a href={apk} className="t-pf-ghost"><Icon name="download" size={18} />Скачать APK</a>}
+                {apk && (
+                  <details className="t-pf-why">
+                    <summary>Чем приложение удобнее сайта</summary>
+                    <ul>
+                      <li>Виджет со следующей парой на главном экране</li>
+                      <li>Напоминания о зачётах накануне в 20:00 и за 10 минут до пары</li>
+                      <li>Работает без интернета</li>
+                    </ul>
+                  </details>
+                )}
+              </section>
+            </div>
+
+            <p className="t-pf-foot">
+              МГУ Душанбе · Расписание · Данные с msu.tj ·{" "}
+              <Link href="/dev">режим разработчика</Link>
+            </p>
+          </div>
           <div className="t-pf-left">
             <section className="t-pf-card t-pf-me">
               <div className="t-pf-who">
@@ -316,48 +358,6 @@ export default function ProfilePage() {
             </section>
           </div>
 
-          <div className="t-pf-right">
-            <AppearanceCard />
-
-            <div className="t-pf-two">
-              {origin && (
-                <section className="t-pf-card t-pf-invite">
-                  <div className="t-pf-qr"><QRCodeSVG value={origin} size={116} fgColor="#111111" bgColor="#ffffff" /></div>
-                  <div>
-                    <h3>Позвать одногруппников</h3>
-                    <p>{origin.replace(/^https?:\/\//, "")}</p>
-                    <button type="button" className="t-pf-ghost" onClick={async () => {
-                      try {
-                        if (navigator.share) { await navigator.share({ title: "МГУ Расписание", text: "МГУ Душанбе: расписание занятий. Заходите:", url: origin }); return; }
-                      } catch { return; }
-                      try { await navigator.clipboard.writeText(origin); setToast("Ссылка скопирована"); } catch { window.prompt("Ссылка", origin); }
-                    }}><Icon name="share" size={18} />Поделиться ссылкой</button>
-                  </div>
-                </section>
-              )}
-              <section className="t-pf-card t-pf-notes">
-                <h3>Напоминания и уведомления</h3>
-                <PushRow sessionId={deviceId} groupId={groupId} />
-                <p>Напоминания о зачётах и перед парой приходят в приложении для Android.</p>
-                {apk && <a href={apk} className="t-pf-ghost"><Icon name="download" size={18} />Скачать APK</a>}
-                {apk && (
-                  <details className="t-pf-why">
-                    <summary>Чем приложение удобнее сайта</summary>
-                    <ul>
-                      <li>Виджет со следующей парой на главном экране</li>
-                      <li>Напоминания о зачётах накануне в 20:00 и за 10 минут до пары</li>
-                      <li>Работает без интернета</li>
-                    </ul>
-                  </details>
-                )}
-              </section>
-            </div>
-
-            <p className="t-pf-foot">
-              МГУ Душанбе · Расписание · Данные с msu.tj ·{" "}
-              <Link href="/dev">режим разработчика</Link>
-            </p>
-          </div>
         </div>
       </main>
       {toast && <div className="t-toast" role="status">{toast}</div>}

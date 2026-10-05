@@ -466,8 +466,6 @@ export default function SchedulePage() {
     const i = shownDays.findIndex(d => d.dayIndex === activePageDay);
     const d = shownDays[i];
     if (!d) return null;
-    const prev = shownDays[i - 1];
-    const next = shownDays[i + 1];
     return (
       <div className="t-feed" {...swipe}>
         <section key={d.date} className="t-day t-slide" aria-label={dayName(d)}>
@@ -482,18 +480,6 @@ export default function SchedulePage() {
             doneLine={doneToday && d.date === todayIso}
           />
         </section>
-        <div className="t-pagenav">
-          {prev ? (
-            <button type="button" className="t-btn-ghost" onClick={() => setPageDay(prev.dayIndex)}>
-              <Icon name="chevronLeft" size={20} />{dayName(prev)}
-            </button>
-          ) : <span />}
-          {next && (
-            <button type="button" className="t-btn-ghost" onClick={() => setPageDay(next.dayIndex)}>
-              {dayName(next)}<Icon name="chevronRight" size={20} />
-            </button>
-          )}
-        </div>
       </div>
     );
   })();

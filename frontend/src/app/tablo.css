@@ -491,7 +491,6 @@ html.page-transitioning .t-bottom { view-transition-name: app-bottom-nav; }
 .t-nowline em { flex: 1; height: 2px; border-radius: 1px; background: currentColor; }
 
 /* «По дням» */
-.t-pagenav { display: flex; justify-content: space-between; gap: 8px; padding: 10px 0; }
 @keyframes t-fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 .t-slide { animation: t-fade 0.2s ease-out both; }
 
