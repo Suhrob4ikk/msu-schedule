@@ -241,7 +241,7 @@ https://frontend-ten-nu-80.vercel.app/backend/*  →  https://msu-schedule.onren
   (`deriveAccent`, математика OKLCH в `lib/color.ts`, без библиотек). Тему и акцент ставит
   инлайн-скрипт в `layout.tsx` до первой отрисовки (таблица пресетов вшита при сборке,
   свой цвет — из `appearance_vars`), поэтому не мигает. Выбор: Кабинет → «Внешний вид»
-  (`components/tablo/profile/AppearanceCard.tsx`).
+  (`/profile/appearance`, `components/tablo/profile/AppearanceView.tsx`).
 - **Шрифт** — Onest через `next/font` (файлы в `/_next/static/media`, офлайн их держит sw.js).
 - **Стили «Табло»** — `app/tablo.css`, классы `t-*`, всё внутри `@layer components`:
   иначе они перебивают утилиты Tailwind (`sm:hidden` не прятал нижние вкладки).
@@ -281,7 +281,10 @@ https://frontend-ten-nu-80.vercel.app/backend/*  →  https://msu-schedule.onren
   сетка с названиями, уже — матрица цветных квадратов (решение владельца). Адрес:
   `/compare?with=ID,ID&week=YYYY-MM-DD`.
 - **Кабинет и «Вход»** (`app/profile/page.tsx`, `components/tablo/profile/`, `app/tablo-profile.css`):
-  без выбранной группы и по `?edit=1` — экран «Вход», иначе две колонки. «Внешний вид» пишет в
+  без выбранной группы и по `?edit=1` — экран «Вход», иначе одна колонка 680, как в приложении
+  (профиль, Оформление, Учёба, Разделы, Напоминания, Поделиться, Обновить). «Внешний вид» —
+  отдельный экран `/profile/appearance` (`AppearanceView.tsx`): пример сверху, на широком — справа.
+  Он пишет в
   ключ `appearance` ещё `types` (оттенки Лекция/Практика/Экзамен: готовый id или свой `#RRGGBB`) и
   `density` (`compact` → класс `html.compact`). Готовые пары своих цветов типов лежат в
   `appearance_type_vars` — их читает инлайн-скрипт в `layout.tsx`. **Приложение своих цветов

@@ -14,7 +14,8 @@ import { QRCodeSVG } from "qrcode.react";
 import Header from "@/components/Header";
 import Icon from "@/components/tablo/Icon";
 import Login from "@/components/tablo/profile/Login";
-import AppearanceCard from "@/components/tablo/profile/AppearanceCard";
+import { appearanceSummary } from "@/components/tablo/profile/AppearanceView";
+import { useAppearance } from "@/lib/tablo/hooks";
 import { api, clearApiCache, rememberGroup, shortGroupName, type Group } from "@/lib/api";
 import { markGroupChosen } from "@/lib/features";
 import { getInstallEvent, isIOS, isStandalone, onInstallChange, runInstall } from "@/lib/install";
@@ -104,6 +105,7 @@ function PushRow({ sessionId, groupId }: { sessionId: string; groupId: number | 
 
 export default function ProfilePage() {
   const router = useRouter();
+  const appearance = useAppearance();
   const [groups, setGroups] = useState<Group[]>([]);
   const [groupsError, setGroupsError] = useState(false);
   const [hydrated, setHydrated] = useState(false);
@@ -243,7 +245,6 @@ export default function ProfilePage() {
       <Header />
       <main className="t-main t-pf-main">
         <div className="t-pf">
-          <div className="t-pf-left">
             <section className="t-pf-card t-pf-me">
               <div className="t-pf-who">
                 <span className="t-avatar t-avatar-lg" aria-hidden="true">{letter || <Icon name="user" size={26} />}</span>
@@ -256,6 +257,16 @@ export default function ProfilePage() {
                 Изменить имя или группу<Icon name="chevronRight" size={20} />
               </button>
             </section>
+
+            <h2 className="t-over t-pf-h">Оформление</h2>
+            <nav className="t-pf-card t-pf-nav" aria-label="Оформление">
+              <Link href="/profile/appearance">
+                <span className="t-pf-ic"><Icon name="palette" size={22} /></span>
+                <b>Внешний вид</b>
+                {appearance && <em className="t-pf-sum">{appearanceSummary(appearance)}</em>}
+                <Icon name="chevronRight" size={20} />
+              </Link>
+            </nav>
 
             <h2 className="t-over t-pf-h">Учёба</h2>
             <section className="t-pf-card">
@@ -308,18 +319,23 @@ export default function ProfilePage() {
               ) : null}
             </nav>
 
-            <h2 className="t-over t-pf-h">Синхронизация</h2>
-            <section className="t-pf-card t-pf-sync">
-              <button type="button" className="t-pf-refresh" onClick={syncNow} disabled={syncing}>
-                <Icon name="history" size={20} />{syncing ? "Обновляем…" : "Обновить расписание"}
-              </button>
-            </section>
-          </div>
-
-          <div className="t-pf-right">
-            <AppearanceCard />
-
-            <div className="t-pf-two">
+            <h2 className="t-over t-pf-h">Напоминания</h2>
+              <section className="t-pf-card t-pf-notes">
+                <PushRow sessionId={deviceId} groupId={groupId} />
+                <p>Напоминания о зачётах и перед парой приходят в приложении для Android.</p>
+                {apk && <a href={apk} className="t-pf-ghost"><Icon name="download" size={18} />Скачать APK</a>}
+                {apk && (
+                  <details className="t-pf-why">
+                    <summary>Чем приложение удобнее сайта</summary>
+                    <ul>
+                      <li>Виджет со следующей парой на главном экране</li>
+                      <li>Напоминания о зачётах накануне в 20:00 и за 10 минут до пары</li>
+                      <li>Работает без интернета</li>
+                    </ul>
+                  </details>
+                )}
+              </section>
+            <h2 className="t-over t-pf-h">Поделиться</h2>
               {origin && (
                 <section className="t-pf-card t-pf-invite">
                   <div className="t-pf-qr"><QRCodeSVG value={origin} size={116} fgColor="#111111" bgColor="#ffffff" /></div>
@@ -335,29 +351,16 @@ export default function ProfilePage() {
                   </div>
                 </section>
               )}
-              <section className="t-pf-card t-pf-notes">
-                <h3>Напоминания и уведомления</h3>
-                <PushRow sessionId={deviceId} groupId={groupId} />
-                <p>Напоминания о зачётах и перед парой приходят в приложении для Android.</p>
-                {apk && <a href={apk} className="t-pf-ghost"><Icon name="download" size={18} />Скачать APK</a>}
-                {apk && (
-                  <details className="t-pf-why">
-                    <summary>Чем приложение удобнее сайта</summary>
-                    <ul>
-                      <li>Виджет со следующей парой на главном экране</li>
-                      <li>Напоминания о зачётах накануне в 20:00 и за 10 минут до пары</li>
-                      <li>Работает без интернета</li>
-                    </ul>
-                  </details>
-                )}
-              </section>
-            </div>
-
+            <h2 className="t-over t-pf-h">Синхронизация</h2>
+            <section className="t-pf-card t-pf-sync">
+              <button type="button" className="t-pf-refresh" onClick={syncNow} disabled={syncing}>
+                <Icon name="history" size={20} />{syncing ? "Обновляем…" : "Обновить расписание"}
+              </button>
+            </section>
             <p className="t-pf-foot">
               МГУ Душанбе · Расписание · Данные с msu.tj ·{" "}
               <Link href="/dev">режим разработчика</Link>
             </p>
-          </div>
         </div>
       </main>
       {toast && <div className="t-toast" role="status">{toast}</div>}
