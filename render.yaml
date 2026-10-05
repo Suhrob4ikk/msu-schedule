@@ -8,13 +8,10 @@
 # ADMIN_SECRET, DEV_PANEL_PASSWORD, RESEND_API_KEY, VAPID_PRIVATE_KEY,
 # VAPID_PUBLIC_KEY, GITHUB_API_TOKEN, NOTIFY_EMAIL, DATABASE_URL, DATA_DIR.
 #
-# Чтобы данные переживали деплой, задайте DATABASE_URL адресом Postgres (Neon) —
-# бэкенд работает и с SQLite, и с Postgres, драйвер psycopg в requirements.
-#
-# Диска (disk) на бесплатном тарифе нет — база SQLite лежит в эфемерной
-# файловой системе и пересоздаётся при каждом деплое. Само расписание от
-# этого не страдает: оно восстанавливается первой же синхронизацией с msu.tj
-# при старте. Теряются только регистрации пользователей и подписки на push.
+# База — Postgres на Neon: DATABASE_URL задан в дашборде (с 4 окт 2026), данные
+# переживают деплой. Без DATABASE_URL бэкенд откатится на SQLite в эфемерной
+# файловой системе — тогда при каждом деплое теряются регистрации, подписки на
+# push и история изменений (/health покажет "db": "sqlite").
 
 services:
   - type: web
