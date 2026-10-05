@@ -373,14 +373,17 @@ def send_exam_daily_reminders(db) -> None:
                 continue
 
             ed = _exam_date(lesson, ws.week_start)
+            # Раньше заголовок всегда говорил «зачёт» — и про экзамен тоже
+            kind = "зачёт" if any(kw in (lesson.lesson_type or lesson.subject).lower()
+                                  for kw in ("зачет", "зачёт")) else "экзамен"
             if ed == tomorrow:
                 notif_type = "day_before"
-                title = "⏰ Завтра зачёт!"
+                title = f"⏰ Завтра {kind}!"
                 time_str = PAIR_START.get(lesson.pair_number, "")
                 body = f"{lesson.subject}{f' в {time_str}' if time_str else ''}. Готовьтесь, вы сможете! 💪"
             elif ed == today:
                 notif_type = "day_of"
-                title = "🍀 Сегодня зачёт!"
+                title = f"🍀 Сегодня {kind}!"
                 time_str = PAIR_START.get(lesson.pair_number, "")
                 body = f"{lesson.subject}{f' в {time_str}' if time_str else ''}. Удачи вам!"
             else:
