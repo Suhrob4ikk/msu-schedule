@@ -629,6 +629,12 @@ export const api = {
   getStats: (groupId: number) =>
     fetchApi<Stats>(`/schedule/stats/${groupId}`, TTL_DATA),
 
+  /** Всё расписание одним ответом (как в приложении). Сайт берёт отсюда только
+   *  пары педагогов — для статусов в списке «Педагогов». ~1,7 МБ JSON (по сети
+   *  ~40 КБ сжатым), поэтому в localStorage не попадает (PERSIST_MAX_BYTES). */
+  getBulkSync: () =>
+    fetchApi<{ teacher_schedules: Record<string, Lesson[]> }>("/schedule/bulk-sync", TTL_DATA),
+
   getChanges: (groupId?: number) =>
     fetchApi<Change[]>(paths.changes(groupId), TTL_FEED),
 

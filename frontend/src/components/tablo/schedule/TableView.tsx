@@ -11,9 +11,9 @@
 import { useMemo } from "react";
 import { PAIR_NUMBERS, PAIR_TIMES, humanDuration, BREAK_MAX_MIN } from "@/lib/api";
 import {
-  blockA11y, isoOf, isPast, pairsLabel, toMin, type Block, type DayData, type Focus,
+  blockA11y, isoOf, isPast, pairsLabel, toMin, type Block, type DayData,
 } from "@/lib/tablo/schedule";
-import { Countdown, daySub, kindTone, leftText, TypeBadge } from "./parts";
+import { Countdown, daySub, kindTone, leftText, teacherMeta, TypeBadge, type FocusLike, type MetaFn } from "./parts";
 
 const DAY_SHORT = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 const DAY_FULL = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"];
@@ -22,10 +22,13 @@ const pad2 = (n: number) => String(n).padStart(2, "0");
 
 interface Cell { block: Block; col: number; rowStart: number; rowEnd: number }
 
-export default function TableView({ days, now, focus, dimPast, selectedKey, onOpen }: {
+export default function TableView({ days, now, focus, dimPast, selectedKey, onOpen, meta = teacherMeta, wideToday = true }: {
   days: DayData[];
   now: Date | null;
-  focus: Focus | null;
+  focus: FocusLike | null;
+  meta?: MetaFn;
+  /** Сегодняшний столбец в 2,1 раза шире (у педагога все столбцы равны). */
+  wideToday?: boolean;
   dimPast: boolean;
   selectedKey: string | null;
   onOpen: (b: Block, el: HTMLElement) => void;
@@ -35,10 +38,11 @@ export default function TableView({ days, now, focus, dimPast, selectedKey, onOp
 
   // Широкий столбец: сегодня (если он в неделе) или день раскрытой пары.
   const wideIdx = useMemo(() => {
+    if (!wideToday) return -1;
     const t = shown.findIndex(d => d.date === todayIso);
     if (t >= 0) return t;
     return focus ? shown.findIndex(d => d.date === focus.block.date) : -1;
-  }, [shown, todayIso, focus]);
+  }, [shown, todayIso, focus, wideToday]);
 
   // Строки сетки: заголовок, затем пары, которые есть в неделе, и полоса перерыва.
   const layout = useMemo(() => {
@@ -66,6 +70,7 @@ export default function TableView({ days, now, focus, dimPast, selectedKey, onOp
     return { pairs, rowOf, breaks, template, cells, lastRow: row };
   }, [shown]);
 
+  const todayCol = shown.findIndex(d => d.date === todayIso);
   const columns = ["84px", ...shown.map((_, i) => (i === wideIdx ? "minmax(0, 2.1fr)" : "minmax(0, 1fr)"))].join(" ");
 
   /** Стрелки: ближайшая ячейка в направлении; панель едет следом. */
@@ -102,8 +107,8 @@ export default function TableView({ days, now, focus, dimPast, selectedKey, onOp
   return (
     <div className="t-table" style={{ gridTemplateColumns: columns, gridTemplateRows: layout.template }} role="region" aria-label="Расписание на неделю">
       {/* Подсветка сегодняшнего столбца — во всю высоту */}
-      {wideIdx >= 0 && shown[wideIdx].date === todayIso && (
-        <div className="t-table-today" style={{ gridColumn: wideIdx + 2, gridRow: `1 / ${layout.lastRow}` }} aria-hidden="true" />
+      {todayCol >= 0 && (
+        <div className="t-table-today" style={{ gridColumn: todayCol + 2, gridRow: `1 / ${layout.lastRow}` }} aria-hidden="true" />
       )}
 
       {/* Заголовки дней */}
@@ -119,9 +124,11 @@ export default function TableView({ days, now, focus, dimPast, selectedKey, onOp
               {wide ? `${DAY_FULL[d.dayIndex]}, ${date.getDate()} ${MONTHS_GEN[date.getMonth()]}` : `${DAY_SHORT[d.dayIndex]} ${date.getDate()}`}
             </span>
             <span className="t-th-sub">
+              {/* Узкий столбец: «на сегодня всё» без времени и «сегодня · 2 пары» без
+                  интервала — иначе подпись обрезается многоточием */}
               {done && now
-                ? `${pad2(now.getHours())}:${pad2(now.getMinutes())} · на сегодня всё`
-                : wide ? daySub(d, now, false) : (daySub(d, now, false).split(" · ")[0])}
+                ? wide ? `${pad2(now.getHours())}:${pad2(now.getMinutes())} · на сегодня всё` : "на сегодня всё"
+                : wide ? daySub(d, now, false) : daySub(d, now, false).split(" · ").filter(s => !/\d:\d/.test(s)).join(" · ")}
             </span>
           </div>
         );
@@ -129,7 +136,7 @@ export default function TableView({ days, now, focus, dimPast, selectedKey, onOp
 
       {/* Столбец пар */}
       {layout.pairs.map(p => {
-        const live = focus?.kind === "live" && focus.slot.pair_number === p && focus.block.date === todayIso;
+        const live = !!focus?.filled && focus.slot.pair_number === p && focus.block.date === todayIso;
         return (
           <div key={p} className={`t-tpair ${live ? "t-tpair-now" : ""}`} style={{ gridColumn: 1, gridRow: layout.rowOf[p] }}>
             <b>{p}</b>
@@ -198,7 +205,7 @@ export default function TableView({ days, now, focus, dimPast, selectedKey, onOp
                 </span>
                 <span className="t-row-meta">
                   <TypeBadge type={l.lesson_type} past={past} onFill={live} />
-                  {l.teacher && <span>{l.teacher.name}{live ? ` · до ${b.end}` : ""}</span>}
+                  {meta(b) && <span>{meta(b)}{live ? ` · до ${b.end}` : ""}</span>}
                   {b.lessons.length > 1 && <span>· {pairsLabel(b)}</span>}
                 </span>
                 {live && focus?.progressFrom != null && focus.targetAt != null && (
@@ -216,7 +223,7 @@ export default function TableView({ days, now, focus, dimPast, selectedKey, onOp
                 </span>
                 <span className="t-cell-subj">{l.subject}</span>
                 <span className="t-cell-teacher">
-                  {live && focus?.targetAt != null ? `идёт · ещё ${leftText(focus.targetAt - t)}` : l.teacher?.name ?? ""}
+                  {live && focus?.targetAt != null ? `идёт · ещё ${leftText(focus.targetAt - t)}` : meta(b)}
                 </span>
                 {b.lessons.length > 1 && <span className="t-cell-double">{pairsLabel(b)} · {b.start}–{b.end}</span>}
                 {live && focus?.progressFrom != null && focus.targetAt != null && (

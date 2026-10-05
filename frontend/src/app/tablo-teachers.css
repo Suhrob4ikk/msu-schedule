@@ -1,0 +1,271 @@
+/* ═════════════════════════════════════════════════════════════════════════
+   «Педагоги» в стиле «Табло» (макеты pedagogi-wide; на узком экране — как в
+   приложении). Тоже в @layer components — см. комментарий в tablo.css.
+   ═════════════════════════════════════════════════════════════════════════ */
+@layer components {
+.t-tgrid { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 32px; align-items: start; }
+@media (min-width: 1280px) { .t-tgrid { grid-template-columns: 340px minmax(0, 1fr); gap: 40px; } }
+.t-tside { position: sticky; top: 88px; }
+
+/* Список */
+.t-tlist { position: relative; display: flex; flex-direction: column; }
+.t-tlist-panel {
+  height: calc(100vh - 112px);
+  background: var(--surface);
+  border-radius: 22px;
+  overflow: hidden;
+}
+.dark .t-tlist-panel { box-shadow: inset 0 0 0 1px var(--line); }
+.t-tsearch-wrap { padding: 14px 14px 6px; }
+.t-tlist:not(.t-tlist-panel) .t-tsearch-wrap {
+  position: sticky;
+  top: 56px;
+  z-index: 20;
+  padding: 4px 0 8px;
+  background: var(--bg);
+}
+@media (min-width: 640px) { .t-tlist:not(.t-tlist-panel) .t-tsearch-wrap { top: 64px; } }
+.t-tsearch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 52px;
+  padding: 0 6px 0 16px;
+  border-radius: 14px;
+  background: var(--chip);
+  border: 1px solid transparent;
+  color: var(--text-2);
+  cursor: text;
+}
+.t-tlist:not(.t-tlist-panel) .t-tsearch { background: var(--surface); border-color: var(--line); }
+.t-tsearch:focus-within, .t-tsearch-on { border: 2px solid var(--ink); padding-left: 15px; }
+.t-tsearch input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: none;
+  background: transparent;
+  font-size: 17px;
+  color: var(--text);
+}
+.t-tsearch input::placeholder { color: var(--text-2); }
+.t-tsearch input::-webkit-search-cancel-button { display: none; }
+.t-tsearch-on input { font-weight: 600; }
+.t-tsearch-clear {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-2);
+}
+.t-tsearch-clear:hover { background: var(--surface); color: var(--text); }
+.t-kbd {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 7px;
+  margin-right: 8px;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+.t-tlist-body { flex: 1; min-height: 0; padding-bottom: 12px; }
+.t-tlist-panel .t-tlist-body { overflow-y: auto; overscroll-behavior: contain; padding-right: 22px; }
+.t-tlist-sum {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 52px;
+  padding: 4px 0 4px 22px;
+  font-size: 15px;
+  color: var(--text-2);
+}
+.t-tlist:not(.t-tlist-panel) .t-tlist-sum { padding-left: 4px; }
+.t-tlist-sum .t-kbd { margin-right: 0; }
+.t-az {
+  flex-shrink: 0;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: var(--soft);
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 700;
+}
+.t-tsec {
+  padding: 14px 22px 6px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+.t-tsec-letter { font-size: 17px; letter-spacing: 0; color: var(--ink); scroll-margin-top: 130px; }
+.t-tlist:not(.t-tlist-panel) .t-tsec { padding-left: 4px; }
+.t-trow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 20px;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 60px;
+  padding: 9px 12px 9px 22px;
+  border-radius: 0 14px 14px 0;
+  text-align: left;
+  transition: background-color 0.12s;
+}
+/* На узком экране — строки в карточках, как в приложении */
+.t-tlist:not(.t-tlist-panel) .t-trow {
+  padding-left: 16px;
+  border-radius: 0;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+.t-tlist:not(.t-tlist-panel) .t-tlist-sum + .t-trow,
+.t-tlist:not(.t-tlist-panel) section > .t-tsec + .t-trow { border-radius: 18px 18px 0 0; }
+.t-tlist:not(.t-tlist-panel) .t-trow:last-child { border-radius: 0 0 18px 18px; border-bottom: 0; }
+.t-tlist:not(.t-tlist-panel) section > .t-tsec + .t-trow:last-child,
+.t-tlist:not(.t-tlist-panel) .t-tlist-sum + .t-trow:last-child { border-radius: 18px; }
+.t-trow:hover { background: var(--chip) !important; }
+.t-trow-sel, .t-trow-active { background: var(--soft) !important; }
+.t-trow-sel .t-trow-name { color: var(--ink); }
+.t-trow > span { display: flex; flex-direction: column; gap: 2px; }
+.t-trow-name { font-size: 17px; font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
+.t-trow-st { display: flex; align-items: center; gap: 6px; font-size: 14px; color: var(--text-2); }
+.t-trow-st i { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+.t-st-now { color: var(--ink); font-weight: 600; }
+.t-st-later { color: var(--free-text); font-weight: 600; }
+.t-trow-chev { color: var(--text-2); }
+.t-mark { background: var(--soft); color: var(--ink); border-radius: 4px; padding: 0 1px; }
+.t-tnone { padding: 4px 22px; font-size: 15px; color: var(--text-2); }
+.t-tlist:not(.t-tlist-panel) .t-tnone { padding: 4px; }
+.t-tempty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 48px 16px;
+  text-align: center;
+  color: var(--text-2);
+}
+.t-tempty-state b { font-size: 18px; color: var(--text); }
+.t-rail {
+  position: absolute;
+  right: 4px;
+  top: 150px;
+  bottom: 12px;
+  width: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.t-rail button {
+  width: 22px;
+  flex: 1 1 0;
+  max-height: 30px;
+  min-height: 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.t-rail button:hover { background: var(--soft); }
+.t-letters { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+.t-letter { height: 52px; border-radius: 14px; background: var(--chip); font-size: 18px; font-weight: 700; }
+.t-letter:hover { background: var(--soft); color: var(--ink); }
+
+/* Неделя педагога */
+.t-tview { display: flex; flex-direction: column; gap: 14px; }
+.t-tback { align-self: flex-start; margin-left: -8px; }
+.t-thead { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px 20px; }
+.t-tname { font-size: 34px; font-weight: 800; line-height: 1.15; letter-spacing: -0.02em; overflow-wrap: anywhere; }
+.t-tsum { margin-top: 4px; font-size: 16px; color: var(--text-2); }
+.t-tsum b { color: var(--text); font-weight: 700; }
+.t-tactions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.t-share-icon { width: 56px; padding: 0; justify-content: center; }
+@media (max-width: 1023px) {
+  .t-tname { font-size: 28px; }
+  .t-share-icon { width: 52px; height: auto; min-height: 52px; }
+}
+.t-tweekseg .t-seg-btn {
+  height: auto;
+  min-height: 52px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  line-height: 1.2;
+}
+.t-tweekseg .t-seg-btn b { font-size: 15px; font-weight: 700; color: var(--text); }
+.t-tweekseg .t-seg-btn span { font-size: 13px; color: var(--text-2); }
+.t-tgroups { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.t-tgroups > span { margin-right: 2px; font-size: 15px; color: var(--text-2); }
+.t-gchip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.t-gchip:hover { border-color: var(--ink); color: var(--ink); }
+
+/* Широкая раскрытая карточка */
+.t-tfocus {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px 28px;
+  width: 100%;
+  padding: 18px 26px 20px;
+  border-radius: 24px;
+  background: var(--soft);
+  color: var(--text);
+  text-align: left;
+  overflow: hidden;
+}
+.t-tfocus.t-focus-live { background: var(--fill); color: var(--on-fill); }
+.t-tfocus-left { display: flex; flex-direction: column; gap: 10px; }
+.t-tfocus-time { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.t-tfocus-time > span:last-child { font-size: 15px; color: var(--text-2); }
+.t-focus-live .t-tfocus-time > span:last-child { color: inherit; }
+.t-tfocus-mid { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.t-tfocus-subj { font-size: 21px; font-weight: 700; line-height: 1.25; overflow-wrap: anywhere; }
+.t-tfocus:not(.t-focus-live) .t-focus-room .t-display { color: var(--ink); }
+@media (max-width: 1279px) {
+  .t-tfocus { grid-template-columns: minmax(0, 1fr) auto; }
+  .t-tfocus-mid { grid-column: 1 / -1; grid-row: 2; }
+}
+
+/* «Лента» педагога и пустая неделя */
+.t-wcols-2 { columns: 2; }
+.t-wday-empty header h3, .t-wday-empty header > span { color: var(--text-2); }
+.t-tweek-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 28px 20px; text-align: center; }
+.t-tweek-empty h2 { font-size: 19px; font-weight: 700; }
+.t-tweek-empty p { font-size: 15px; color: var(--text-2); }
+.t-tweek-empty-ico {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--chip);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-2);
+}
+.t-btn-wide { width: 100%; justify-content: center; margin-top: 6px; border: 1px solid var(--line); }
+}

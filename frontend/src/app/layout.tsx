@@ -3,6 +3,7 @@ import { Onest } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import "./tablo.css";
+import "./tablo-teachers.css";
 import BottomNav from "@/components/BottomNav";
 import ServerResync from "@/components/ServerResync";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";

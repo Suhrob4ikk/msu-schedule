@@ -76,15 +76,25 @@ export function leftText(ms: number): string {
 
 // ─── Строка пары ───────────────────────────────────────────────────────────
 
+/** Что писать рядом с бейджем: в расписании группы — преподаватель, у педагога — группы. */
+export type MetaFn = (b: Block) => React.ReactNode;
+export const teacherMeta: MetaFn = b => b.lessons[0].teacher?.name ?? null;
+
+/** Раскрытая карточка — общее у расписания группы и педагога. */
+export type FocusLike = Pick<Focus, "block" | "slot" | "pill" | "filled" | "targetAt" | "progressFrom"> & {
+  countdownLabel: string | null;
+};
+
 export interface RowProps {
   block: Block;
   past: boolean;
   selected: boolean;
   onOpen: (b: Block, el: HTMLElement) => void;
+  meta?: MetaFn;
 }
 
 /** Строка ленты: время 62 px · предмет · аудитория. */
-export function LessonRow({ block, past, selected, onOpen }: RowProps) {
+export function LessonRow({ block, past, selected, onOpen, meta = teacherMeta }: RowProps) {
   const l = block.lessons[0];
   const slots = slotsLabel(block);
   return (
@@ -104,7 +114,7 @@ export function LessonRow({ block, past, selected, onOpen }: RowProps) {
         <span className="t-row-subj">{l.subject}</span>
         <span className="t-row-meta">
           <TypeBadge type={l.lesson_type} past={past} />
-          {l.teacher && <span>{l.teacher.name}</span>}
+          {meta(block) && <span>{meta(block)}</span>}
         </span>
         {slots && <span className="t-row-slots">{slots}</span>}
       </span>
@@ -114,7 +124,7 @@ export function LessonRow({ block, past, selected, onOpen }: RowProps) {
 }
 
 /** Компактная строка недели на широком экране: 16/700 + «до 11:15», аудитория 19/800. */
-export function CompactRow({ block, past, selected, onOpen, next }: RowProps & { next: boolean }) {
+export function CompactRow({ block, past, selected, onOpen, next, meta = teacherMeta }: RowProps & { next: boolean }) {
   const l = block.lessons[0];
   return (
     <button
@@ -132,7 +142,7 @@ export function CompactRow({ block, past, selected, onOpen, next }: RowProps & {
         <span className="t-crow-subj">{l.subject}</span>
         <span className="t-row-meta">
           <TypeBadge type={l.lesson_type} past={past} />
-          {l.teacher && <span>{l.teacher.name}</span>}
+          {meta(block) && <span>{meta(block)}</span>}
           {block.lessons.length > 1 && <span>· {pairsLabel(block)}</span>}
         </span>
       </span>
@@ -143,8 +153,9 @@ export function CompactRow({ block, past, selected, onOpen, next }: RowProps & {
 
 // ─── Раскрытая карточка ────────────────────────────────────────────────────
 
-export function FocusCard({ focus, now, selected, onOpen }: {
-  focus: Focus;
+export function FocusCard({ focus, now, selected, onOpen, meta = teacherMeta }: {
+  focus: FocusLike;
+  meta?: MetaFn;
   now: Date;
   selected: boolean;
   onOpen: (b: Block, el: HTMLElement) => void;
@@ -183,7 +194,7 @@ export function FocusCard({ focus, now, selected, onOpen }: {
       <span className="t-focus-subj">{l.subject}</span>
       <span className="t-row-meta">
         <TypeBadge type={l.lesson_type} onFill={live} />
-        {l.teacher && <span>{l.teacher.name}</span>}
+        {meta(focus.block) && <span>{meta(focus.block)}</span>}
       </span>
       {slotsLabel(focus.block) && <span className="t-row-slots">{slotsLabel(focus.block)}</span>}
       {progress != null && (
@@ -210,13 +221,16 @@ export interface DayProps {
   day: DayData;
   now: Date | null;
   /** Раскрытая карточка — если она в этом дне. */
-  focus: Focus | null;
+  focus: FocusLike | null;
   /** Серым только в текущей неделе. */
   dimPast: boolean;
   selectedKey: string | null;
   onOpen: (b: Block, el: HTMLElement) => void;
   /** Линия «на сегодня всё» после карточки. */
   doneLine: boolean;
+  meta?: MetaFn;
+  /** Подпись после последней пары: «свободны с 13:00», у педагога — «после 13:00 пар нет». */
+  endLabel?: (last: Block) => string;
 }
 
 /**
@@ -224,7 +238,7 @@ export interface DayProps {
  * «свободны с 13:00». Раскрытая карточка стоит вместо своей строки, и
  * карточка дня рвётся вокруг неё.
  */
-export function DayBody({ day, now, focus, dimPast, selectedKey, onOpen, doneLine }: DayProps) {
+export function DayBody({ day, now, focus, dimPast, selectedKey, onOpen, doneLine, meta, endLabel = freeFromLabel }: DayProps) {
   if (!day.blocks.length) return null;
   const segments: React.ReactNode[] = [];
   let rows: React.ReactNode[] = [];
@@ -239,15 +253,15 @@ export function DayBody({ day, now, focus, dimPast, selectedKey, onOpen, doneLin
     if (focus && focus.block.key === b.key && now) {
       flush(`s${i}`);
       segments.push(
-        <FocusCard key={`f${i}`} focus={focus} now={now} selected={selectedKey === b.key} onOpen={onOpen} />,
+        <FocusCard key={`f${i}`} focus={focus} now={now} selected={selectedKey === b.key} onOpen={onOpen} meta={meta} />,
       );
       return;
     }
     rows.push(
-      <LessonRow key={b.key} block={b} past={dimPast && !!now && isPast(b, now)} selected={selectedKey === b.key} onOpen={onOpen} />,
+      <LessonRow key={b.key} block={b} past={dimPast && !!now && isPast(b, now)} selected={selectedKey === b.key} onOpen={onOpen} meta={meta} />,
     );
   });
-  rows.push(<div key="free" className="t-gap">{freeFromLabel(day.blocks[day.blocks.length - 1])}</div>);
+  rows.push(<div key="free" className="t-gap">{endLabel(day.blocks[day.blocks.length - 1])}</div>);
   flush("end");
   return (
     <div className="t-daybody">
