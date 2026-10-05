@@ -1,59 +1,34 @@
 import html2canvas from "html2canvas";
 import { Lesson, shortGroupName } from "./api";
+import { lessonKind } from "./tablo/schedule";
 
-// Фиксированные hex-цвета, а не CSS-переменные/Tailwind: html2canvas умеет
-// не все современные цветовые функции (oklch из Tailwind 4), и снимок с ними
-// вышел бы чёрно-белым. Поэтому палитры прописаны руками — но их две, и
-// выбирается та же, в какой человек сейчас смотрит сайт: раньше картинка
-// всегда была тёмной, и в светлой теме это выглядело как ошибка.
-const DARK = {
-  bg: "#0d0c13",
-  card: "#18151f",
-  border: "#2a2734",
-  fg: "#f3f1f6",
-  muted: "#8b8594",
-};
+// Цвета — из токенов «Табло» на <html> (globals.css / lib/appearance.ts):
+// картинка в той же теме и с тем же акцентом, что сайт. Все читаемые токены —
+// обычные hex: html2canvas не умеет color-mix и oklch, поэтому --soft не берём.
+function cssVar(name: string, fallback: string): string {
+  if (typeof document === "undefined") return fallback;
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+}
 
-const LIGHT = {
-  bg: "#f3f5f8",
-  card: "#ffffff",
-  border: "#e6e9ee",
-  fg: "#14181c",
-  muted: "#5b6677",
-};
-
-// Цвет левой полоски и бейджа типа занятия — тот же принцип, что у
-// .lesson-accent/.lesson-tag-* в globals.css, только продублирован тут
-// руками: html2canvas не читает классы из настоящего стиля страницы.
-const KIND_COLORS: Record<string, { light: string; dark: string; bgLight: string; bgDark: string }> = {
-  exam: { light: "#c5303a", dark: "#ff8a8e", bgLight: "#fdeaeb", bgDark: "rgba(255,97,102,0.16)" },
-  practice: { light: "#4a44c9", dark: "#b6b2f7", bgLight: "#ecebfb", bgDark: "rgba(140,135,243,0.18)" },
-  lecture: { light: "#1d4ed8", dark: "#93c5fd", bgLight: "#eff6ff", bgDark: "rgba(59,130,246,0.16)" },
-  default: { light: "#64748b", dark: "#94a3b8", bgLight: "#f1f5f9", bgDark: "rgba(148,163,184,0.16)" },
-};
-
-const KIND_BY_TYPE: Record<string, string> = {
-  ЭКЗАМЕН: "exam", Экзамен: "exam", ЗАЧЕТ: "exam", Зачёт: "exam",
-  ПРАКТИКА: "practice", Практика: "practice", ПЗ: "practice",
-  ЛК: "lecture", ЛЕКЦИЯ: "lecture", Лекция: "lecture",
-};
-
-const TYPE_LABELS: Record<string, string> = {
-  ЗАЧЕТ: "Зачёт", ЭКЗАМЕН: "Экзамен",
-  ПРАКТИКА: "Практика", Практика: "Практика", ПЗ: "Практика",
-  ЛК: "Лекция", ЛЕКЦИЯ: "Лекция", Лекция: "Лекция",
-};
-
-/** Тему берём с самой страницы: класс dark на <html> ставит layout.tsx.
- *  Акцент — тоже с неё же (--primary), чтобы картинка совпадала с тем,
- *  что человек выбрал в кабинете (синий по умолчанию или изумруд). */
 function palette() {
-  const dark = typeof document !== "undefined"
-    && document.documentElement.classList.contains("dark");
-  const base = dark ? DARK : LIGHT;
-  const primary = (typeof document !== "undefined"
-    && getComputedStyle(document.documentElement).getPropertyValue("--primary").trim()) || "#2563eb";
-  return { ...base, primary, dark };
+  return {
+    bg: cssVar("--bg", "#F3F4F8"),
+    card: cssVar("--surface", "#FFFFFF"),
+    border: cssVar("--line", "#DEE3E9"),
+    fg: cssVar("--text", "#121318"),
+    muted: cssVar("--text-2", "#4E5160"),
+    primary: cssVar("--ink", "#2F52C4"),
+    font: typeof document !== "undefined" ? getComputedStyle(document.body).fontFamily : "sans-serif",
+  };
+}
+
+/** Бейдж типа: цвета те же, что у бейджей на странице. */
+function kindColors(type: string | null): { label: string; bg: string; fg: string } | null {
+  const k = lessonKind(type);
+  if (!k) return null;
+  const tone = k.palette === "lecture" ? "lec" : k.palette === "practice" ? "lab" : k.palette === "exam" ? "exam" : k.label === "Поток" ? "flow" : null;
+  if (!tone) return { label: k.label, bg: cssVar("--chip", "#EDEEF3"), fg: cssVar("--text-2", "#4E5160") };
+  return { label: k.label, bg: cssVar(`--${tone}-bg`, "#EDEEF3"), fg: cssVar(`--${tone}-text`, "#4E5160") };
 }
 
 function escapeHtml(s: string): string {
@@ -101,7 +76,7 @@ async function buildScheduleImage(opts: {
     width: "720px",
     padding: "28px",
     background: BRAND.bg,
-    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    fontFamily: BRAND.font,
     color: BRAND.fg,
     boxSizing: "border-box",
   });
@@ -127,37 +102,38 @@ async function buildScheduleImage(opts: {
     dayBlock.appendChild(dayTitle);
 
     for (const l of lessons) {
-      const kind = l.lesson_type ? (KIND_BY_TYPE[l.lesson_type] ?? "default") : "default";
-      const kindColor = KIND_COLORS[kind];
-      const accentColor = BRAND.dark ? kindColor.dark : kindColor.light;
+      const kind = kindColors(l.lesson_type);
 
       const row = document.createElement("div");
-      row.style.cssText = `position:relative;overflow:hidden;display:flex;gap:12px;padding:12px 14px 12px 17px;margin-bottom:8px;border-radius:14px;background:${BRAND.card};border:1px solid ${BRAND.border};`;
-      row.innerHTML = `<span style="position:absolute;left:0;top:0;bottom:0;width:3px;background:${accentColor};"></span>`;
+      row.style.cssText = `display:flex;gap:12px;align-items:flex-start;padding:12px 14px;margin-bottom:8px;border-radius:18px;background:${BRAND.card};border:1px solid ${BRAND.border};`;
 
       const time = document.createElement("div");
-      time.style.cssText = "width:46px;flex-shrink:0;line-height:1.2;";
+      time.style.cssText = "width:52px;flex-shrink:0;line-height:1.2;";
       time.innerHTML = `
-        <div style="font-size:15px;font-weight:800;color:${BRAND.fg};">${l.pair_time_start}</div>
-        <div style="font-size:11px;font-weight:500;color:${BRAND.muted};margin-top:2px;">${l.pair_time_end}</div>
+        <div style="font-size:16px;font-weight:700;color:${BRAND.fg};">${l.pair_time_start}</div>
+        <div style="font-size:12px;font-weight:500;color:${BRAND.muted};margin-top:2px;">${l.pair_time_end}</div>
       `;
 
       const who = opts.subtitle === "group"
         ? (l.group ? `${shortGroupName(l.group.name)} · ${l.group.year} курс` : null)
         : l.teacher?.name;
-      const meta = [l.room?.name ? `ауд. ${l.room.name}` : null, who].filter(Boolean).join(" · ");
-      const typeLabel = l.lesson_type ? (TYPE_LABELS[l.lesson_type] ?? l.lesson_type) : null;
 
       const info = document.createElement("div");
       info.style.cssText = "flex:1;min-width:0;";
       info.innerHTML = `
-        ${typeLabel ? `<span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;background:${BRAND.dark ? kindColor.bgDark : kindColor.bgLight};color:${accentColor};margin-bottom:5px;">${escapeHtml(typeLabel)}</span>` : ""}
-        <div style="font-weight:700;font-size:14px;color:${BRAND.fg};">${escapeHtml(l.subject)}</div>
-        ${meta ? `<div style="font-size:12px;color:${BRAND.muted};margin-top:2px;">${escapeHtml(meta)}</div>` : ""}
+        <div style="font-weight:600;font-size:15px;color:${BRAND.fg};">${escapeHtml(l.subject)}</div>
+        <div style="margin-top:4px;font-size:12px;color:${BRAND.muted};">
+          ${kind ? `<span style="display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:${kind.bg};color:${kind.fg};margin-right:6px;">${escapeHtml(kind.label)}</span>` : ""}${who ? escapeHtml(who) : ""}
+        </div>
       `;
+
+      const room = document.createElement("div");
+      room.style.cssText = `flex-shrink:0;font-size:20px;font-weight:800;color:${BRAND.fg};`;
+      room.textContent = l.room?.name ?? "—";
 
       row.appendChild(time);
       row.appendChild(info);
+      row.appendChild(room);
       dayBlock.appendChild(row);
     }
     wrap.appendChild(dayBlock);

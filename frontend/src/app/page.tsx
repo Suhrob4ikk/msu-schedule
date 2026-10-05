@@ -1,777 +1,680 @@
 "use client";
-
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+/**
+ * Вкладка «Расписание» в стиле «Табло» (ТЗ «Сайт · Расписание по образцу APK»).
+ *
+ * Раскладка зависит от ширины, а не от устройства:
+ * - до 640 px — как в приложении: своя шапка, лента или «По дням», шторки;
+ * - 640–1023 — верхняя панель, лента в колонке 680 px, ряд дней, под лентой
+ *   свободные аудитории;
+ * - 1024–1279 — вид «Лента» (сегодня слева, неделя справа в одну колонку);
+ * - от 1280 — «Таблица · сегодня шире» или «Лента» на выбор.
+ *
+ * Данные — как раньше: кэш lib/api.ts (stale-while-revalidate), фоновое
+ * обновление через onApiUpdate. Всё, что зависит от ширины, времени и
+ * localStorage, считается после монтирования (до него — заглушка), поэтому
+ * серверный и первый клиентский рендер совпадают (ошибка #418).
+ */
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
-import WeekBar from "@/components/WeekBar";
-import DaySchedule from "@/components/DaySchedule";
-import { ScheduleSkeleton } from "@/components/Skeletons";
-import { api, prefetch, paths, onApiUpdate, Group, Lesson, TodayItem, Stats, WeekInfo, DAYS_ORDER, breakLabel, shortGroupName } from "@/lib/api";
-import { shareScheduleImage, weekRangeLabel } from "@/lib/shareImage";
-import { useSwipe } from "@/lib/useSwipe";
-import { todayIso } from "@/lib/studyData";
-import GroupSelector from "@/components/GroupSelector";
 import CourseCheckBanner from "@/components/CourseCheckBanner";
-import RadialProgress from "@/components/RadialProgress";
+import Bell from "@/components/tablo/Bell";
+import StatusChip from "@/components/tablo/StatusChip";
+import Icon from "@/components/tablo/Icon";
+import { Popover, Sheet } from "@/components/tablo/Overlay";
+import { DayBody, DayHeading, dayName } from "@/components/tablo/schedule/parts";
+import TableView from "@/components/tablo/schedule/TableView";
+import WideFeed from "@/components/tablo/schedule/WideFeed";
+import FreeRooms from "@/components/tablo/schedule/FreeRooms";
+import LessonDetails from "@/components/tablo/schedule/LessonDetails";
+import GroupPanel, { type WeekOption } from "@/components/tablo/schedule/GroupPanel";
+import { DayBar, NotPublished, ShareList, type ShareAction } from "@/components/tablo/schedule/bits";
+import { api, onApiUpdate, shortGroupName, DAYS_ORDER, type Group, type Lesson, type WeekInfo } from "@/lib/api";
+import { shareScheduleImage } from "@/lib/shareImage";
+import { useSwipe } from "@/lib/useSwipe";
+import { useLayout, useNow } from "@/lib/tablo/hooks";
+import {
+  addDays, buildWeek, computeFocus, dayTitle, diffDays, doneTodayAt, dushanbeNow, headerTitle, isoOf, rangeLabel,
+  weekIsOver, weekRel, weekStatsLine, type Block,
+} from "@/lib/tablo/schedule";
 
-const DAY_LABELS: Record<string, string> = {
-  понедельник: "Понедельник", вторник: "Вторник", среда: "Среда",
-  четверг: "Четверг", пятница: "Пятница", суббота: "Суббота", воскресенье: "Воскресенье",
-};
+const VIEW_KEY = "schedule_view_mode";      // телефон и планшет: list | pages (как в приложении)
+const WIDE_VIEW_KEY = "schedule_wide_view"; // от 1280: table | feed
+const DAY_LABELS: Record<string, string> = Object.fromEntries(
+  DAYS_ORDER.map(d => [d, d.charAt(0).toUpperCase() + d.slice(1)]),
+);
 
-const DAY_IN: Record<string, string> = {
-  понедельник: "В понедельник", вторник: "Во вторник", среда: "В среду",
-  четверг: "В четверг", пятница: "В пятницу", суббота: "В субботу", воскресенье: "В воскресенье",
-};
+const mondayOf = (iso: string) => addDays(iso, -((new Date(iso + "T00:00:00").getDay() + 6) % 7));
+const groupLabel = (g: Group) => `${shortGroupName(g.name)} · ${g.year} курс`;
 
-const DAY_SHORT: Record<string, string> = {
-  понедельник: "Пн", вторник: "Вт", среда: "Ср",
-  четверг: "Чт", пятница: "Пт", суббота: "Сб", воскресенье: "Вс",
-};
+/** «Эта неделя» / «Следующая» / «Прошлая» / «Неделя» — по отношению к сегодняшней. */
+function weekWord(ws: string, now: Date): string {
+  const diff = diffDays(mondayOf(isoOf(now)), ws);
+  return diff === 0 ? "Эта неделя" : diff === 7 ? "Следующая" : diff === -7 ? "Прошлая" : "Неделя";
+}
+const studyRange = (ws: string) => rangeLabel(ws, addDays(ws, 5));
 
-// Дата конкретного дня недели по дате её начала — для чисел на пилюлях
-// фильтра и определения "сегодня" даже когда у дня нет ни одной пары.
-function dayISO(day: string, weekStart: string): string | null {
-  const idx = DAYS_ORDER.indexOf(day);
-  if (idx === -1 || !weekStart) return null;
-  const d = new Date(weekStart + "T00:00:00");
-  d.setDate(d.getDate() + idx);
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+/**
+ * Прокрутить к элементу так, чтобы он встал сразу под закреплёнными шапками
+ * (верхняя панель, шапка телефона, ряд дней). Высота шапки телефона зависит
+ * от ширины (дата переносится), поэтому меряем, а не берём константу.
+ */
+function scrollUnderHeader(el: HTMLElement | null, smooth: boolean) {
+  if (!el) return;
+  let offset = 0;
+  for (const s of document.querySelectorAll<HTMLElement>(".t-top, .t-phead, .t-daybar-phone, .t-daybar-tablet")) {
+    const r = s.getBoundingClientRect();
+    if (r.height && getComputedStyle(s).position === "sticky") offset += r.height + (s.classList.contains("t-daybar-tablet") ? 8 : 0);
+  }
+  const top = el.getBoundingClientRect().top + window.scrollY - offset - 4;
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  window.scrollTo({ top: Math.max(0, top), behavior: smooth && !reduce ? "smooth" : "auto" });
 }
 
-export default function HomePage() {
+export default function SchedulePage() {
   const router = useRouter();
+  const layout = useLayout();
+  const now = useNow(30_000);
+  const wideScreen = layout === "wide" || layout === "xwide";
+
+  // ─── Данные ──────────────────────────────────────────────────────────────
   const [groups, setGroups] = useState<Group[]>([]);
-  // Посещаемость/заметки: откроются автоматически 1 сентября 2026 (см. lib/features.ts).
-  // Флаги читаем после монтирования — SSR-безопасно (иначе hydration #418).
-  const [featureAttendance, setFeatureAttendance] = useState(false);
-  const [featureNotes, setFeatureNotes] = useState(false);
-  useEffect(() => {
-    // Обе функции выключены, пока студент не включит сам в «Моём кабинете» —
-    // это задумано (см. CLAUDE.md), а не забытая настройка.
-    setFeatureAttendance(localStorage.getItem("feature_attendance") === "1");
-    setFeatureNotes(localStorage.getItem("feature_notes") === "1");
-  }, []);
-  // Значения, зависящие от localStorage / текущей даты, инициализируем
-  // серверно-нейтрально (null / "all") и заполняем уже после монтирования —
-  // иначе первый клиентский рендер расходится с SSR (React hydration error #418).
-  const [profileGroupId, setProfileGroupId] = useState<number | null>(null);
-  const [profileGroup, setProfileGroup] = useState<Group | null>(null);
-  const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
-  const [selectedDay, setSelectedDay] = useState<string>("all");
-
-  // После монтирования выставляем день недели по локальному времени пользователя.
-  useEffect(() => {
-    const jsDay = new Date().getDay(); // 0=вс, 1=пн, ..., 6=сб
-    if (jsDay !== 0) setSelectedDay(DAYS_ORDER[(jsDay + 6) % 7]); // пн-сб → русское название
-  }, []);
-
-  // Текущая дата и время в минутах — для таймлайна (какие пары прошли, где
-  // маркер «сейчас»). null до монтирования: на сервере времени пользователя
-  // мы не знаем, и рендеры разошлись бы (hydration #418).
-  const [today, setToday] = useState<string | null>(null);
-  const [nowMinutes, setNowMinutes] = useState<number | null>(null);
-  useEffect(() => {
-    const tick = () => {
-      const d = new Date();
-      setToday(todayIso());
-      setNowMinutes(d.getHours() * 60 + d.getMinutes());
-    };
-    tick();
-    // Раз в полминуты: маркер двигается по минутам, чаще незачем.
-    const id = window.setInterval(tick, 30_000);
-    return () => window.clearInterval(id);
-  }, []);
-  const [lessons, setLessons] = useState<Lesson[]>([]);
-  const [nowItems, setNowItems] = useState<TodayItem[]>([]);
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [myGroupId, setMyGroupId] = useState<number | null>(null);
+  const [group, setGroup] = useState<Group | null>(null);
   const [weeks, setWeeks] = useState<WeekInfo[]>([]);
-  const [selectedWeekId, setSelectedWeekId] = useState<number | undefined>(undefined);
-  const [selectedWeekStart, setSelectedWeekStart] = useState<string>("");
-  const selectedWeekStartRef = useRef(selectedWeekStart);
-  useEffect(() => { selectedWeekStartRef.current = selectedWeekStart; }, [selectedWeekStart]);
-  // Пользователь сам переключил неделю кнопками? Пока нет — неделю всегда
-  // выбираем по сегодняшней дате. Иначе первый экран, нарисованный по кэшу
-  // недельной давности, «прилипал» бы к прошлой неделе: свежий список пришёл,
-  // а мы ищем в нём ту неделю, что показали из кэша.
-  const userPickedWeekRef = useRef(false);
-  const selectedWeekIdRef = useRef<number | undefined>(undefined);
-  useEffect(() => { selectedWeekIdRef.current = selectedWeekId; }, [selectedWeekId]);
+  const [weekStart, setWeekStart] = useState<string | null>(null);
+  /** Открыта неделя, которой ещё нет на msu.tj (стрелка › с последней). */
+  const [notPublished, setNotPublished] = useState(false);
+  const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // silent — фоновое обновление: данные на экране уже есть, скелетон показывать нельзя.
-  const loadGroup = useCallback(async (group: Group, weekId?: number, silent = false) => {
-    setSelectedGroup(group);
+  const userPickedWeek = useRef(false);
+  const weekStartRef = useRef<string | null>(null);
+  useEffect(() => { weekStartRef.current = weekStart; }, [weekStart]);
+  const groupRef = useRef<Group | null>(null);
+  useEffect(() => { groupRef.current = group; }, [group]);
+
+  // silent — фоновое обновление: данные на экране уже есть, заглушку не показываем.
+  const loadGroup = useCallback(async (g: Group, ws?: string, silent = false) => {
+    setGroup(g);
     if (!silent) setLoading(true);
     setError(null);
-    localStorage.setItem("schedule_view_group_id", String(group.id));
-
+    try { localStorage.setItem("schedule_view_group_id", String(g.id)); } catch { /* приватный режим */ }
     try {
-      // Сначала загружаем список недель, чтобы найти нужный week_id
-      const wks = await api.getGroupWeeks(group.id);
+      const wks = [...(await api.getGroupWeeks(g.id))].sort((a, b) => a.week_start.localeCompare(b.week_start));
       setWeeks(wks);
-
-      let targetWeekId = weekId;
-      if (!targetWeekId && userPickedWeekRef.current && selectedWeekStartRef.current) {
-        const matchingWeek = wks.find(w => w.week_start === selectedWeekStartRef.current);
-        if (matchingWeek) targetWeekId = matchingWeek.id;
+      const today = isoOf(dushanbeNow());
+      let target = ws
+        ? wks.find(w => w.week_start === ws)
+        : wks.find(w => w.week_start <= today && today <= addDays(w.week_start, 6))
+          ?? (wks.length && today > wks[wks.length - 1].week_start ? wks[wks.length - 1] : wks.find(w => w.is_latest) ?? wks[0]);
+      if (ws && !target) {
+        // Такой недели ещё нет — «ещё не вышло» вместо пустой таблицы
+        setWeekStart(ws);
+        setLessons([]);
+        setNotPublished(true);
+        return;
       }
-
-      if (!targetWeekId) {
-        // Ищем неделю, содержащую сегодняшнюю дату
-        const today = new Date().toISOString().slice(0, 10);
-        const currentWeek = wks.find(w => {
-          const end = new Date(w.week_start);
-          end.setDate(end.getDate() + 6);
-          return today >= w.week_start && today <= end.toISOString().slice(0, 10);
-        });
-        // Если сегодня нет в ни одной неделе — берём is_latest
-        targetWeekId = currentWeek?.id ?? wks.find(w => w.is_latest)?.id;
+      if (!target) {
+        setWeekStart(null);
+        setLessons([]);
+        setNotPublished(false);
+        return;
       }
-
-      const [sched, now, st] = await Promise.all([
-        api.getGroupSchedule(group.id, undefined, targetWeekId),
-        api.getNow(group.id),
-        api.getStats(group.id),
-      ]);
-
-      const activeWeek = wks.find(w => w.id === targetWeekId) ?? wks.find(w => w.is_latest);
-      setSelectedWeekId(activeWeek?.id);
-      if (activeWeek) setSelectedWeekStart(activeWeek.week_start);
+      let sched = await api.getGroupSchedule(g.id, undefined, target.id);
+      // В субботу после последней пары и в воскресенье — следующая неделя, если вышла
+      if (!ws && !userPickedWeek.current) {
+        const nowD = dushanbeNow();
+        if (weekRel(target.week_start, nowD) === "current" && weekIsOver(nowD, buildWeek(sched, target.week_start))) {
+          const next = wks.find(w => w.week_start === addDays(target!.week_start, 7));
+          if (next) {
+            sched = await api.getGroupSchedule(g.id, undefined, next.id);
+            target = next;
+          }
+        }
+      }
+      setNotPublished(false);
+      setWeekStart(target.week_start);
       setLessons(sched);
-      setNowItems(now);
-      setStats(st);
     } catch {
-      // При фоновом обновлении молчим: на экране остаются прежние данные,
-      // и красная плашка поверх них была бы враньём.
-      if (!silent) setError("Ошибка загрузки расписания");
+      // При фоновом обновлении молчим: на экране остаются прежние данные.
+      if (!silent) setError("Нет соединения с сервером");
     } finally {
       if (!silent) setLoading(false);
     }
   }, []);
 
-  const loadInitialGroups = useCallback(() => {
-    const savedGroup = localStorage.getItem("selected_group_id");
-    const viewedGroup = localStorage.getItem("schedule_view_group_id");
-    const deviceId = localStorage.getItem("msu_device_id_v2");
-
-    if (!savedGroup || !deviceId) {
+  // Первая загрузка: своя группа из Кабинета, просматриваемая — из адреса
+  // (?group=…&week=… из «Скопировать ссылку») или последняя открытая.
+  useEffect(() => {
+    let saved: string | null = null;
+    let device: string | null = null;
+    let viewed: string | null = null;
+    try {
+      saved = localStorage.getItem("selected_group_id");
+      device = localStorage.getItem("msu_device_id_v2");
+      viewed = localStorage.getItem("schedule_view_group_id");
+    } catch { /* приватный режим */ }
+    if (!saved || !device) {
       router.push("/profile");
       return;
     }
-
-    setError(null);
-    const profileId = Number(savedGroup);
-    setProfileGroupId(profileId);
-
-    // Раньше это была лесенка из трёх ожиданий: группы → недели → расписание.
-    // На спящем Render каждая ступенька стоила отдельного round-trip. Группу,
-    // которую надо показать, мы знаем из localStorage сразу — значит, её недели
-    // и «идёт сейчас» можно запросить параллельно со списком групп. К моменту,
-    // когда loadGroup дойдёт до getGroupWeeks, ответ уже в кэше (или тот же
-    // запрос ещё в полёте — fetchApi не пустит второй).
-    const initialId = Number(viewedGroup ?? savedGroup);
-    if (initialId) {
-      prefetch(paths.groupWeeks(initialId));
-      api.getNow(initialId).catch(() => null);
-      api.getStats(initialId).catch(() => null);
-    }
+    const q = new URLSearchParams(window.location.search);
+    const qGroup = Number(q.get("group")) || null;
+    const qWeek = q.get("week");
+    if (qWeek && /^\d{4}-\d{2}-\d{2}$/.test(qWeek)) userPickedWeek.current = true;
 
     api.getGroups()
       .then(gs => {
         setGroups(gs);
-
-        // getGroups по пути чинит сохранённый выбор, если номера групп
-        // разошлись со списком (см. repairSavedGroup в lib/api.ts), поэтому
-        // читаем localStorage заново, а не берём прочитанное выше.
-        const repairedProfileId = Number(localStorage.getItem("selected_group_id"));
-        if (!repairedProfileId) {
-          // Восстановить не удалось — лучше попросить выбрать группу заново,
-          // чем показать чужое расписание или пустой экран.
+        // getGroups чинит сохранённый выбор (repairSavedGroup) — читаем заново
+        const mine = Number(localStorage.getItem("selected_group_id")) || null;
+        if (!mine) {
           router.push("/profile");
           return;
         }
-        setProfileGroupId(repairedProfileId);
-        const profile = gs.find(x => x.id === repairedProfileId) ?? null;
-        setProfileGroup(profile);
-
-        const repairedViewed = Number(localStorage.getItem("schedule_view_group_id"));
-        const g = gs.find(x => x.id === (repairedViewed || repairedProfileId));
-        if (g) loadGroup(g);
+        setMyGroupId(mine);
+        const want = qGroup ?? (Number(localStorage.getItem("schedule_view_group_id")) || Number(viewed) || mine);
+        const g = gs.find(x => x.id === want) ?? gs.find(x => x.id === mine);
+        if (g) loadGroup(g, userPickedWeek.current && qWeek ? qWeek : undefined);
+        else setLoading(false);
       })
-      .catch(() => setError("Нет соединения с сервером"));
+      .catch(() => { setError("Нет соединения с сервером"); setLoading(false); });
   }, [router, loadGroup]);
 
-  useEffect(() => { loadInitialGroups(); }, [loadInitialGroups]);
-
-  // Экран рисуется по кэшу мгновенно; когда фоновый запрос принесёт что-то
-  // новое — молча перечитываем. Все чтения к этому моменту уже свежие,
-  // так что второй раз в сеть никто не пойдёт.
-  const selectedGroupRef = useRef<Group | null>(null);
-  useEffect(() => { selectedGroupRef.current = selectedGroup; }, [selectedGroup]);
+  // Фоновое обновление кэша — молча перечитываем.
   useEffect(() => {
     let timer: number | undefined;
     const off = onApiUpdate(() => {
-      // Обновлений может прилететь несколько подряд — склеиваем в одно.
       window.clearTimeout(timer);
       timer = window.setTimeout(() => {
-        const g = selectedGroupRef.current;
-        if (g) loadGroup(g, userPickedWeekRef.current ? selectedWeekIdRef.current : undefined, true);
+        const g = groupRef.current;
+        if (g) loadGroup(g, userPickedWeek.current ? weekStartRef.current ?? undefined : undefined, true);
       }, 400);
     });
-    return () => { off(); window.clearTimeout(timer); };
+    // Вернулись на вкладку — спрашиваем список недель: в субботу выходит новая
+    const onVis = () => {
+      const g = groupRef.current;
+      if (!document.hidden && g) api.getGroupWeeks(g.id).catch(() => null);
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => { off(); window.clearTimeout(timer); document.removeEventListener("visibilitychange", onVis); };
   }, [loadGroup]);
 
-  // «Идёт сейчас», «перемена» и «на сегодня всё» приходят с сервера и привязаны
-  // к текущей минуте, а вкладку (особенно установленную как приложение) держат
-  // открытой часами. Без этого утренняя пара так и висела бы «идёт сейчас»
-  // вечером, а отсчёт до конца замирал на нуле. Спрашиваем раз в минуту, пока
-  // вкладка видима, и сразу при возврате к ней. Ответ моложе минуты берётся из
-  // кэша (TTL_NOW), так что лишних запросов это не создаёт.
+  // ─── Производные ─────────────────────────────────────────────────────────
+  const days = useMemo(() => (weekStart ? buildWeek(lessons, weekStart) : []), [lessons, weekStart]);
+  const shownDays = useMemo(() => days.filter(d => d.dayIndex < 6 || d.blocks.length), [days]);
+  const rel = weekStart && now ? weekRel(weekStart, now) : null;
+  const focus = useMemo(() => (now && rel && days.length ? computeFocus(now, days, rel) : null), [now, rel, days]);
+  const dimPast = rel === "current";
+  const myGroup = groups.find(g => g.id === myGroupId) ?? null;
+  const foreign = !!group && !!myGroupId && group.id !== myGroupId;
+  const todayIso = now ? isoOf(now) : null;
+  const doneToday = !!now && dimPast && doneTodayAt(now, days);
+
+  const weekOptions: WeekOption[] = useMemo(() => {
+    if (!now) return [];
+    const opts: WeekOption[] = weeks.map(w => ({
+      weekStart: w.week_start, title: weekWord(w.week_start, now), sub: studyRange(w.week_start), disabled: false,
+    }));
+    const thisMonday = mondayOf(isoOf(now));
+    const nextWs = addDays(thisMonday, 7);
+    if (weeks.length && !weeks.some(w => w.week_start === nextWs) && weeks[weeks.length - 1].week_start <= thisMonday) {
+      opts.push({ weekStart: nextWs, title: "Следующая", sub: `${studyRange(nextWs)} · ещё не вышла`, disabled: true });
+    }
+    return opts;
+  }, [weeks, now]);
+
+  // Соседние недели для ‹ ›: невышедшая следующая — тоже шаг (показывает «ещё не вышло»).
+  const weekNav = useMemo(() => {
+    const list = weekOptions.map(o => o.weekStart);
+    const i = weekStart ? list.indexOf(weekStart) : -1;
+    const placeholder = weekOptions.find(o => o.disabled)?.weekStart ?? null;
+    return {
+      prev: i > 0 ? list[i - 1] : null,
+      next: i >= 0 && i < list.length - 1 ? list[i + 1] : null,
+      placeholder,
+    };
+  }, [weekOptions, weekStart]);
+
+  const pickWeek = useCallback((ws: string) => {
+    if (!group) return;
+    userPickedWeek.current = true;
+    loadGroup(group, ws);
+  }, [group, loadGroup]);
+
+  const pickGroup = useCallback((g: Group) => {
+    loadGroup(g, userPickedWeek.current && weekStart ? weekStart : undefined);
+  }, [loadGroup, weekStart]);
+
+  const thisWeek = now ? weeks.find(w => w.week_start === mondayOf(isoOf(now))) : undefined;
+  const toThisWeek = useCallback(() => {
+    if (!group) return;
+    userPickedWeek.current = false;
+    loadGroup(group);
+  }, [group, loadGroup]);
+
+  // ─── Вид ─────────────────────────────────────────────────────────────────
+  const [phoneMode, setPhoneMode] = useState<"list" | "pages">("list");
+  const [wideView, setWideView] = useState<"table" | "feed">("table");
   useEffect(() => {
-    const refreshNow = () => {
-      if (document.hidden) return;
-      const g = selectedGroupRef.current;
-      if (!g) return;
-      api.getNow(g.id).then(setNowItems).catch(() => { /* нет сети — оставляем что было */ });
-    };
-    // Вернулись на вкладку — заодно спрашиваем список недель: в субботу днём
-    // выходит расписание на следующую. Ответ моложе 5 минут берётся из кэша
-    // (TTL_WEEKS), а если неделя появилась — onApiUpdate выше перечитает экран.
-    const onVisible = () => {
-      refreshNow();
-      const g = selectedGroupRef.current;
-      if (document.hidden || !g) return;
-      api.getGroupWeeks(g.id).catch(() => null);
-      api.getAllWeeks().catch(() => null);
-    };
-    const id = window.setInterval(refreshNow, 60_000);
-    document.addEventListener("visibilitychange", onVisible);
-    return () => {
-      window.clearInterval(id);
-      document.removeEventListener("visibilitychange", onVisible);
-    };
+    try {
+      if (localStorage.getItem(VIEW_KEY) === "pages") setPhoneMode("pages");
+      if (localStorage.getItem(WIDE_VIEW_KEY) === "feed") setWideView("feed");
+    } catch { /* приватный режим */ }
+  }, []);
+  const changePhoneMode = (m: "list" | "pages") => {
+    setPhoneMode(m);
+    try { localStorage.setItem(VIEW_KEY, m); } catch { /* приватный режим */ }
+  };
+  const changeWideView = (v: "table" | "feed") => {
+    setWideView(v);
+    try { localStorage.setItem(WIDE_VIEW_KEY, v); } catch { /* приватный режим */ }
+  };
+  // «Неделей/таблицей» — только от 1280: на 1024–1279 шесть столбцов слишком узкие
+  const effectiveWide = layout === "xwide" ? wideView : "feed";
+  const pagesOn = !wideScreen && phoneMode === "pages";
+
+  // «По дням»: какой день открыт — день раскрытой пары, иначе сегодня, иначе первый с парами
+  const [pageDay, setPageDay] = useState<number | null>(null);
+  const defaultPageDay = useMemo(() => {
+    if (!shownDays.length) return null;
+    const f = focus ? shownDays.find(d => d.date === focus.block.date) : undefined;
+    return (f ?? shownDays.find(d => d.date === todayIso) ?? shownDays.find(d => d.blocks.length) ?? shownDays[0]).dayIndex;
+  }, [shownDays, focus, todayIso]);
+  useEffect(() => { setPageDay(null); }, [weekStart, group?.id]);
+  const activePageDay = pageDay ?? defaultPageDay;
+  const shiftPage = useCallback((step: 1 | -1) => {
+    const i = shownDays.findIndex(d => d.dayIndex === activePageDay);
+    const next = shownDays[i + step];
+    if (next) setPageDay(next.dayIndex);
+  }, [shownDays, activePageDay]);
+  const swipe = useSwipe(() => shiftPage(1), () => shiftPage(-1));
+
+  // ─── Подробности пары ────────────────────────────────────────────────────
+  const [sel, setSel] = useState<{ key: string; el: HTMLElement | null } | null>(null);
+  const openBlock = useCallback((b: Block, el: HTMLElement) => setSel({ key: b.key, el }), []);
+  const closeSel = useCallback(() => setSel(null), []);
+  const selBlock = useMemo(() => (sel ? days.flatMap(d => d.blocks).find(b => b.key === sel.key) ?? null : null), [sel, days]);
+  useEffect(() => { setSel(null); }, [weekStart, group?.id, effectiveWide]);
+
+  const [study, setStudy] = useState({ attendance: false, notes: false });
+  useEffect(() => {
+    try {
+      setStudy({
+        attendance: localStorage.getItem("feature_attendance") === "1",
+        notes: localStorage.getItem("feature_notes") === "1",
+      });
+    } catch { /* приватный режим */ }
   }, []);
 
-  const restoreProfileGroup = useCallback(() => {
-    if (profileGroup) {
-      loadGroup(profileGroup);
-      return;
+  // ─── Панели ──────────────────────────────────────────────────────────────
+  const [groupOpen, setGroupOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  // Кнопки, у которых открываются панели (кладём из события клика, не из ref при рендере)
+  const [groupAnchor, setGroupAnchor] = useState<HTMLElement | null>(null);
+  const [shareAnchor, setShareAnchor] = useState<HTMLElement | null>(null);
+  const closeGroup = useCallback(() => setGroupOpen(false), []);
+  const closeShare = useCallback(() => setShareOpen(false), []);
+  const [toast, setToast] = useState<string | null>(null);
+  useEffect(() => {
+    if (!toast) return;
+    const id = window.setTimeout(() => setToast(null), 2200);
+    return () => window.clearTimeout(id);
+  }, [toast]);
+
+  // Клавиши: G — выбор группы, ← → — соседний день в «По дням».
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      if (document.querySelector('[role="dialog"]')) return;
+      if ((e.key === "g" || e.key === "G" || e.key === "п" || e.key === "П") && group) {
+        e.preventDefault();
+        setGroupOpen(true);
+      } else if (pagesOn && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+        e.preventDefault();
+        shiftPage(e.key === "ArrowRight" ? 1 : -1);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [group, pagesOn, shiftPage]);
+
+  // ─── Прокрутка ленты к дню раскрытой пары при открытии ──────────────────
+  const scrolledFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (wideScreen || pagesOn || !weekStart || !group || loading || !now) return;
+    const key = `${group.id}|${weekStart}`;
+    if (scrolledFor.current === key) return;
+    scrolledFor.current = key;
+    const target = focus?.block.date ?? (rel === "current" ? todayIso : null);
+    if (!target) { window.scrollTo({ top: 0 }); return; }
+    requestAnimationFrame(() => scrollUnderHeader(document.getElementById(`day-${target}`), false));
+  }, [wideScreen, pagesOn, weekStart, group, loading, now, focus, rel, todayIso]);
+
+  const scrollToDay = useCallback((dayIndex: number) => {
+    const d = days.find(x => x.dayIndex === dayIndex);
+    if (!d) return;
+    if (pagesOn) { setPageDay(dayIndex); return; }
+    scrollUnderHeader(document.getElementById(wideScreen ? `wday-${d.date}` : `day-${d.date}`), true);
+  }, [days, pagesOn, wideScreen]);
+
+  const onTableDay = useCallback((dayIndex: number) => {
+    changeWideView("feed");
+    requestAnimationFrame(() => requestAnimationFrame(() => scrollToDay(dayIndex)));
+  }, [scrollToDay]);
+
+  // ─── Поделиться ──────────────────────────────────────────────────────────
+  const shareImage = useCallback(async (which: "week" | "day") => {
+    if (!group || !weekStart) return;
+    const pick = which === "week"
+      ? shownDays
+      : shownDays.filter(d => d.dayIndex === (pagesOn ? activePageDay : (focus ? DAYS_ORDER.indexOf(focus.block.day) : defaultPageDay)));
+    const byDay: Record<string, Lesson[]> = {};
+    for (const d of pick) if (d.blocks.length) byDay[d.day] = d.blocks.flatMap(b => b.lessons);
+    const res = await shareScheduleImage({
+      groupLabel: groupLabel(group),
+      weekLabel: which === "week" ? studyRange(weekStart) : pick[0] ? DAY_LABELS[pick[0].day] : "",
+      lessonsByDay: byDay,
+      dayLabels: DAY_LABELS,
+    });
+    if (res === "empty") setToast("Пар нет — делиться нечем");
+    if (res === "error") setToast("Не получилось создать картинку");
+    if (res === "downloaded") setToast("Картинка сохранена");
+  }, [group, weekStart, shownDays, pagesOn, activePageDay, focus, defaultPageDay]);
+
+  const copyLink = useCallback(async () => {
+    if (!group || !weekStart) return;
+    const url = `${window.location.origin}/?group=${group.id}&week=${weekStart}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setToast("Ссылка скопирована");
+    } catch {
+      window.prompt("Ссылка на эту группу и неделю", url);
     }
+  }, [group, weekStart]);
 
-    if (profileGroupId === null) return;
-    const fallback = groups.find(x => x.id === profileGroupId);
-    if (fallback) loadGroup(fallback);
-  }, [groups, profileGroup, profileGroupId, loadGroup]);
+  const dayForImage = (() => {
+    const idx = pagesOn ? activePageDay : focus ? DAYS_ORDER.indexOf(focus.block.day) : defaultPageDay;
+    const d = days.find(x => x.dayIndex === idx);
+    return d ? dayTitle(d.date) : undefined;
+  })();
 
-  // Обработчик переключения недели из WeekBar
-  const handleWeekChange = useCallback((weekStart: string) => {
-    userPickedWeekRef.current = true;
-    setSelectedWeekStart(weekStart);
-    if (!selectedGroup) return;
-    const week = weeks.find(w => w.week_start === weekStart);
-    if (week) loadGroup(selectedGroup, week.id);
-  }, [selectedGroup, weeks, loadGroup]);
+  const shareItems: ShareAction[] = group ? [
+    { icon: "image", title: "Картинка недели", sub: "PNG, как эта неделя", onClick: () => void shareImage("week") },
+    { icon: "image", title: "Картинка дня", sub: dayForImage, onClick: () => void shareImage("day") },
+    { icon: "link", title: "Скопировать ссылку", sub: "Откроет эту группу и неделю", onClick: () => void copyLink() },
+    { icon: "calendarPlus", title: "Добавить в Google Календарь", href: api.getIcsUrl(group.id), download: true },
+    ...(wideScreen ? [{ icon: "print" as const, title: "Распечатать", onClick: () => window.setTimeout(() => window.print(), 50) }] : []),
+  ] : [];
 
-  // Воскресенье показываем только если в этой неделе есть пары в этот день
-  const hasSunday = useMemo(() => lessons.some(l => l.day_of_week === 'воскресенье'), [lessons]);
+  // ─── Рендер ──────────────────────────────────────────────────────────────
+  const weekTitle = weekStart && now
+    ? `${weekWord(weekStart, now)} · ${studyRange(weekStart)}`
+    : "";
 
-  const visibleDays = useMemo(
-    () => DAYS_ORDER.filter(d => d !== 'воскресенье' || hasSunday),
-    [hasSunday]
+  const groupPanel = (
+    <GroupPanel
+      groups={groups}
+      group={group}
+      myGroup={myGroup}
+      weeks={weekOptions}
+      weekStart={weekStart}
+      onPickWeek={ws => { pickWeek(ws); if (!wideScreen) setGroupOpen(false); }}
+      onPickGroup={g => { pickGroup(g); setGroupOpen(false); }}
+      viewMode={wideScreen ? undefined : phoneMode}
+      onViewMode={wideScreen ? undefined : m => { changePhoneMode(m); setGroupOpen(false); }}
+      footer={layout === "phone" && group ? (
+        <div className="mt-3 pt-2 border-t border-[var(--line)]">
+          <ShareList items={shareItems.filter(a => a.icon !== "print")} onDone={closeGroup} />
+        </div>
+      ) : undefined}
+    />
   );
 
-  // Отметки и заметки — только на расписании СВОЕЙ группы (на чужих не нужны)
-  const isMyGroup = selectedGroup != null && profileGroupId != null && selectedGroup.id === profileGroupId;
+  const details = selBlock && (
+    <LessonDetails
+      block={selBlock}
+      focus={focus}
+      days={days}
+      now={now}
+      onClose={closeSel}
+      study={!foreign && myGroupId && (study.attendance || study.notes) ? { groupId: myGroupId, ...study } : null}
+      hint={wideScreen && effectiveWide === "table" ? "Esc — закрыть · стрелки — соседняя пара" : null}
+    />
+  );
 
-  // Идёт ли просматриваемая неделя прямо сейчас. Нужно таймлайну: приглушать
-  // отработанные пары осмысленно только в текущей неделе.
-  const isCurrentWeek = useMemo(() => {
-    if (!today || !selectedWeekStart) return false;
-    const end = new Date(selectedWeekStart);
-    end.setDate(end.getDate() + 6);
-    const p = (n: number) => String(n).padStart(2, "0");
-    const endIso = `${end.getFullYear()}-${p(end.getMonth() + 1)}-${p(end.getDate())}`;
-    return today >= selectedWeekStart && today <= endIso;
-  }, [today, selectedWeekStart]);
+  const listDays = (
+    <div className="t-feed">
+      {rel && rel !== "current" && lessons.length > 0 && (
+        <p className="t-weekstats">{weekStatsLine(days, lessons)}</p>
+      )}
+      {shownDays.map(d => (
+        <section key={d.date} className="t-day" aria-label={dayName(d)}>
+          <DayHeading day={d} now={now} id={`day-${d.date}`} />
+          <DayBody
+            day={d}
+            now={now}
+            focus={focus && focus.block.date === d.date ? focus : null}
+            dimPast={dimPast}
+            selectedKey={sel?.key ?? null}
+            onOpen={openBlock}
+            doneLine={doneToday && d.date === todayIso}
+          />
+        </section>
+      ))}
+    </div>
+  );
 
-  const lessonsByDay = useMemo(() => {
-    const filtered = selectedDay === "all"
-      ? lessons
-      : lessons.filter(l => l.day_of_week === selectedDay);
-
-    return visibleDays.reduce((acc, day) => {
-      const dayLessons = filtered.filter(l => l.day_of_week === day);
-      if (dayLessons.length > 0) acc[day] = dayLessons;
-      return acc;
-    }, {} as Record<string, Lesson[]>);
-  }, [lessons, selectedDay, visibleDays]);
-
-  // Свайп по расписанию листает дни: «вся неделя» → пн → вт → …
-  // Направление запоминаем, чтобы новый день выезжал с той стороны, куда тянули.
-  const [slideDir, setSlideDir] = useState<"left" | "right" | null>(null);
-  const dayOrder = useMemo(() => ["all", ...visibleDays], [visibleDays]);
-  const shiftDay = useCallback((step: 1 | -1) => {
-    const i = dayOrder.indexOf(selectedDay);
-    const next = dayOrder[i + step];
-    if (i < 0 || !next) return;   // край списка — дальше листать некуда
-    setSlideDir(step === 1 ? "left" : "right");
-    setSelectedDay(next);
-  }, [dayOrder, selectedDay]);
-  const swipe = useSwipe(() => shiftDay(1), () => shiftDay(-1));
-
-  // Автопрокрутка к сегодняшнему дню при открытии «Вся неделя» — иначе
-  // приходится скроллить руками, если сегодня не понедельник. id и
-  // scroll-margin для секции — в DaySchedule.tsx.
-  useEffect(() => {
-    if (selectedDay !== "all" || loading) return;
-    const id = window.requestAnimationFrame(() => {
-      document.getElementById("day-today")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-    return () => window.cancelAnimationFrame(id);
-  }, [selectedDay, loading]);
-
-  const [sharing, setSharing] = useState(false);
-  const handleShareImage = useCallback(async () => {
-    if (!selectedGroup || sharing) return;
-    setSharing(true);
-    try {
-      const result = await shareScheduleImage({
-        groupLabel: `${shortGroupName(selectedGroup.name)} · ${selectedGroup.year} курс`,
-        weekLabel: selectedWeekStart ? weekRangeLabel(selectedWeekStart) : "",
-        lessonsByDay,
-        dayLabels: DAY_LABELS,
-      });
-      if (result === "empty") alert("Нет пар, чтобы поделиться — выберите день или неделю с занятиями.");
-      if (result === "error") alert("Не получилось создать картинку. Попробуйте ещё раз.");
-    } finally {
-      setSharing(false);
-    }
-  }, [selectedGroup, selectedWeekStart, lessonsByDay, sharing]);
-
-  const currentItem = nowItems.find(i => i.is_current);
-  const nextItem = nowItems.find(i => i.is_next);
-  // На сегодня всё — бэкенд прислал первую пару следующего учебного дня
-  const tomorrowItem = nowItems.find(i => i.is_tomorrow);
-
-  // Компактная плашка «Идёт сейчас» при скролле: следим за исходной
-  // карточкой через IntersectionObserver, а не за scrollY — не завязано на
-  // конкретные пиксельные пороги и не дёргает layout на каждый кадр скролла.
-  const nowCardRef = useRef<HTMLDivElement>(null);
-  const [showCompactNow, setShowCompactNow] = useState(false);
-  useEffect(() => {
-    if (!currentItem) { setShowCompactNow(false); return; }
-    const el = nowCardRef.current;
-    if (!el) return;
-    // Отрицательный верхний отступ — карточка считается «скрытой» чуть
-    // раньше, чем реально уйдёт под sticky-шапку (её высота — h-14/h-16).
-    const observer = new IntersectionObserver(
-      ([entry]) => setShowCompactNow(!entry.isIntersecting),
-      { rootMargin: "-110px 0px 0px 0px" }
+  const pageView = (() => {
+    const i = shownDays.findIndex(d => d.dayIndex === activePageDay);
+    const d = shownDays[i];
+    if (!d) return null;
+    const prev = shownDays[i - 1];
+    const next = shownDays[i + 1];
+    return (
+      <div className="t-feed" {...swipe}>
+        <section key={d.date} className="t-day t-slide" aria-label={dayName(d)}>
+          <DayHeading day={d} now={now} id={`day-${d.date}`} />
+          <DayBody
+            day={d}
+            now={now}
+            focus={focus && focus.block.date === d.date ? focus : null}
+            dimPast={dimPast}
+            selectedKey={sel?.key ?? null}
+            onOpen={openBlock}
+            doneLine={doneToday && d.date === todayIso}
+          />
+        </section>
+        <div className="t-pagenav">
+          {prev ? (
+            <button type="button" className="t-btn-ghost" onClick={() => setPageDay(prev.dayIndex)}>
+              <Icon name="chevronLeft" size={20} />{dayName(prev)}
+            </button>
+          ) : <span />}
+          {next && (
+            <button type="button" className="t-btn-ghost" onClick={() => setPageDay(next.dayIndex)}>
+              {dayName(next)}<Icon name="chevronRight" size={20} />
+            </button>
+          )}
+        </div>
+      </div>
     );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [currentItem]);
+  })();
 
-  const [currentTime, setCurrentTime] = useState(() => Date.now());
-  useEffect(() => {
-    // Таймер нужен только для обратного отсчёта и прогресса идущей пары.
-    // Без них он молотил бы вхолостую, перерисовывая всю страницу раз в секунду.
-    if (!currentItem && !nextItem) return;
-    const timer = window.setInterval(() => setCurrentTime(Date.now()), 1000);
-    return () => window.clearInterval(timer);
-  }, [currentItem, nextItem]);
+  const emptyWeek = !loading && !error && weekStart && !notPublished && lessons.length === 0;
 
-  // Управление уведомлениями вынесено в одно место — «Мой кабинет» (профиль),
-  // чтобы не дублировать кнопку на главной.
+  const body = (() => {
+    if (error && !lessons.length) {
+      return (
+        <div className="t-state">
+          <Icon name="wifiOff" size={40} />
+          <h2>{error}</h2>
+          <button type="button" className="t-btn-fill" onClick={() => window.location.reload()}>Повторить</button>
+        </div>
+      );
+    }
+    if (loading && !lessons.length) return <ScheduleSkeleton wide={wideScreen} />;
+    if (notPublished && weekStart) {
+      return <NotPublished range={studyRange(weekStart)} onBack={toThisWeek} />;
+    }
+    if (emptyWeek) {
+      return (
+        <div className="t-state">
+          <Icon name="calendar" size={40} />
+          <h2>Пар на этой неделе нет</h2>
+        </div>
+      );
+    }
+    if (!weekStart) return null;
+    if (wideScreen) {
+      return effectiveWide === "table" ? (
+        <TableView days={days} now={now} focus={focus} dimPast={dimPast} selectedKey={sel?.key ?? null}
+          onOpen={openBlock} onDayClick={onTableDay} />
+      ) : (
+        <WideFeed days={days} now={now} focus={focus} dimPast={dimPast} selectedKey={sel?.key ?? null}
+          onOpen={openBlock} twoColumns={layout === "xwide"} />
+      );
+    }
+    return pagesOn ? pageView : listDays;
+  })();
 
-  const countdown = useMemo(() => {
-    if (!nextItem) return "";
-
-    const [h, m] = nextItem.pair_time_start.split(":").map(Number);
-    const target = new Date(currentTime);
-    target.setHours(h, m, 0, 0);
-
-    const diffMs = target.getTime() - currentTime;
-    if (diffMs <= 0) return "";
-
-    const totalMin = Math.floor(diffMs / 60000);
-    const secs = Math.floor((diffMs % 60000) / 1000);
-    const hrs = Math.floor(totalMin / 60);
-    const mins = totalMin % 60;
-
-    return hrs > 0 ? `${hrs}ч ${mins}м` : `${mins}:${String(secs).padStart(2, "0")}`;
-  }, [currentTime, nextItem]);
+  const groupButtonText = group ? groupLabel(group) : "Группа";
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--background)" }}>
-      <Header />
+    <div className="t-page">
+      <Header phone={false} />
 
-      {/* Компактный дубль «Идёт сейчас» — виден, только пока исходная
-          карточка скрыта под шапкой (см. IntersectionObserver выше). */}
-      {showCompactNow && currentItem && (() => {
-        const [eh, em] = currentItem.pair_time_end.split(":").map(Number);
-        const end = new Date(currentTime);
-        end.setHours(eh, em, 0, 0);
-        const left = Math.max(0, Math.ceil((end.getTime() - currentTime) / 60000));
-        return (
-          <div className="sticky top-14 lg:top-16 z-40 anim-slide-up" style={{ background: "var(--primary)" }}>
-            <div className="max-w-7xl mx-auto px-4 lg:px-8 py-2 flex items-center gap-2.5 text-white">
-              <span className="w-1.5 h-1.5 rounded-full bg-white shrink-0 animate-pulse" />
-              <span className="text-sm font-semibold truncate flex-1">{currentItem.subject}</span>
-              <span className="text-xs font-bold tabular-nums shrink-0 whitespace-nowrap">{left} мин до конца</span>
-            </div>
-          </div>
-        );
-      })()}
+      {/* Телефон: шапка как в приложении — одна кнопка, открывает шторку недели и группы */}
+      {layout === "phone" && (
+        <div className="t-phead">
+          <button type="button" className="t-phead-btn" onClick={() => setGroupOpen(true)} aria-haspopup="dialog">
+            <span className={`t-phead-sub ${foreign ? "t-ink" : ""}`}>
+              {group ? groupLabel(group) : "Группа"}
+              {weekStart && now ? ` · ${weekWord(weekStart, now).toLowerCase()}` : ""}
+            </span>
+            <span className="t-phead-title">{weekStart && now ? headerTitle(weekStart, now) : "Расписание"}</span>
+            <Icon name="chevronDown" size={18} strokeWidth={2.2} />
+          </button>
+          <StatusChip compact />
+          <Bell />
+        </div>
+      )}
+      {layout === "phone" && pagesOn && days.length > 0 && !notPublished && (
+        <DayBar days={shownDays} selected={activePageDay} now={now} onPick={setPageDay} className="t-daybar-phone" />
+      )}
 
-      <WeekBar onWeekChange={handleWeekChange} selectedWeekStart={selectedWeekStart} />
-
-      <main className="max-w-7xl mx-auto px-4 lg:px-8 py-4 lg:py-6 pb-24 lg:pb-6 page-enter">
-        {/* На широком экране это CSS grid: «Идёт сейчас» и статистика уезжают
-            в правую липкую колонку (area-rail) рядом со списком пар, вместо
-            отдельной карточки сверху. На мобиле — просто вложенные div, поток
-            остаётся линейным в исходном порядке (см. .schedule-layout). */}
-        <div className="schedule-layout">
-        <div className="area-group">
-        {/* Новый учебный год — курс не сдвигается сам, просим проверить */}
+      <main className={`t-main ${layout ? `t-main-${layout}` : ""}`}>
         <CourseCheckBanner />
 
-        {/* Выбор группы */}
-        <div className="card mb-4 lg:mb-5">
-          {/* Видимый заголовок повторял бы шапку — оставляем только для экранного диктора */}
-          <h1 className="sr-only">Расписание занятий</h1>
-          <GroupSelector groups={groups} value={selectedGroup} onChange={loadGroup} collapsible />
-          {selectedGroup && (
-            <div className="flex flex-wrap gap-2 mt-3">
-              <a
-                href={api.getIcsUrl(selectedGroup.id)}
-                className="flex items-center gap-1.5 px-3.5 min-h-[38px] rounded-full border border-[var(--border)] text-[var(--muted)] text-sm hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors"
-                download
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-                Google Calendar
-              </a>
-              <button
-                onClick={handleShareImage}
-                disabled={sharing}
-                className="flex items-center gap-1.5 px-3.5 min-h-[38px] rounded-full border border-[var(--border)] text-[var(--muted)] text-sm hover:border-[var(--primary)] hover:text-[var(--primary)] transition-all active:scale-95 disabled:opacity-50"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 12v7a2 2 0 002 2h12a2 2 0 002-2v-7M16 6l-4-4-4 4M12 2v13" />
-                </svg>
-                {sharing ? "Готовим картинку..." : "Поделиться картинкой"}
+        {/* Панель инструментов — от 640 px */}
+        {layout && layout !== "phone" && (
+          <div className="t-toolbar">
+            <button type="button" onClick={e => { setGroupAnchor(e.currentTarget); setGroupOpen(o => !o); }} aria-expanded={groupOpen}
+              aria-haspopup="dialog" className={`t-gbtn ${foreign ? "t-gbtn-foreign" : ""} ${groupOpen ? "t-gbtn-open" : ""}`}>
+              {groupButtonText}
+              <Icon name="chevronDown" size={20} strokeWidth={2} />
+            </button>
+            {foreign && myGroup && (
+              <button type="button" className="t-mine-btn" onClick={() => pickGroup(myGroup)}>
+                <Icon name="undo" size={20} />
+                <span>К моей группе<span className="max-md:hidden"> · {groupLabel(myGroup)}</span></span>
               </button>
-              {profileGroupId !== null && selectedGroup.id !== profileGroupId && (
-                <button
-                  onClick={restoreProfileGroup}
-                  className="px-3.5 min-h-[38px] rounded-full border border-[var(--border)] bg-[var(--card)] text-[var(--muted)] text-sm hover:border-[var(--primary)] hover:text-[var(--primary)] transition-all active:scale-95"
-                >
-                  Вернуться к моему расписанию
+            )}
+            {weekStart && (
+              <div className="t-weeknav">
+                <button type="button" aria-label="Предыдущая неделя" disabled={notPublished ? false : !weekNav.prev}
+                  onClick={() => {
+                    if (notPublished) { const last = weeks[weeks.length - 1]; if (last) pickWeek(last.week_start); }
+                    else if (weekNav.prev) pickWeek(weekNav.prev);
+                  }}>
+                  <Icon name="chevronLeft" size={20} />
                 </button>
-              )}
-            </div>
-          )}
-        </div>
-        </div>
-
-        <div className="area-rail">
-        {/* На сегодня занятия кончились — показываем ближайший учебный день */}
-        {selectedGroup && !loading && tomorrowItem && (
-          <div className="card lesson-now mb-4 lg:mb-5 anim-rise">
-            <div className="flex items-center gap-2 mb-2">
-              <svg className="w-4 h-4 text-[var(--primary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20 6L9 17l-5-5" />
-              </svg>
-              <span className="text-xs lg:text-sm font-semibold text-[var(--primary)]">НА СЕГОДНЯ ВСЁ</span>
-              <span className="lesson-tag ml-auto">{tomorrowItem.pair_number} пара</span>
-            </div>
-            <p className="text-xs text-[var(--muted)] mb-1.5">
-              {tomorrowItem.day_label} в {tomorrowItem.pair_time_start} — первая пара:
-            </p>
-            <p className="font-semibold text-sm lg:text-base">{tomorrowItem.subject}</p>
-            <div className="flex flex-wrap items-center gap-2 mt-2">
-              {tomorrowItem.room && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-sm font-bold"
-                  style={{ background: "var(--primary-soft)", color: "var(--primary)" }}>
-                  ауд. {tomorrowItem.room}
-                </span>
-              )}
-              {tomorrowItem.teacher && (
-                <span className="text-xs lg:text-sm text-[var(--muted)]">{tomorrowItem.teacher}</span>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* "Что сейчас" виджет — показываем только когда есть текущая или следующая пара */}
-        {selectedGroup && !loading && (currentItem || nextItem) && (
-          // sm:grid-cols-2 — только пока эти карточки ещё в общем потоке на всю
-          // ширину страницы (640–1023px). С lg: они переезжают в узкую правую
-          // колонку (340px, см. .area-rail) — там для двух карточек в ряд места
-          // нет, поэтому обратно в одну колонку. Сетка ориентируется на ширину
-          // ВСЕГО экрана, а не колонки, так что без lg:grid-cols-1 на широких
-          // экранах она всё равно пыталась бы поставить их по две в ряд.
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3 lg:gap-4 mb-4 lg:mb-5">
-            {currentItem && (
-              <div ref={nowCardRef} className="card lesson-now anim-rise">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="w-2 h-2 rounded-full bg-[var(--primary)] animate-pulse"></span>
-                  <span className="text-xs lg:text-sm font-semibold text-[var(--primary)]">ИДЁТ СЕЙЧАС</span>
-                  <span className="lesson-tag ml-auto">{currentItem.pair_number} пара</span>
-                </div>
-                <p className="font-semibold text-sm lg:text-base">{currentItem.subject}</p>
-                <p className="text-xs lg:text-sm text-[var(--muted)] mt-1">
-                  {currentItem.pair_time_start}–{currentItem.pair_time_end}
-                  {currentItem.teacher && ` · ${currentItem.teacher}`}
-                  {currentItem.room && ` · ауд. ${currentItem.room}`}
-                </p>
-                {(() => {
-                  // Прогресс пары: сколько прошло из 90 минут — тающее кольцо вместо полоски
-                  const [sh, sm] = currentItem.pair_time_start.split(":").map(Number);
-                  const [eh, em] = currentItem.pair_time_end.split(":").map(Number);
-                  const st = new Date(currentTime); st.setHours(sh, sm, 0, 0);
-                  const en = new Date(currentTime); en.setHours(eh, em, 0, 0);
-                  const p = (currentTime - st.getTime()) / (en.getTime() - st.getTime());
-                  const left = Math.max(0, Math.ceil((en.getTime() - currentTime) / 60000));
-                  return (
-                    <div className="mt-2.5 flex items-center gap-2.5">
-                      <RadialProgress progress={1 - p} size={34} stroke={3.5}>
-                        <span className="text-[10px] font-bold tabular-nums" style={{ color: "var(--primary)" }}>{left}</span>
-                      </RadialProgress>
-                      <p className="text-xs text-[var(--muted)]">
-                        осталось <b style={{ color: "var(--foreground)" }}>{left} мин</b> до конца пары
-                      </p>
-                    </div>
-                  );
-                })()}
+                <span>{weekTitle}</span>
+                <button type="button" aria-label="Следующая неделя" disabled={notPublished || !weekNav.next}
+                  onClick={() => weekNav.next && pickWeek(weekNav.next)}>
+                  <Icon name="chevronRight" size={20} />
+                </button>
               </div>
             )}
-            {nextItem && (() => {
-              // Прогресс перемены — тает по мере приближения к следующей паре
-              let breakProgress: number | null = null;
-              if (nextItem.break_minutes != null && nextItem.break_minutes > 0) {
-                const [h, m] = nextItem.pair_time_start.split(":").map(Number);
-                const start = new Date(currentTime);
-                start.setHours(h, m, 0, 0);
-                const leftMs = start.getTime() - currentTime;
-                const totalMs = nextItem.break_minutes * 60_000;
-                breakProgress = Math.min(1, Math.max(0, leftMs / totalMs));
-              }
-              return (
-                <div className="card lesson-now anim-rise" style={{ "--d": "80ms" } as React.CSSProperties}>
-                  <div className="flex items-center justify-between gap-2 mb-2">
-                    <div className="flex items-center gap-2">
-                      {/* Во время перемены важнее сказать «идёт перемена», чем «следующая» */}
-                      <span className="text-xs lg:text-sm font-semibold text-[var(--primary)]">
-                        {nextItem.break_minutes != null
-                          ? breakLabel(nextItem.break_minutes).toUpperCase()
-                          : "СЛЕДУЮЩАЯ"}
-                      </span>
-                      <span className="lesson-tag">{nextItem.pair_number} пара</span>
-                    </div>
-                    {countdown && (
-                      breakProgress != null ? (
-                        <RadialProgress progress={breakProgress} size={58} stroke={4}>
-                          <span className="text-xs font-bold tabular-nums text-[var(--primary)] whitespace-nowrap">{countdown}</span>
-                        </RadialProgress>
-                      ) : (
-                        <span className="text-lg lg:text-2xl font-bold tabular-nums text-[var(--primary)]">
-                          {countdown}
-                        </span>
-                      )
-                    )}
-                  </div>
-                  <p className="font-semibold text-sm lg:text-base">{nextItem.subject}</p>
-                  {/* Аудиторию — отдельно и крупно: на перемене это главный вопрос */}
-                  <div className="flex flex-wrap items-center gap-2 mt-2">
-                    {nextItem.room && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-sm font-bold"
-                        style={{ background: "var(--primary-soft)", color: "var(--primary)" }}>
-                        ауд. {nextItem.room}
-                      </span>
-                    )}
-                    <span className="text-xs lg:text-sm text-[var(--muted)]">
-                      {nextItem.pair_time_start}–{nextItem.pair_time_end}
-                      {nextItem.teacher && ` · ${nextItem.teacher}`}
-                    </span>
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-        )}
-
-        {/* Статистика — цифры на тональной подложке (--primary-soft), тот же
-            приём, что у бейджа «сегодня» и чипов аудитории: превращает голые
-            цифры в самостоятельные мини-виджеты вместо текста на фоне карточки. */}
-        {stats && stats.total_lessons_week >= 3 && (
-          // На телефоне — три плитки в ряд, на десктопе в узкой правой колонке
-          // они разворачиваются в три отдельные строки-карточки «число — подпись»
-          // (см. .rail .stat-tile в макете): три числа в ряд на 340px не влезают.
-          <div className="grid grid-cols-3 lg:grid-cols-1 gap-2 lg:gap-2.5 mb-4 lg:mb-5">
-            {[
-              { value: stats.total_lessons_week, label: "пар в неделю" },
-              { value: stats.unique_subjects, label: "предметов" },
-              { value: stats.unique_teachers, label: "преподавателей" },
-            ].map(s => (
-              <div
-                key={s.label}
-                className="card text-center py-3 lg:py-3.5 lg:px-[18px] lg:flex lg:items-center lg:justify-between lg:text-left"
-              >
-                <div className="text-2xl lg:text-[30px] font-extrabold leading-none tabular-nums text-[var(--primary)]">
-                  {s.value}
-                </div>
-                <div className="text-[11px] lg:text-xs font-semibold text-[var(--muted)] mt-1.5 lg:mt-0">{s.label}</div>
+            <div className="flex-1" />
+            {layout === "xwide" && (
+              <div className="t-seg t-seg-view" role="radiogroup" aria-label="Вид">
+                {([["feed", "Лента"], ["table", "Таблица"]] as const).map(([v, label]) => (
+                  <button key={v} type="button" role="radio" aria-checked={wideView === v}
+                    className={`t-seg-btn ${wideView === v ? "t-seg-on" : ""}`} onClick={() => changeWideView(v)}>
+                    {label}
+                  </button>
+                ))}
               </div>
-            ))}
+            )}
+            {group && (
+              <button type="button" className={`t-share-btn ${shareOpen ? "t-gbtn-open" : ""}`}
+                onClick={e => { setShareAnchor(e.currentTarget); setShareOpen(o => !o); }} aria-expanded={shareOpen} aria-haspopup="dialog">
+                <Icon name="share" size={20} />
+                <span className="max-md:sr-only">Поделиться</span>
+              </button>
+            )}
           </div>
         )}
 
-        </div>
-
-        <div className="area-days">
-        {/* Фильтр по дню — «Вся неделя» отдельной широкой кнопкой сверху
-            (как в приложении), сами дни — своим рядом под ней. В общем ряду
-            с днями кнопка либо терялась среди одинаковых пилюль, либо не
-            помещалась на узких экранах. max-w — чтобы на широком экране она
-            не тянулась во весь рост колонки: там это смотрится непропорционально
-            длинной пилюлей. На телефоне контейнер и так уже уже этого предела,
-            поэтому там кнопка остаётся во всю ширину, как в приложении. */}
-        {selectedGroup && (
-          <button
-            onClick={() => setSelectedDay("all")}
-            className={`w-full flex items-center justify-center h-12 rounded-2xl text-sm lg:text-base font-bold transition-all active:scale-[0.99] mb-2 ${selectedDay === "all"
-              ? "bg-[var(--primary)] text-white"
-              : "bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)]"
-              }`}
-          >
-            Вся неделя
-          </button>
-        )}
-        {selectedGroup && (
-          // Шесть равных плиток в один ряд — как в макете. Раньше это был
-          // flex-wrap с полными названиями дней: на десктопе он переносился
-          // на вторую строку и занимал вдвое больше высоты.
-          <div className="grid grid-cols-6 gap-1.5 lg:gap-2 mb-4 lg:mb-5">
-            {visibleDays.map(day => {
-              const hasLessons = lessons.some(l => l.day_of_week === day);
-              const isActive = selectedDay === day;
-              const iso = dayISO(day, selectedWeekStart);
-              const isToday = !!today && iso === today;
-              const dayNum = iso ? Number(iso.slice(-2)) : null;
-              // Подсвечивать синей рамкой только когда выбран конкретный день, а не "вся неделя"
-              const showHighlight = hasLessons && !isActive && selectedDay !== "all";
-              return (
-                <button
-                  key={day}
-                  onClick={() => setSelectedDay(day)}
-                  className={`relative flex flex-col items-center justify-center gap-0.5 h-[60px] rounded-2xl transition-all active:scale-95 ${isActive
-                    ? "bg-[var(--primary)] text-white"
-                    : isToday
-                      ? "bg-[var(--card)] border-[1.5px] border-[var(--primary)] text-[var(--primary)]"
-                      : showHighlight
-                        ? "bg-[var(--tag-bg)] border border-[var(--primary)] text-[var(--primary)]"
-                        : "bg-[var(--card)] border border-[var(--border)] text-[var(--muted)]"
-                    }`}
-                >
-                  {isToday && (
-                    <span
-                      className="absolute -top-2 left-1/2 -translate-x-1/2 text-[8px] font-bold uppercase tracking-wide px-1 whitespace-nowrap"
-                      style={{ background: "var(--background)", color: "var(--primary)" }}
-                    >
-                      сегодня
-                    </span>
-                  )}
-                  <span className="text-[11px] font-semibold leading-none opacity-85">{DAY_SHORT[day]}</span>
-                  {dayNum != null && <span className="text-base font-extrabold leading-none">{dayNum}</span>}
-                  {/* Точка-индикатор: есть пары, режим "вся неделя", кнопка не активна */}
-                  {hasLessons && selectedDay === "all" && (
-                    <span className="absolute bottom-1.5 w-1.5 h-1.5 rounded-full bg-current opacity-60" />
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        )}
-        </div>
-
-        <div className="area-list">
-        {/* Расписание */}
-        {loading && <ScheduleSkeleton rows={4} />}
-
-        {error && (
-          <div className="card text-sm flex items-center justify-between gap-3 flex-wrap" style={{ borderColor: "var(--border)", color: "var(--muted)" }}>
-            <span>{error}</span>
-            <button
-              onClick={() => (groups.length === 0 ? loadInitialGroups() : selectedGroup && loadGroup(selectedGroup))}
-              className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white shrink-0"
-              style={{ background: "var(--primary)" }}
-            >
-              Повторить
-            </button>
-          </div>
+        {/* Планшет: ряд дней — навигация по ленте */}
+        {layout === "tablet" && days.length > 0 && !notPublished && (
+          <DayBar days={shownDays} selected={pagesOn ? activePageDay : null} now={now}
+            onPick={scrollToDay} className="t-daybar-tablet" />
         )}
 
-        {/* Зона свайпа переключения дней — растянута на весь остаток экрана,
-            а не только на карточки пар: иначе в пустой день (или пока грузится
-            блок «занятий нет») свайпать было буквально не по чему. */}
-        <div {...swipe} key={selectedDay} className="min-h-[55vh] lg:min-h-0">
-          {!loading && !error && selectedGroup && Object.keys(lessonsByDay).length === 0 && (
-            <div className="text-center py-16 text-[var(--muted)]">
-              <svg className="w-12 h-12 mx-auto mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              {selectedDay !== "all" ? (
-                <>
-                  <p className="font-medium">{DAY_IN[selectedDay]} занятий нет</p>
-                </>
-              ) : (
-                <>
-                  <p className="font-medium">На этой неделе занятий нет</p>
-                </>
-              )}
-            </div>
-          )}
+        {body}
 
-          {!loading && !selectedGroup && !error && (
-            <div className="text-center py-16 text-[var(--muted)]">
-              <svg className="w-12 h-12 mx-auto mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-              </svg>
-              <p className="font-medium">Выберите группу выше</p>
-            </div>
-          )}
-
-          <div
-            // Две колонки — только для «Вся неделя» (несколько дней подряд).
-            // На одном конкретном дне лишняя вторая колонка просто пустует,
-            // а список сжимается вдвое уже: раньше lg:grid-cols-2 стояла
-            // безусловно, независимо от того, один день показан или все.
-            className={`grid grid-cols-1${selectedDay === "all" ? " lg:grid-cols-2 day-grid" : ""} gap-x-6${slideDir ? ` slide-${slideDir}` : ""}`}
-          >
-            {Object.entries(lessonsByDay).map(([day, dayLessons], idx) => (
-              <DaySchedule
-                key={day}
-                dayLabel={DAY_LABELS[day]}
-                lessons={dayLessons}
-                showAttendance={featureAttendance && isMyGroup}
-                showNotes={featureNotes && isMyGroup}
-                todayIso={today}
-                nowMinutes={nowMinutes}
-                dimPast={isCurrentWeek}
-                order={idx}
-              />
-            ))}
-          </div>
-        </div>
-        </div>
-        </div>
+        {layout === "tablet" && !notPublished && <FreeRooms now={now} limit={6} className="mt-6" />}
       </main>
+
+      {/* «К этой неделе» — когда открыта не текущая неделя (телефон и планшет) */}
+      {!wideScreen && layout && thisWeek && weekStart !== thisWeek.week_start && !notPublished && (
+        <button type="button" className="t-tothis" onClick={toThisWeek}>
+          <Icon name="chevronUp" size={18} strokeWidth={2.2} />К этой неделе
+        </button>
+      )}
+
+      {/* Выбор недели и группы */}
+      {groupOpen && (layout === "phone" ? (
+        <Sheet onClose={closeGroup} label="Неделя и группа">{groupPanel}</Sheet>
+      ) : (
+        <Popover anchor={groupAnchor ?? document.querySelector<HTMLElement>(".t-gbtn")} onClose={closeGroup} width={400} label="Неделя и группа">
+          <div className="t-panel">{groupPanel}</div>
+        </Popover>
+      ))}
+
+      {/* Поделиться */}
+      {shareOpen && layout !== "phone" && (
+        <Popover anchor={shareAnchor} onClose={closeShare} width={380} align="end" label="Поделиться">
+          <div className="t-panel p-2"><ShareList items={shareItems} onDone={closeShare} /></div>
+        </Popover>
+      )}
+
+      {/* Подробности пары: рядом с ячейкой на широком экране, шторкой — на узком */}
+      {details && (wideScreen ? (
+        <Popover anchor={sel?.el ?? null} onClose={closeSel} width={360} placement="side" autoFocus={false} label={selBlock?.lessons[0].subject ?? "Пара"}>
+          {details}
+        </Popover>
+      ) : (
+        <Sheet onClose={closeSel} label={selBlock?.lessons[0].subject ?? "Пара"}>{details}</Sheet>
+      ))}
+
+      {toast && <div className="t-toast" role="status">{toast}</div>}
+    </div>
+  );
+}
+
+function ScheduleSkeleton({ wide }: { wide: boolean }) {
+  return (
+    <div className={wide ? "t-skel-wide" : "t-feed"} aria-label="Загружаем расписание" role="status">
+      {Array.from({ length: wide ? 6 : 3 }, (_, i) => (
+        <div key={i} className="t-skel t-skel-block" />
+      ))}
     </div>
   );
 }
