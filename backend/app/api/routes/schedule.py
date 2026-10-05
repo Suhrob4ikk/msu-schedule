@@ -38,10 +38,23 @@ _FREE_ROOMS_TTL = 900.0  # 15 минут — страховка, если кэш
 _BULK_SYNC_CACHE: dict = {}
 _BULK_SYNC_TTL = 600.0  # 10 минут — страховка, основной сброс из sync
 
+# Номер «поколения» данных: растёт при каждом сбросе кэша. Ответ, который
+# начали считать до сброса (синхронизация закоммитила новое расписание, пока
+# /bulk-sync ещё собирал старое), в кэш не кладём — иначе он 10 минут отдавал
+# бы всем расписание до правки.
+_CACHE_GEN = [0]
+
 
 def clear_free_rooms_cache() -> None:
+    _CACHE_GEN[0] += 1
     _FREE_ROOMS_CACHE.clear()
     _BULK_SYNC_CACHE.clear()
+
+
+def dushanbe_today() -> date:
+    """Сегодняшняя дата в Душанбе. date.today() на сервере — это UTC: с 00:00
+    до 05:00 по Душанбе там ещё вчера, а в ночь на понедельник — прошлая неделя."""
+    return datetime.now(tz=TZ_DUSHANBE).date()
 
 
 def enrich_lesson(lesson: Lesson) -> dict:
@@ -379,9 +392,14 @@ def get_current_and_next(
     if not group:
         raise HTTPException(404, "Группа не найдена")
 
+    # Неделя, в которую попадает сегодняшний день, а не «самая свежая»
+    # (is_latest): в субботу днём выходит следующая неделя, и раньше «идёт
+    # сейчас» показывало пары СЛЕДУЮЩЕЙ субботы. Недели нет (не опубликована,
+    # каникулы) — честно ничего не показываем, а не пары другой недели.
+    monday = today - timedelta(days=today.weekday())
     latest_week = (
         db.query(WeekSchedule)
-        .filter_by(faculty_code=group.faculty.code, is_latest=True)
+        .filter_by(faculty_code=group.faculty.code, week_start=monday)
         .order_by(WeekSchedule.downloaded_at.desc())
         .first()
     )
@@ -541,6 +559,7 @@ def get_free_rooms(
     hit = _FREE_ROOMS_CACHE.get(cache_key)
     if hit and (_time_mod.time() - hit[1]) < _FREE_ROOMS_TTL:
         return hit[0]
+    gen = _CACHE_GEN[0]
 
     # Список настоящих аудиторий — фиксированный, а не из таблицы Room:
     # там может застрять что угодно, что когда-то распарсилось из Excel
@@ -684,7 +703,8 @@ def get_free_rooms(
 
     result.sort(key=_sort_key)
 
-    _FREE_ROOMS_CACHE[cache_key] = (result, _time_mod.time())
+    if gen == _CACHE_GEN[0]:
+        _FREE_ROOMS_CACHE[cache_key] = (result, _time_mod.time())
     return result
 
 
@@ -701,6 +721,7 @@ def bulk_sync(db: Session = Depends(get_db)):
     hit = _BULK_SYNC_CACHE.get("all")
     if hit and (_time_mod.time() - hit[1]) < _BULK_SYNC_TTL:
         return hit[0]
+    gen = _CACHE_GEN[0]
 
     groups = get_groups(db=db)
     weeks_all = get_all_weeks(db)
@@ -717,7 +738,7 @@ def bulk_sync(db: Session = Depends(get_db)):
     # считал клиент (см. syncService.ts мобилки).
     def _is_current(week_start: str) -> bool:
         d = date.fromisoformat(week_start)
-        today = date.today()
+        today = dushanbe_today()
         return d <= today <= d + timedelta(days=6)
 
     cur_idx = next((i for i, w in enumerate(weeks_all) if _is_current(w["week_start"])), -1)
@@ -757,7 +778,8 @@ def bulk_sync(db: Session = Depends(get_db)):
         "free_rooms": free_rooms,
         "generated_at": datetime.utcnow().isoformat() + "Z",
     }
-    _BULK_SYNC_CACHE["all"] = (result, _time_mod.time())
+    if gen == _CACHE_GEN[0]:
+        _BULK_SYNC_CACHE["all"] = (result, _time_mod.time())
     return result
 
 
