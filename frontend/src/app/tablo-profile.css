@@ -8,7 +8,7 @@
 .t-pf { display: flex; flex-direction: column; gap: 20px; }
 @media (min-width: 1024px) {
   .t-pf-main { padding: 24px 32px 56px; }
-  .t-pf { display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 32px; align-items: start; }
+  .t-pf { display: grid; grid-template-columns: 420px minmax(0, 1fr); gap: 32px; align-items: start; }
 }
 .t-pf-left, .t-pf-right { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .t-pf-right { gap: 20px; }
