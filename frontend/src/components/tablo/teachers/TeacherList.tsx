@@ -200,8 +200,10 @@ export default function TeacherList({
           <>
             <div className="t-tlist-sum">
               <span>{now ? listSummary(teachers.length, now) : ""}</span>
-              <button type="button" className="t-az" onClick={e => { setLettersAnchor(e.currentTarget); setLettersOpen(o => !o); }}
-                aria-expanded={lettersOpen}>А–Я</button>
+              {!panel && (
+                <button type="button" className="t-az" onClick={e => { setLettersAnchor(e.currentTarget); setLettersOpen(o => !o); }}
+                  aria-expanded={lettersOpen}>А–Я</button>
+              )}
             </div>
             {recent.length > 0 && (
               <section aria-label="Недавние">

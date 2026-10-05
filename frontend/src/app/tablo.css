@@ -149,6 +149,8 @@
   flex-shrink: 0;
 }
 .t-avatar-lg { width: 56px; height: 56px; font-size: 22px; margin-left: 0; }
+a.t-avatar:hover { filter: brightness(0.96); }
+.t-avatar-on { box-shadow: 0 0 0 2px var(--ink); }
 @media (max-width: 1023px) {
   .t-avatar { width: 44px; height: 44px; font-size: 18px; margin-left: 2px; }
   .t-avatar-lg { width: 56px; height: 56px; font-size: 22px; }

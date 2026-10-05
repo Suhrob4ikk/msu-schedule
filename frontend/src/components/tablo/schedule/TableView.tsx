@@ -158,7 +158,7 @@ export default function TableView({ days, now, focus, dimPast, selectedKey, onOp
             <span className="t-th-sub">
               {/* Узкий столбец: «на сегодня всё» без времени и «сегодня · 2 пары» без
                   интервала — иначе подпись обрезается многоточием */}
-              {done && now
+              {!d.blocks.length ? "" : done && now
                 ? wide ? `${pad2(now.getHours())}:${pad2(now.getMinutes())} · на сегодня всё` : "на сегодня всё"
                 : wide ? daySub(d, now, false) : daySub(d, now, false).split(" · ").filter(s => !/\d:\d/.test(s)).join(" · ")}
             </span>
@@ -230,10 +230,7 @@ export default function TableView({ days, now, focus, dimPast, selectedKey, onOp
                   </span>
                 ) : (
                   <span className="t-cell-top">
-                    <span className="t-cell-when">
-                      {b.start}–{b.end}
-                      {status && ` · ${status}`}
-                    </span>
+                    <span className="t-cell-when">{status ?? ""}</span>
                     <span className={`t-cell-room-xl ${l.room ? "" : "t-none"}`}>{l.room?.name ?? "—"}</span>
                   </span>
                 )}

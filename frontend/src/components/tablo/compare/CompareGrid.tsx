@@ -23,9 +23,8 @@ function Cell({ groups, dayIndex, pair, hot, past }: {
   const free = items.every(i => !i);
   if (free) {
     return (
-      <div className={`t-cg-cell t-cg-free ${hot ? "t-cg-hot" : ""} ${past ? "t-cg-past" : ""}`}>
-        <span>{groups.length === 2 ? "обе свободны" : "все свободны"}</span>
-      </div>
+      <div className={`t-cg-cell t-cg-free ${hot ? "t-cg-hot" : ""} ${past ? "t-cg-past" : ""}`}
+        role="img" aria-label={groups.length === 2 ? "обе свободны" : "все свободны"} title={groups.length === 2 ? "Обе свободны" : "Все свободны"} />
     );
   }
   return (

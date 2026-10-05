@@ -20,9 +20,7 @@ import { markGroupChosen } from "@/lib/features";
 import { getInstallEvent, isIOS, isStandalone, onInstallChange, runInstall } from "@/lib/install";
 import { getPushStatus, resyncPush, subscribePush, unsubscribePush, type PushStatus } from "@/lib/push";
 import { collectNotes, collectSkips, type SkipStats } from "@/lib/studyData";
-import { useNetStatus } from "@/lib/tablo/hooks";
 import { newLabel } from "@/lib/tablo/changes";
-import { stampLabel, dushanbeNow } from "@/lib/tablo/schedule";
 
 // ─── Мелочи ────────────────────────────────────────────────────────────────
 
@@ -106,7 +104,6 @@ function PushRow({ sessionId, groupId }: { sessionId: string; groupId: number | 
 
 export default function ProfilePage() {
   const router = useRouter();
-  const net = useNetStatus();
   const [groups, setGroups] = useState<Group[]>([]);
   const [groupsError, setGroupsError] = useState(false);
   const [hydrated, setHydrated] = useState(false);
@@ -240,7 +237,6 @@ export default function ProfilePage() {
 
   const letter = name.trim().charAt(0).toUpperCase();
   const deviceId = (() => { try { return localStorage.getItem("msu_device_id_v2") ?? ""; } catch { return ""; } })();
-  const lastSync = net?.lastOkAt ? stampLabel(new Date(net.lastOkAt), dushanbeNow()) : "ещё не было";
 
   return (
     <div className="t-page">
@@ -314,10 +310,6 @@ export default function ProfilePage() {
 
             <h2 className="t-over t-pf-h">Синхронизация</h2>
             <section className="t-pf-card t-pf-sync">
-              <div className="t-pf-row t-pf-row-flat">
-                <span className="t-pf-dim">Последнее обновление</span>
-                <b>{lastSync}</b>
-              </div>
               <button type="button" className="t-pf-refresh" onClick={syncNow} disabled={syncing}>
                 <Icon name="history" size={20} />{syncing ? "Обновляем…" : "Обновить расписание"}
               </button>
@@ -346,8 +338,18 @@ export default function ProfilePage() {
               <section className="t-pf-card t-pf-notes">
                 <h3>Напоминания и уведомления</h3>
                 <PushRow sessionId={deviceId} groupId={groupId} />
-                <p>О зачётах накануне в 20:00, за 10 минут до пары, текущая пара в шторке: в приложении для Android</p>
+                <p>Напоминания о зачётах и перед парой приходят в приложении для Android.</p>
                 {apk && <a href={apk} className="t-pf-ghost"><Icon name="download" size={18} />Скачать APK</a>}
+                {apk && (
+                  <details className="t-pf-why">
+                    <summary>Чем приложение удобнее сайта</summary>
+                    <ul>
+                      <li>Виджет со следующей парой на главном экране</li>
+                      <li>Напоминания о зачётах накануне в 20:00 и за 10 минут до пары</li>
+                      <li>Работает без интернета</li>
+                    </ul>
+                  </details>
+                )}
               </section>
             </div>
 

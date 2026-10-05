@@ -8,10 +8,9 @@ import Link from "next/link";
 import Icon from "../Icon";
 import { TypeBadge } from "../schedule/parts";
 import { PAIR_TIMES } from "@/lib/api";
-import { dayTitle } from "@/lib/tablo/schedule";
 import {
   displayRoom, PAIRS, roomStatus, statusText,
-  type Occupant, type RoomDay, type Slot,
+  type Occupant, type RoomDay,
 } from "@/lib/tablo/rooms";
 
 export interface Links {
@@ -38,10 +37,9 @@ function Teachers({ names, links }: { names: string | null; links: Links }) {
 }
 
 export default function RoomDetails({
-  day, slot, pairIdx, links, onPair, onClose, bare = false,
+  day, pairIdx, links, onPair, onClose, bare = false,
 }: {
   day: RoomDay;
-  slot: Slot;
   pairIdx: number;
   links: Links;
   onPair: (idx: number) => void;
@@ -53,7 +51,7 @@ export default function RoomDetails({
   const st = roomStatus(day, pairIdx);
   const occ = day.occupants[pairIdx];
   const name = displayRoom(day.room);
-  const when = `${dayTitle(slot.date)} · ${pair} пара · ${PAIR_TIMES[pair][0]}–${PAIR_TIMES[pair][1]}`;
+  const when = `${pair} пара · ${PAIR_TIMES[pair][0]}–${PAIR_TIMES[pair][1]}`;
 
   return (
     <div className="t-rd">

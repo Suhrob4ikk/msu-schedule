@@ -234,7 +234,6 @@ export default function RoomsPage() {
   const details = selDay && slot ? (
     <RoomDetails
       day={selDay}
-      slot={slot}
       pairIdx={detailIdx}
       links={links}
       onPair={setDetailPair}
@@ -266,7 +265,6 @@ export default function RoomsPage() {
         <section aria-label="Свободные аудитории">
           <div className="t-rm-head t-rm-head-free">
             <h2>Свободны · {view.free.length}</h2>
-            <span>из {view.total}</span>
           </div>
           {view.free.length ? grid(view.free) : <p className="t-rm-none">Свободных аудиторий нет</p>}
         </section>

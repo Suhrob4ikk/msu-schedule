@@ -71,6 +71,12 @@
 .t-pf-notes .t-pf-row-flat { width: 100%; padding: 6px 0; }
 .t-pf-ghost { display: inline-flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 20px; border-radius: 16px; background: var(--chip); color: var(--text); font-size: 17px; font-weight: 600; }
 .t-pf-ghost:hover { filter: brightness(0.97); }
+.t-pf-why { width: 100%; }
+.t-pf-why summary { display: flex; align-items: center; justify-content: space-between; min-height: 44px; color: var(--ink); font-size: 16px; font-weight: 600; cursor: pointer; list-style: none; }
+.t-pf-why summary::-webkit-details-marker { display: none; }
+.t-pf-why summary::after { content: "▾"; font-size: 14px; }
+.t-pf-why[open] summary::after { content: "▴"; }
+.t-pf-why ul { margin: 4px 0 0 20px; display: flex; flex-direction: column; gap: 6px; list-style: disc; font-size: 16px; color: var(--text-2); line-height: 1.4; }
 .t-pf-foot { text-align: center; font-size: 15px; color: var(--text-2); padding-top: 4px; }
 .t-pf-foot a { color: var(--text-3); opacity: 0.7; }
 .t-pf-foot a:hover { opacity: 1; text-decoration: underline; }

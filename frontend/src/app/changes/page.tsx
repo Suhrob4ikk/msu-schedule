@@ -69,7 +69,6 @@ export default function ChangesPage() {
   const [off, setOff] = useState<Set<FeedKind>>(new Set());
   const [seen, setSeen] = useState<number | null>(null);
   const [exams, setExams] = useState<Exam[] | null>(null);
-  const [apk, setApk] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setError(false);
@@ -90,7 +89,6 @@ export default function ChangesPage() {
     setSeen(prev !== null && !Number.isNaN(prev) ? prev : null);
     if (id) setScope("my");
     api.getGroups().then(setGroups).catch(() => {});
-    api.getAppVersion().then(i => setApk(i.download_url)).catch(() => {});
     load();
   }, [load]);
 
@@ -255,13 +253,6 @@ export default function ChangesPage() {
               })}
             </ul>
           )}
-        </section>
-      )}
-      {apk && (
-        <section className="t-card t-ch-apk">
-          <h2>Уведомления о заменах</h2>
-          <p>Приходят в приложении для Android: о заменах, накануне зачёта и за 10 минут до пары</p>
-          <a href={apk} className="t-btn-ghost t-ch-apk-btn">Скачать APK</a>
         </section>
       )}
     </div>
