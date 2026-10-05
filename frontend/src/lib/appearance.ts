@@ -21,18 +21,37 @@ export type AccentPresetId = "blue" | "violet" | "emerald" | "teal" | "pink" | "
 
 export interface AccentVars { fill: string; ink: string; ring: string; onFill: string }
 
+export type ShadeId = "sky" | "lilac" | "amber" | "mint";
+export type Density = "regular" | "compact";
+/** Готовый оттенок или свой цвет в виде #RRGGBB. */
+export type ShadeValue = ShadeId | `#${string}`;
+export interface TypeShades { lecture: ShadeValue; practice: ShadeValue; exam: ShadeValue }
+export const isCustomShade = (v: string): v is `#${string}` => v.startsWith("#");
+
 export interface Appearance {
   version: 1;
   accent: { preset: AccentPresetId | "custom"; custom: string | null };
   background: Background;
-  /** Поля приложения (оттенки типов, плотность) — сайт их не меняет, но сохраняет. */
+  /** Оттенки бейджей «Лекция», «Практика», «Экзамен · Зачёт» (те же ключи, что в приложении). */
+  types?: TypeShades;
+  density?: Density;
   [extra: string]: unknown;
 }
+
+export const TYPE_SHADES: { id: ShadeId; name: string; hex: string }[] = [
+  { id: "sky", name: "голубой", hex: "#4FB3FF" },
+  { id: "lilac", name: "сиреневый", hex: "#9B87F5" },
+  { id: "amber", name: "янтарный", hex: "#FF9640" },
+  { id: "mint", name: "мятный", hex: "#2EC48A" },
+];
+export const DEFAULT_TYPES: TypeShades = { lecture: "sky", practice: "lilac", exam: "amber" };
 
 export const DEFAULT_APPEARANCE: Appearance = {
   version: 1,
   accent: { preset: "blue", custom: null },
   background: "system",
+  types: DEFAULT_TYPES,
+  density: "regular",
 };
 
 /** Фон каждой темы: для полосы браузера (theme-color) и для расчёта акцента. */
@@ -127,11 +146,53 @@ export function accentVars(a: Appearance, mode: Mode): AccentVars {
   return presetVars(a.accent.preset === "custom" ? "blue" : a.accent.preset, mode);
 }
 
+// ─── Оттенки типов занятий ─────────────────────────────────────────────────
+
+export interface ShadePair { bg: string; text: string }
+
+/** Пары «фон / текст» для трёх готовых оттенков — как в приложении. */
+const SHADE_TABLE: Partial<Record<ShadeId, Record<Mode, ShadePair>>> = {
+  sky: {
+    light: { bg: "#DDF0FF", text: "#0B5A8C" },
+    dark: { bg: "#13314A", text: "#8CCBFF" },
+    black: { bg: "#13314A", text: "#8CCBFF" },
+  },
+  lilac: {
+    light: { bg: "#ECE7FF", text: "#5534C2" },
+    dark: { bg: "#2B2350", text: "#C7B8FF" },
+    black: { bg: "#2B2350", text: "#C7B8FF" },
+  },
+  amber: {
+    light: { bg: "#FFE7D6", text: "#A33F00" },
+    dark: { bg: "#47220F", text: "#FFB27A" },
+    black: { bg: "#47220F", text: "#FFB27A" },
+  },
+};
+
+function mixHex(a: string, b: string, t: number): string {
+  const p = (h: string) => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  const [ar, ag, ab] = p(a);
+  const [br, bg, bb] = p(b);
+  const q = (x: number, y: number) => Math.round(x + (y - x) * t).toString(16).padStart(2, "0");
+  return `#${q(ar, br)}${q(ag, bg)}${q(ab, bb)}`.toUpperCase();
+}
+
+/** Для мятного — по правилу приложения: фон = смесь оттенка с карточкой, текст доведён до 4,5 : 1. */
+export function shadePair(id: ShadeValue, mode: Mode): ShadePair {
+  const t = isCustomShade(id) ? undefined : SHADE_TABLE[id];
+  if (t) return t[mode];
+  const hue = isCustomShade(id) ? id : TYPE_SHADES.find(x => x.id === id)!.hex;
+  const bg = mixHex(MODE_BASE[mode].surface, hue, mode === "light" ? 0.16 : 0.22);
+  return { bg, text: shiftUntil(hue, mode !== "light", h => contrast(h, bg) >= 4.5) };
+}
+
 // ─── Хранение ──────────────────────────────────────────────────────────────
 
 export const APPEARANCE_KEY = "appearance";
 /** Готовые токены своего цвета для всех тем — их читает инлайновый скрипт. */
 export const CUSTOM_VARS_KEY = "appearance_vars";
+/** Готовые пары «фон / текст» своих цветов типов для всех тем — их читает инлайновый скрипт. */
+export const TYPE_VARS_KEY = "appearance_type_vars";
 
 const PRESET_IDS = ACCENT_PRESETS.map(p => p.id) as string[];
 const BACKGROUNDS: Background[] = ["system", "light", "dark", "black"];
@@ -146,7 +207,21 @@ export function parseAppearance(raw: string | null): Appearance | null {
     ? (o.accent.preset as AccentPresetId | "custom") : "blue";
   if (preset === "custom" && !custom) preset = "blue";
   const background = BACKGROUNDS.includes(o.background as Background) ? (o.background as Background) : "system";
-  return { ...o, version: 1, accent: { preset, custom }, background };
+  const ids = TYPE_SHADES.map(x => x.id) as string[];
+  const t = (o.types ?? {}) as Record<string, unknown>;
+  const shade = (v: unknown, d: ShadeValue): ShadeValue => {
+    if (typeof v !== "string") return d;
+    if (ids.includes(v)) return v as ShadeId;
+    const hex = normalizeHex(v);
+    return hex ? (hex as ShadeValue) : d;
+  };
+  const types: TypeShades = {
+    lecture: shade(t.lecture, DEFAULT_TYPES.lecture),
+    practice: shade(t.practice, DEFAULT_TYPES.practice),
+    exam: shade(t.exam, DEFAULT_TYPES.exam),
+  };
+  const density: Density = o.density === "compact" ? "compact" : "regular";
+  return { ...o, version: 1, accent: { preset, custom }, background, types, density };
 }
 
 /** До «Табло»: `theme` (light/dark/system) и `accent` (blue/green). */
@@ -188,6 +263,8 @@ export function applyAppearance(a: Appearance): void {
     if (isDefault) root.style.removeProperty(VAR_NAMES[k]);
     else root.style.setProperty(VAR_NAMES[k], vars[k]);
   }
+  applyTypes(root, a.types ?? DEFAULT_TYPES, mode);
+  root.classList.toggle("compact", a.density === "compact");
   document.querySelectorAll('meta[name="theme-color"]').forEach(m => {
     m.removeAttribute("media");
     m.setAttribute("content", MODE_BASE[mode].bg);
@@ -195,9 +272,37 @@ export function applyAppearance(a: Appearance): void {
   window.dispatchEvent(new Event("appearance-change"));
 }
 
+const TYPE_VARS: Record<keyof TypeShades, string> = { lecture: "lec", practice: "lab", exam: "exam" };
+
+/** Оттенки типов: по умолчанию — значения из CSS, остальные ставим на <html>. */
+function applyTypes(root: HTMLElement, types: TypeShades, mode: Mode): void {
+  for (const k of Object.keys(TYPE_VARS) as (keyof TypeShades)[]) {
+    const v = TYPE_VARS[k];
+    if (types[k] === DEFAULT_TYPES[k]) {
+      root.style.removeProperty(`--${v}-bg`);
+      root.style.removeProperty(`--${v}-text`);
+    } else {
+      const p = shadePair(types[k], mode);
+      root.style.setProperty(`--${v}-bg`, p.bg);
+      root.style.setProperty(`--${v}-text`, p.text);
+    }
+  }
+}
+
+/** Вернуть все настройки оформления к стандартным. */
+export function resetAppearance(): void {
+  saveAppearance({ ...DEFAULT_APPEARANCE, types: { ...DEFAULT_TYPES } });
+}
+
 export function saveAppearance(a: Appearance): void {
   try {
     localStorage.setItem(APPEARANCE_KEY, JSON.stringify(a));
+    const custom: Record<string, Record<Mode, ShadePair>> = {};
+    for (const k of Object.keys(a.types ?? {}) as (keyof TypeShades)[]) {
+      const v = a.types![k];
+      if (isCustomShade(v)) custom[k] = { light: shadePair(v, "light"), dark: shadePair(v, "dark"), black: shadePair(v, "black") };
+    }
+    localStorage.setItem(TYPE_VARS_KEY, JSON.stringify(custom));
     if (a.accent.preset === "custom" && a.accent.custom) {
       const c = a.accent.custom;
       localStorage.setItem(CUSTOM_VARS_KEY, JSON.stringify({
@@ -219,5 +324,8 @@ export const BACKGROUND_NAMES: Record<Background, string> = {
  */
 export function appearanceInitScript(): string {
   const table = JSON.stringify(presetTable());
-  return `(function(){try{var P=${table};var d=document.documentElement,s=localStorage,a=null;try{a=JSON.parse(s.getItem('${APPEARANCE_KEY}')||'null')}catch(e){}var bg,pr;if(a&&a.version===1){bg=a.background;pr=a.accent&&a.accent.preset}else{var t=s.getItem('theme');bg=(t==='light'||t==='dark')?t:'system';pr=s.getItem('accent')==='green'?'emerald':'blue'}var m=(bg==='light'||bg==='dark'||bg==='black')?bg:(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');if(m!=='light')d.classList.add('dark');if(m==='black')d.classList.add('black');var v=null;if(pr==='custom'){try{v=JSON.parse(s.getItem('${CUSTOM_VARS_KEY}')||'null');v=v&&v[m]}catch(e){}}else if(pr&&pr!=='blue'&&P[pr]){v=P[pr][m]}if(v){d.style.setProperty('--fill',v.fill);d.style.setProperty('--ink',v.ink);d.style.setProperty('--ring',v.ring);d.style.setProperty('--on-fill',v.onFill)}}catch(e){}})();`;
+  const shades: Record<string, Record<Mode, ShadePair>> = {};
+  for (const x of TYPE_SHADES) shades[x.id] = { light: shadePair(x.id, "light"), dark: shadePair(x.id, "dark"), black: shadePair(x.id, "black") };
+  const shadeTable = JSON.stringify(shades);
+  return `(function(){try{var P=${table};var d=document.documentElement,s=localStorage,a=null;try{a=JSON.parse(s.getItem('${APPEARANCE_KEY}')||'null')}catch(e){}var bg,pr;if(a&&a.version===1){bg=a.background;pr=a.accent&&a.accent.preset}else{var t=s.getItem('theme');bg=(t==='light'||t==='dark')?t:'system';pr=s.getItem('accent')==='green'?'emerald':'blue'}var m=(bg==='light'||bg==='dark'||bg==='black')?bg:(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');if(m!=='light')d.classList.add('dark');if(m==='black')d.classList.add('black');var v=null;if(pr==='custom'){try{v=JSON.parse(s.getItem('${CUSTOM_VARS_KEY}')||'null');v=v&&v[m]}catch(e){}}else if(pr&&pr!=='blue'&&P[pr]){v=P[pr][m]}if(v){d.style.setProperty('--fill',v.fill);d.style.setProperty('--ink',v.ink);d.style.setProperty('--ring',v.ring);d.style.setProperty('--on-fill',v.onFill)}var S=${shadeTable},T=a&&a.types;if(T){var D={lecture:'sky',practice:'lilac',exam:'amber'},N={lecture:'lec',practice:'lab',exam:'exam'};for(var k in N){var x=T[k];if(x&&x!==D[k]&&S[x]){var q=S[x][m];d.style.setProperty('--'+N[k]+'-bg',q.bg);d.style.setProperty('--'+N[k]+'-text',q.text)}else if(x&&x.charAt(0)==='#'){var C=JSON.parse(s.getItem('${TYPE_VARS_KEY}')||'{}'),q2=C[k]&&C[k][m];if(q2){d.style.setProperty('--'+N[k]+'-bg',q2.bg);d.style.setProperty('--'+N[k]+'-text',q2.text)}}}}if(a&&a.density==='compact')d.classList.add('compact')}catch(e){}})();`;
 }

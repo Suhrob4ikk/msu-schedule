@@ -1,129 +1,31 @@
 "use client";
-
-import { useState, useEffect, useCallback } from "react";
-import { api, Group, shortGroupName, rememberGroup } from "@/lib/api";
-import GroupSelector from "@/components/GroupSelector";
-import Header from "@/components/Header";
+/**
+ * Кабинет в стиле «Табло» (макеты kabinet-*, vhod-*).
+ *
+ * Пока группа не выбрана (первый вход) или нажато «Изменить имя или группу»
+ * (?edit=1) — экран «Вход» (components/tablo/profile/Login). Иначе две колонки:
+ * слева профиль, «Учёба», «Разделы», «Синхронизация»; справа «Внешний вид» с
+ * живым примером, ниже приглашение с QR и уведомления.
+ */
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getPushStatus, subscribePush, unsubscribePush, resyncPush, type PushStatus } from "@/lib/push";
-import InviteCard from "@/components/InviteCard";
-import AppDownloadCard from "@/components/AppDownloadCard";
-import AppearanceSetting from "@/components/AppearanceSetting";
-
+import Link from "next/link";
+import { QRCodeSVG } from "qrcode.react";
+import Header from "@/components/Header";
+import Icon from "@/components/tablo/Icon";
+import Login from "@/components/tablo/profile/Login";
+import AppearanceCard from "@/components/tablo/profile/AppearanceCard";
+import { api, clearApiCache, rememberGroup, shortGroupName, type Group } from "@/lib/api";
 import { markGroupChosen } from "@/lib/features";
-import { collectSkips, collectNotes, type SkipStats as SkipStatsType } from "@/lib/studyData";
+import { getInstallEvent, isIOS, isStandalone, onInstallChange, runInstall } from "@/lib/install";
+import { getPushStatus, resyncPush, subscribePush, unsubscribePush, type PushStatus } from "@/lib/push";
+import { collectNotes, collectSkips, type SkipStats } from "@/lib/studyData";
+import { useNetStatus } from "@/lib/tablo/hooks";
+import { newLabel } from "@/lib/tablo/changes";
+import { stampLabel, dushanbeNow } from "@/lib/tablo/schedule";
 
-// Автооткрытие 1 сентября 2026 — см. lib/features.ts.
-// ВАЖНО: не выносить в константу модуля — она вычислялась бы один раз при
-// загрузке страницы, и вкладка, открытая до полуночи 1 сентября, продолжала бы
-// показывать «закрыто» до обновления. Проверяем на каждый рендер.
+// ─── Мелочи ────────────────────────────────────────────────────────────────
 
-// ─── Уведомления: новая неделя, изменения, зачёты ─────────────────────────────
-function NotificationToggle({ sessionId, groupId }: { sessionId: string; groupId: number | "" }) {
-  const [status, setStatus] = useState<PushStatus | "loading">("loading");
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    getPushStatus().then(setStatus);
-  }, []);
-
-  const handleEnable = useCallback(async () => {
-    if (!groupId || busy) return;
-    setBusy(true);
-    const next = await subscribePush(sessionId, Number(groupId));
-    setStatus(next);
-    setBusy(false);
-  }, [sessionId, groupId, busy]);
-
-  const handleDisable = useCallback(async () => {
-    if (busy) return;
-    setBusy(true);
-    await unsubscribePush(sessionId);
-    setStatus("default");
-    setBusy(false);
-  }, [sessionId, busy]);
-
-  if (status === "loading" || status === "unsupported") return null;
-
-  const isOn = status === "subscribed";
-
-  return (
-    <div className="card w-full">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
-              Уведомления
-            </span>
-          </div>
-          <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>
-            {status === "denied"
-              ? "Заблокированы в браузере — разрешите в настройках"
-              : "Новая неделя, изменения и зачёты"}
-          </p>
-        </div>
-
-        {status === "denied" ? null : isOn ? (
-          <button
-            onClick={handleDisable}
-            disabled={busy}
-            className="relative shrink-0 w-11 h-6 rounded-full transition-colors"
-            style={{ background: "var(--primary)", cursor: busy ? "default" : "pointer" }}
-          >
-            <span className="absolute top-0.5 right-0.5 w-5 h-5 bg-white rounded-full shadow" />
-          </button>
-        ) : (
-          <button
-            onClick={handleEnable}
-            disabled={busy || !groupId}
-            className="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg transition-opacity disabled:opacity-40"
-            style={{ background: "var(--primary)", color: "#fff", cursor: busy ? "default" : "pointer" }}
-          >
-            {busy ? "..." : "Включить"}
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function FeatureToggle({ label, description, storageKey }: { label: string; description: string; storageKey: string }) {
-  // Обе функции выключены по умолчанию, пока человек не включит сам — так
-  // задумано (см. CLAUDE.md), а не забытая настройка. Стартуем с false и
-  // читаем localStorage только после монтирования — иначе первый клиентский
-  // рендер разойдётся с серверным (hydration #418).
-  const [enabled, setEnabled] = useState(false);
-  useEffect(() => {
-    setEnabled(localStorage.getItem(storageKey) === "1");
-  }, [storageKey]);
-  const toggle = () => {
-    const next = !enabled;
-    setEnabled(next);
-    localStorage.setItem(storageKey, next ? "1" : "0");
-  };
-  return (
-    <button
-      onClick={toggle}
-      className="card flex items-center justify-between w-full text-left"
-    >
-      <div>
-        <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{label}</p>
-        <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>{description}</p>
-      </div>
-      <div
-        className="relative shrink-0 ml-3 w-11 h-6 rounded-full"
-        style={{ background: enabled ? "var(--primary)" : "var(--border)" }}
-      >
-        <span
-          className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow"
-          style={{ transform: enabled ? "translateX(20px)" : "translateX(2px)" }}
-        />
-      </div>
-    </button>
-  );
-}
-
-/** Склонение: 1 пара, 2 пары, 5 пар */
 function pluralPairs(n: number): string {
   const d10 = n % 10, d100 = n % 100;
   if (d10 === 1 && d100 !== 11) return "пара";
@@ -131,46 +33,33 @@ function pluralPairs(n: number): string {
   return "пар";
 }
 
-function SkipStats() {
-  const [st, setSt] = useState<SkipStatsType | null>(null);
-  useEffect(() => { setSt(collectSkips()); }, []);
-
-  if (!st) return null;
-
-  // Пропусков нет — это хорошая новость, показываем её, а не пустоту
-  if (st.total === 0) {
-    return (
-      <div className="card w-full">
-        <p className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>Пропуски</p>
-        <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>
-          Пропусков нет
-        </p>
-      </div>
-    );
-  }
-
+function Switch({ on, onClick, label, busy = false }: { on: boolean; onClick: () => void; label: string; busy?: boolean }) {
   return (
-    <div className="card w-full">
-      <p className="text-sm font-semibold mb-2" style={{ color: "var(--foreground)" }}>Пропуски</p>
-      <div className="flex items-baseline gap-2 mb-1">
-        <span className="text-3xl font-extrabold" style={{ color: "#d43a40" }}>{st.total}</span>
-        <span className="text-sm" style={{ color: "var(--muted)" }}>{pluralPairs(st.total)} пропущено всего</span>
-      </div>
-      <div className="flex flex-col gap-1 mt-2.5">
-        {st.bySubject.map(([subject, n]) => (
-          <div key={subject} className="flex items-center justify-between gap-3 text-xs">
-            <span className="truncate" style={{ color: "var(--foreground)" }}>{subject}</span>
-            <span className="shrink-0 tabular-nums" style={{ color: "var(--muted)" }}>{n}</span>
-          </div>
-        ))}
-      </div>
+    <button type="button" role="switch" aria-checked={on} aria-label={label} disabled={busy} onClick={onClick} className={`t-sw ${on ? "t-sw-on" : ""}`}>
+      <i />
+    </button>
+  );
+}
+
+/** Пропуски и заметки: выключены по умолчанию, хранятся только на устройстве (CLAUDE.md). */
+function FeatureRow({ label, description, storageKey, onChange }: { label: string; description: string; storageKey: string; onChange?: () => void }) {
+  const [on, setOn] = useState(false);
+  useEffect(() => { try { setOn(localStorage.getItem(storageKey) === "1"); } catch { /* приватный режим */ } }, [storageKey]);
+  const toggle = () => {
+    const next = !on;
+    setOn(next);
+    try { localStorage.setItem(storageKey, next ? "1" : "0"); } catch { /* приватный режим */ }
+    onChange?.();
+  };
+  return (
+    <div className="t-pf-row">
+      <div><b>{label}</b><span>{description}</span></div>
+      <Switch on={on} onClick={toggle} label={label} />
     </div>
   );
 }
 
-// Экспорт заметок и пропусков — поделиться или скопировать текстом
-async function exportMyData() {
-  const st = collectSkips();
+async function exportMyData(st: SkipStats): Promise<string | null> {
   const notes = collectNotes();
   const lines: string[] = ["МГУ Расписание — мои данные", ""];
   if (st.total > 0) {
@@ -184,31 +73,57 @@ async function exportMyData() {
   }
   if (st.total === 0 && notes.length === 0) lines.push("Пока нет ни пропусков, ни заметок.");
   const text = lines.join("\n");
-  try {
-    if (navigator.share) { await navigator.share({ text }); return; }
-  } catch { /* пользователь отменил шаринг — не страшно */ }
-  try {
-    await navigator.clipboard.writeText(text);
-    alert("Скопировано");
-  } catch { alert(text); }
+  try { if (navigator.share) { await navigator.share({ text }); return null; } } catch { return null; }
+  try { await navigator.clipboard.writeText(text); return "Скопировано"; } catch { window.prompt("Ваши данные", text); return null; }
 }
+
+/** Уведомления сайта (Web Push): новая неделя, изменения и зачёты. */
+function PushRow({ sessionId, groupId }: { sessionId: string; groupId: number | null }) {
+  const [status, setStatus] = useState<PushStatus | "loading">("loading");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { getPushStatus().then(setStatus); }, []);
+  if (status === "loading" || status === "unsupported") return null;
+  const isOn = status === "subscribed";
+  const toggle = async () => {
+    if (busy) return;
+    setBusy(true);
+    if (isOn) { await unsubscribePush(sessionId); setStatus("default"); }
+    else if (groupId) setStatus(await subscribePush(sessionId, groupId));
+    setBusy(false);
+  };
+  return (
+    <div className="t-pf-row t-pf-row-flat">
+      <div>
+        <b>Уведомления на сайте</b>
+        <span>{status === "denied" ? "Заблокированы в браузере: разрешите в его настройках" : "Новая неделя, изменения и зачёты"}</span>
+      </div>
+      {status !== "denied" && <Switch on={isOn} onClick={toggle} label="Уведомления на сайте" busy={busy || (!isOn && !groupId)} />}
+    </div>
+  );
+}
+
+// ─── Страница ──────────────────────────────────────────────────────────────
 
 export default function ProfilePage() {
   const router = useRouter();
+  const net = useNetStatus();
   const [groups, setGroups] = useState<Group[]>([]);
-  // Значения из localStorage инициализируем серверно-нейтрально и заполняем
-  // после монтирования — иначе первый клиентский рендер расходится с SSR (#418).
+  const [groupsError, setGroupsError] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [name, setName] = useState("");
-  const [selectedGroupId, setSelectedGroupId] = useState<number | "">("");
+  const [groupId, setGroupId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [isSetup, setIsSetup] = useState(true);
   const [isEditing, setIsEditing] = useState(true);
+  const [newCount, setNewCount] = useState(0);
+  const [skips, setSkips] = useState<SkipStats | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [canInstall, setCanInstall] = useState(false);
+  const [iosHint, setIosHint] = useState(false);
+  const [apk, setApk] = useState<string | null>(null);
+  const [origin, setOrigin] = useState("");
 
-  // Список групп не пришёл — на первом запуске без сети это тупик: под
-  // «НАПРАВЛЕНИЕ» пусто, выбрать нечего, и почему — неизвестно. Показываем
-  // честную причину и кнопку «Повторить».
-  const [groupsError, setGroupsError] = useState(false);
   const loadGroups = useCallback(() => {
     setGroupsError(false);
     api.getGroups().then(setGroups).catch(() => setGroupsError(true));
@@ -216,271 +131,234 @@ export default function ProfilePage() {
 
   useEffect(() => {
     loadGroups();
-    const savedName = localStorage.getItem("user_name") ?? "";
-    const savedGroup = localStorage.getItem("selected_group_id");
-    const deviceId = localStorage.getItem("msu_device_id_v2");
+    let savedName = "", savedGroup: string | null = null, deviceId: string | null = null;
+    try {
+      savedName = localStorage.getItem("user_name") ?? "";
+      savedGroup = localStorage.getItem("selected_group_id");
+      deviceId = localStorage.getItem("msu_device_id_v2");
+    } catch { /* приватный режим */ }
     const setup = !savedGroup || !deviceId;
     setName(savedName);
-    setSelectedGroupId(savedGroup ? Number(savedGroup) : "");
+    setGroupId(savedGroup ? Number(savedGroup) : null);
     setIsSetup(setup);
     // ?edit=1 — «Сменить группу» из меню аватара: сразу форма выбора группы
     setIsEditing(setup || new URLSearchParams(window.location.search).get("edit") === "1");
+    setOrigin(window.location.origin);
+    setSkips(collectSkips());
     setHydrated(true);
+    const ua = navigator.userAgent;
+    if (!/iPhone|iPad|iPod/.test(ua)) api.getAppVersion().then(i => setApk(i.download_url)).catch(() => {});
   }, [loadGroups]);
 
-  const selectedGroup = groups.find(g => g.id === Number(selectedGroupId));
+  useEffect(() => {
+    const sync = () => setCanInstall(!!getInstallEvent());
+    sync();
+    setIosHint(isIOS() && !isStandalone());
+    return onInstallChange(sync);
+  }, []);
 
-  const initials = name.trim()
-    ? name.trim().split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase()
-    : "?";
+  // Сколько записей в «Изменениях» новее прошлого визита
+  useEffect(() => {
+    if (!groupId || isEditing) return;
+    api.getChanges(groupId).then(list => {
+      let seen = 0;
+      try { seen = Date.parse(localStorage.getItem("changes_last_seen") ?? "") || 0; } catch { /* приватный режим */ }
+      setNewCount(list.filter(c => Date.parse(c.detected_at) > seen).length);
+    }).catch(() => {});
+  }, [groupId, isEditing]);
+
+  const group = useMemo(() => groups.find(g => g.id === groupId) ?? null, [groups, groupId]);
 
   const handleSave = async () => {
-    if (!selectedGroupId) return;
+    if (!group) return;
     setSaving(true);
-    localStorage.setItem("user_name", name.trim());
-    localStorage.setItem("selected_group_id", String(selectedGroupId));
-    localStorage.setItem("schedule_view_group_id", String(selectedGroupId));
-    // Рядом с номером запоминаем название и курс: если номер когда-нибудь
-    // разойдётся со списком групп, восстановимся по ним (см. lib/api.ts).
-    if (selectedGroup) rememberGroup(selectedGroup);
-    // Отмечаем момент выбора: по нему решаем, спрашивать ли про курс после
-    // смены учебного года (новичков спрашивать не нужно).
+    try {
+      localStorage.setItem("user_name", name.trim());
+      localStorage.setItem("selected_group_id", String(group.id));
+      localStorage.setItem("schedule_view_group_id", String(group.id));
+    } catch { /* приватный режим */ }
+    // Рядом с номером запоминаем название и курс: если номер разойдётся со списком, восстановимся по ним
+    rememberGroup(group);
     markGroupChosen();
-
-    // Сохраняем регистрацию на сервер
-    let deviceId = localStorage.getItem("msu_device_id_v2");
+    let deviceId: string | null = null;
+    try { deviceId = localStorage.getItem("msu_device_id_v2"); } catch { /* приватный режим */ }
     if (!deviceId) {
       deviceId = crypto.randomUUID();
-      localStorage.setItem("msu_device_id_v2", deviceId);
+      try { localStorage.setItem("msu_device_id_v2", deviceId); } catch { /* приватный режим */ }
     }
-    await api.registerUser(deviceId, name.trim() || "Аноним", Number(selectedGroupId));
-    // Подписка на уведомления помнит группу — без этого после смены группы
-    // уведомления продолжали бы приходить о старой.
-    resyncPush(deviceId, Number(selectedGroupId));
-
-    await new Promise(r => setTimeout(r, 300));
+    await api.registerUser(deviceId, name.trim() || "Аноним", group.id);
+    // Подписка на уведомления помнит группу — без этого после смены группы уведомления шли бы о старой
+    resyncPush(deviceId, group.id);
+    window.dispatchEvent(new Event("storage"));
     setSaving(false);
     setIsEditing(false);
     router.push("/");
   };
 
-  const handleChangeGroup = () => setIsEditing(true);
+  useEffect(() => {
+    if (!toast) return;
+    const id = window.setTimeout(() => setToast(null), 2200);
+    return () => window.clearTimeout(id);
+  }, [toast]);
 
-  // До монтирования отдаём нейтральный экран — совпадает с SSR, убирает #418.
+  const syncNow = async () => {
+    if (syncing) return;
+    setSyncing(true);
+    clearApiCache();
+    try {
+      await Promise.all([api.getGroups(), api.getAllWeeks(), groupId ? api.getChanges(groupId) : Promise.resolve([])]);
+      setToast("Расписание обновлено");
+    } catch {
+      setToast("Нет связи с сервером");
+    }
+    setSyncing(false);
+  };
+
   if (!hydrated) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--background)" }}>
-        <div className="w-6 h-6 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
+      <div className="t-page flex items-center justify-center" style={{ minHeight: "100vh" }}>
+        <div className="w-6 h-6 border-2 border-[var(--ink)] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
+  if (isEditing) {
+    return (
+      <div className="t-page">
+        {!isSetup && <Header />}
+        <main className="t-main t-lg-main">
+          <Login
+            groups={groups} groupsError={groupsError} onRetry={loadGroups}
+            name={name} onName={setName} group={group} onGroup={g => setGroupId(g.id)}
+            saving={saving} isSetup={isSetup} onSave={handleSave}
+            onCancel={isSetup ? undefined : () => setIsEditing(false)}
+          />
+        </main>
+      </div>
+    );
+  }
+
+  const letter = name.trim().charAt(0).toUpperCase();
+  const deviceId = (() => { try { return localStorage.getItem("msu_device_id_v2") ?? ""; } catch { return ""; } })();
+  const lastSync = net?.lastOkAt ? stampLabel(new Date(net.lastOkAt), dushanbeNow()) : "ещё не было";
+
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: "var(--background)" }}>
-      {/* Шапка с навигацией — для зарегистрированных (на десктопе видно меню,
-          на мобиле работает нижняя панель). Во время первичной настройки прячем. */}
-      {!isSetup && <Header />}
-
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 pb-24 lg:pb-8">
-      {/* Лого вверху */}
-      <div className="flex items-center gap-2 mb-10">
-        {/* eslint-disable-next-line @next/next/no-img-element -- маленький статичный логотип, next/image тут избыточен */}
-        <img src="/logo.png" alt="" className="w-10 h-10 shrink-0" />
-        <div>
-          <p className="font-bold text-base" style={{ color: "var(--foreground)" }}>МГУ Душанбе</p>
-          <p className="text-xs" style={{ color: "var(--muted)" }}>Расписание занятий</p>
-        </div>
-      </div>
-
-      {/* Аватар */}
-      <div
-        className="w-24 h-24 rounded-full flex items-center justify-center mb-4 text-3xl font-bold text-[var(--on-fill)]"
-        style={{ background: "var(--primary)", opacity: name.trim() ? 1 : 0.4, transition: "opacity 0.2s" }}
-      >
-        {initials}
-      </div>
-
-      {name.trim() && (
-        <p className="font-semibold text-lg mb-1" style={{ color: "var(--foreground)" }}>{name.trim()}</p>
-      )}
-      {selectedGroup && (
-        <p className="text-sm mb-8" style={{ color: "var(--muted)" }}>
-          {selectedGroup.year} курс · {shortGroupName(selectedGroup.name)}
-        </p>
-      )}
-      {!selectedGroup && <div className="mb-8" />}
-
-      {/* Форма или кнопка изменения. Пока идёт регистрация (isSetup) — узкая
-          колонка, как и раньше. У зарегистрированных ниже появляется решётка
-          настроек в две колонки на широком экране (см. README редизайна),
-          поэтому сама обёртка там шире — а форма/кнопка «Изменить» внутри нее
-          всё равно остаются узкими и по центру, через свой mx-auto. */}
-      <div className={`w-full flex flex-col gap-3 ${isSetup ? "max-w-sm" : "max-w-3xl"}`}>
-        {isEditing ? (
-          <div className="w-full max-w-sm mx-auto flex flex-col gap-3">
-            {/* Имя */}
-            <div>
-              <label className="block text-xs font-semibold mb-1.5 tracking-wider" style={{ color: "var(--muted)", textTransform: "uppercase" }}>
-                Имя
-              </label>
-              <input
-                type="text"
-                placeholder="Ваше имя"
-                autoFocus={isSetup}
-                className="w-full rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-[var(--primary)] transition-all"
-                style={{
-                  background: "var(--card)",
-                  border: "0.5px solid var(--border)",
-                  color: "var(--foreground)",
-                }}
-                value={name}
-                onChange={e => setName(e.target.value)}
-              />
-            </div>
-
-            {/* Группа */}
-            <div>
-              <label className="block text-xs font-semibold mb-1.5 tracking-wider" style={{ color: "var(--muted)", textTransform: "uppercase" }}>
-                Группа
-              </label>
-              {groups.length === 0 && groupsError ? (
-                <div
-                  className="rounded-xl px-4 py-3 text-sm flex items-center justify-between gap-3 flex-wrap"
-                  style={{ background: "var(--card)", border: "0.5px solid var(--border)", color: "var(--muted)" }}
-                >
-                  <span>Список групп не загрузился — нет связи с сервером.</span>
-                  <button
-                    onClick={loadGroups}
-                    className="px-3 py-1.5 rounded-lg text-xs font-semibold text-[var(--on-fill)] shrink-0"
-                    style={{ background: "var(--primary)" }}
-                  >
-                    Повторить
-                  </button>
+    <div className="t-page">
+      <Header />
+      <main className="t-main t-pf-main">
+        <div className="t-pf">
+          <div className="t-pf-left">
+            <section className="t-pf-card t-pf-me">
+              <div className="t-pf-who">
+                <span className="t-avatar t-avatar-lg" aria-hidden="true">{letter || <Icon name="user" size={26} />}</span>
+                <div>
+                  <h1>{name.trim() || "Без имени"}</h1>
+                  {group && <p>{shortGroupName(group.name)} · {group.year} курс</p>}
                 </div>
-              ) : (
-                <GroupSelector
-                  groups={groups}
-                  value={selectedGroup ?? null}
-                  onChange={g => setSelectedGroupId(g.id)}
-                />
-              )}
-            </div>
-
-            {/* Цвет акцента — спрашиваем сразу при регистрации, а не прячем
-                в настройках: так его увидит каждый, а не только тот, кто
-                сам догадается зайти в «Дополнительные возможности». Необязательно,
-                поэтому кнопку «Начать» не блокирует — по умолчанию уже синий. */}
-            {isSetup && <AppearanceSetting part="accent" />}
-
-            {/* Кнопка сохранить */}
-            <button
-              onClick={handleSave}
-              disabled={!selectedGroupId || saving}
-              className="w-full py-3.5 rounded-xl text-base font-semibold text-[var(--on-fill)] mt-2 transition-opacity disabled:opacity-40"
-              style={{ background: "var(--primary)" }}
-            >
-              {saving ? "Сохраняем..." : isSetup ? "Начать" : "Сохранить"}
-            </button>
-
-            {/* Отмена — только если уже зарегистрирован */}
-            {!isSetup && (
-              <button
-                onClick={() => setIsEditing(false)}
-                className="w-full py-2 text-sm transition-colors"
-                style={{ color: "var(--muted)" }}
-              >
-                Отмена
+              </div>
+              <button type="button" className="t-pf-link" onClick={() => setIsEditing(true)}>
+                Изменить имя или группу<Icon name="chevronRight" size={20} />
               </button>
-            )}
-          </div>
-        ) : (
-          /* Кнопка перехода в режим редактирования */
-          <button
-            onClick={handleChangeGroup}
-            className="block w-full max-w-sm mx-auto py-3 rounded-xl text-sm font-medium border transition-colors hover:border-[var(--primary)] hover:text-[var(--primary)]"
-            style={{ background: "var(--card)", borderColor: "var(--border)", color: "var(--muted)" }}
-          >
-            Изменить имя или группу
-          </button>
-        )}
+            </section>
 
-        {/* Дополнительные возможности — только после регистрации. На широком
-            экране — решёткой в две колонки (настройки слева, свои данные и
-            переходы справа), на мобиле — просто один поток сверху вниз в том
-            же порядке. */}
-        {!isSetup && (
-          <div className="pt-6 mt-2 border-t" style={{ borderColor: "var(--border)" }}>
-            <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: "var(--muted)" }}>
-              Дополнительные возможности
-            </p>
-            <div className="lg:grid lg:grid-cols-2 lg:gap-5 lg:items-start">
-              <div className="flex flex-col gap-2.5">
-                <AppearanceSetting />
-                <NotificationToggle
-                  sessionId={typeof window !== "undefined" ? (localStorage.getItem("msu_device_id_v2") ?? "") : ""}
-                  groupId={selectedGroupId}
-                />
-              </div>
-
-              {/* Переключатель функции держим рядом с её же статистикой (Пропуски →
-                  сразу под ним статистика) — раньше между ними попадала «Заметки»,
-                  разрывая эту пару. */}
-              <div className="flex flex-col gap-2.5 mt-2.5 lg:mt-0">
-                <FeatureToggle
-                  label="Пропуски"
-                  description="Отмечайте только пропущенные пары"
-                  storageKey="feature_attendance"
-                />
-                <SkipStats />
-                <FeatureToggle
-                  label="Заметки к парам"
-                  description="Домашка и что принести"
-                  storageKey="feature_notes"
-                />
-                <button
-                  onClick={exportMyData}
-                  className="w-full py-3 rounded-xl text-sm font-medium border transition-colors hover:border-[var(--primary)] hover:text-[var(--primary)]"
-                  style={{ background: "var(--card)", borderColor: "var(--border)", color: "var(--muted)" }}
-                >
-                  <span className="inline-flex items-center justify-center gap-2">
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M4 12v7a2 2 0 002 2h12a2 2 0 002-2v-7M16 6l-4-4-4 4M12 2v13" />
-                    </svg>
-                    Поделиться заметками и посещаемостью
-                  </span>
+            <h2 className="t-over t-pf-h">Учёба</h2>
+            <section className="t-pf-card">
+              <FeatureRow label="Пропуски" description="Отмечайте только пропущенные пары" storageKey="feature_attendance" onChange={() => setSkips(collectSkips())} />
+              {skips && skips.total > 0 && (
+                <div className="t-pf-skips">
+                  <p><strong>{skips.total}</strong> {pluralPairs(skips.total)} пропущено всего</p>
+                  {skips.bySubject.map(([s, n]) => <div key={s}><span>{s}</span><b>{n}</b></div>)}
+                </div>
+              )}
+              <FeatureRow label="Заметки к парам" description="Домашка и что принести" storageKey="feature_notes" />
+              {(skips?.total || collectNotes().length > 0) ? (
+                <button type="button" className="t-pf-export" onClick={async () => { const m = await exportMyData(skips ?? { total: 0, bySubject: [] }); if (m) setToast(m); }}>
+                  <Icon name="share" size={18} />Поделиться заметками и пропусками
                 </button>
-                <a
-                  href="/compare"
-                  className="w-full py-3 rounded-xl text-sm font-medium border text-center transition-colors hover:border-[var(--primary)] hover:text-[var(--primary)]"
-                  style={{ background: "var(--card)", borderColor: "var(--border)", color: "var(--muted)" }}
-                >
-                  <span className="inline-flex items-center justify-center gap-2">
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
-                    </svg>
-                    Сравнить с другой группой
-                  </span>
+              ) : null}
+            </section>
+
+            <h2 className="t-over t-pf-h">Разделы</h2>
+            <nav className="t-pf-card t-pf-nav" aria-label="Разделы">
+              <Link href="/changes">
+                <span className="t-pf-ic"><Icon name="bell" size={22} /></span>
+                <b>Изменения</b>
+                {newCount > 0 && <em>{newLabel(newCount)}</em>}
+                <Icon name="chevronRight" size={20} />
+              </Link>
+              <Link href="/compare">
+                <span className="t-pf-ic"><Icon name="swap" size={22} /></span>
+                <b>Сравнить с другой группой</b>
+                <Icon name="chevronRight" size={20} />
+              </Link>
+              {groupId && (
+                <a href={api.getIcsUrl(groupId)} download>
+                  <span className="t-pf-ic"><Icon name="calendarPlus" size={22} /></span>
+                  <b>Добавить в Google Календарь</b>
+                  <Icon name="chevronRight" size={20} />
                 </a>
-                <AppDownloadCard />
-                <InviteCard />
+              )}
+              {canInstall ? (
+                <button type="button" onClick={() => void runInstall()}>
+                  <span className="t-pf-ic"><Icon name="download" size={22} /></span>
+                  <b>Установить как приложение</b>
+                  <Icon name="chevronRight" size={20} />
+                </button>
+              ) : iosHint ? (
+                <p>
+                  <span className="t-pf-ic"><Icon name="download" size={22} /></span>
+                  <b>Установить: «Поделиться» → «На экран «Домой»»</b>
+                </p>
+              ) : null}
+            </nav>
+
+            <h2 className="t-over t-pf-h">Синхронизация</h2>
+            <section className="t-pf-card t-pf-sync">
+              <div className="t-pf-row t-pf-row-flat">
+                <span className="t-pf-dim">Последнее обновление</span>
+                <b>{lastSync}</b>
               </div>
-            </div>
+              <button type="button" className="t-pf-refresh" onClick={syncNow} disabled={syncing}>
+                <Icon name="history" size={20} />{syncing ? "Обновляем…" : "Обновить расписание"}
+              </button>
+            </section>
           </div>
-        )}
 
-        {/* Режим разработчика — открывает скрытую панель /dev (вход по паролю) */}
-        {!isSetup && (
-          <a
-            href="/dev"
-            className="block text-center text-xs mt-4 transition-opacity hover:opacity-100"
-            style={{ color: "var(--muted)", opacity: 0.55 }}
-          >
-            Режим разработчика
-          </a>
-        )}
+          <div className="t-pf-right">
+            <AppearanceCard />
 
-      </div>
-      </div>
+            <div className="t-pf-two">
+              {origin && (
+                <section className="t-pf-card t-pf-invite">
+                  <div className="t-pf-qr"><QRCodeSVG value={origin} size={116} fgColor="#111111" bgColor="#ffffff" /></div>
+                  <div>
+                    <h3>Позвать одногруппников</h3>
+                    <p>{origin.replace(/^https?:\/\//, "")}</p>
+                    <button type="button" className="t-pf-ghost" onClick={async () => {
+                      try {
+                        if (navigator.share) { await navigator.share({ title: "МГУ Расписание", text: "МГУ Душанбе: расписание занятий. Заходите:", url: origin }); return; }
+                      } catch { return; }
+                      try { await navigator.clipboard.writeText(origin); setToast("Ссылка скопирована"); } catch { window.prompt("Ссылка", origin); }
+                    }}><Icon name="share" size={18} />Поделиться ссылкой</button>
+                  </div>
+                </section>
+              )}
+              <section className="t-pf-card t-pf-notes">
+                <h3>Напоминания и уведомления</h3>
+                <PushRow sessionId={deviceId} groupId={groupId} />
+                <p>О зачётах накануне в 20:00, за 10 минут до пары, текущая пара в шторке: в приложении для Android</p>
+                {apk && <a href={apk} className="t-pf-ghost"><Icon name="download" size={18} />Скачать APK</a>}
+              </section>
+            </div>
+
+            <p className="t-pf-foot">
+              МГУ Душанбе · Расписание · Данные с msu.tj ·{" "}
+              <Link href="/dev">режим разработчика</Link>
+            </p>
+          </div>
+        </div>
+      </main>
+      {toast && <div className="t-toast" role="status">{toast}</div>}
     </div>
   );
 }

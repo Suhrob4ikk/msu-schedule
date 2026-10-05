@@ -1,396 +1,384 @@
 "use client";
-
-import { useState, useEffect, useCallback } from "react";
+/**
+ * Вкладка «Аудитории» в стиле «Табло» (макеты auditorii-1…5).
+ *
+ * Сверху панель: «Когда» (ближайшая пара или выбранные неделя/день/пара), соседняя
+ * пара ‹ ›, поиск по номеру, фильтр «Все / Свободны / Заняты». Ниже плитки
+ * свободных и занятых; подробности аудитории — справа (от 1024) или в шторке.
+ *
+ * Всё считается на клиенте из пяти ответов /schedule/free-rooms (по одному на
+ * пару) — как во вкладке приложения, lib/tablo/rooms.ts. Бэкенд не менялся.
+ * Адрес: /rooms?day=вторник&pair=II&room=104&week=YYYY-MM-DD (ссылки из «Расписания»).
+ */
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Header from "@/components/Header";
-import WeekBar from "@/components/WeekBar";
-import Sheet from "@/components/Sheet";
-import { SkeletonRooms } from "@/components/Skeletons";
-import { api, DAYS_ORDER, PAIR_TIMES, currentSlot } from "@/lib/api";
+import Icon from "@/components/tablo/Icon";
+import { Popover, Sheet } from "@/components/tablo/Overlay";
+import RoomDetails, { type Links } from "@/components/tablo/rooms/RoomDetails";
+import WhenPanel, { weekLabelFor } from "@/components/tablo/rooms/WhenPanel";
+import { api, DAYS_ORDER, PAIR_TIMES, shortGroupName, type Group, type Teacher } from "@/lib/api";
+import { useLayout, useNow } from "@/lib/tablo/hooks";
+import {
+  buildDay, displayRoom, headerSubtitle, mondayOf, nowSlot, PAIRS, roomStatus, rowA11y,
+  searchRooms, type NowSlot, type RoomSlot, type Slot,
+} from "@/lib/tablo/rooms";
+import { addDays, dayTitle, isoOf } from "@/lib/tablo/schedule";
 
-const DAY_SHORT: Record<string, string> = {
-  понедельник: "Пн", вторник: "Вт", среда: "Ср",
-  четверг: "Чт", пятница: "Пт", суббота: "Сб",
-};
+type Filter = "all" | "free" | "busy";
+const DAY_SHORT = ["пн", "вт", "ср", "чт", "пт", "сб"];
 
-const DAY_OFFSET: Record<string, number> = {
-  понедельник: 0, вторник: 1, среда: 2, четверг: 3, пятница: 4, суббота: 5,
-};
-
-const DAYS = DAYS_ORDER.filter(d => d !== "воскресенье");
-
-function getDayDate(dayName: string, weekStart: string): string {
-  const d = new Date(weekStart + "T00:00:00");
-  d.setDate(d.getDate() + (DAY_OFFSET[dayName] ?? 0));
-  return d.getDate().toString();
+function makeSlot(weekStart: string, dayIndex: number, pair: string): Slot {
+  return { date: addDays(weekStart, dayIndex), weekStart, dayIndex, pair };
 }
 
-/**
- * Бэкенд отдаёт запись занятости одной строкой вида
- * «3 курс · ПМиИ: Кураторский час · Практика · Бобоев Ш.А.» (см.
- * schedule.py, entry = f"{год} курс · {группа}: {предмет}{тип}{препод}»).
- * Разбираем на «группа: предмет» и «тип · препод» — как две строки в карточке,
- * а не переписываем формат на бэкенде ради одного экрана.
- */
-function splitOccupantEntry(entry: string): { top: string; bottom: string } {
-  const sep = entry.indexOf(": ");
-  if (sep === -1) return { top: entry, bottom: "" };
-  const group = entry.slice(0, sep);
-  const rest = entry.slice(sep + 2).split(" · ");
-  const subject = rest[0] ?? "";
-  return { top: `${group}: ${subject}`, bottom: rest.slice(1).join(" · ") };
-}
-
-/**
- * Порядок аудиторий: числовые по возрастанию номера (100, 104, 208, 301…),
- * именованные — после них по алфавиту («лабгеол», «лабфиз», «стадион»).
- * Обычная строковая сортировка ставила бы «105» перед «99», а буквенные
- * названия вперемешку с числами.
- */
-function byRoomNumber(a: { room_name: string }, b: { room_name: string }): number {
-  const na = parseInt(a.room_name, 10);
-  const nb = parseInt(b.room_name, 10);
-  const aIsNum = !Number.isNaN(na);
-  const bIsNum = !Number.isNaN(nb);
-  if (aIsNum && bIsNum) return na - nb || a.room_name.localeCompare(b.room_name, "ru");
-  if (aIsNum) return -1;
-  if (bIsNum) return 1;
-  return a.room_name.localeCompare(b.room_name, "ru");
+/** Соседняя пара по порядку недели (пн I … сб V); null — край недели. */
+function stepSlot(s: Slot, dir: -1 | 1): Slot | null {
+  const n = s.dayIndex * PAIRS.length + PAIRS.indexOf(s.pair) + dir;
+  if (n < 0 || n >= 6 * PAIRS.length) return null;
+  return makeSlot(s.weekStart, Math.floor(n / PAIRS.length), PAIRS[n % PAIRS.length]);
 }
 
 export default function RoomsPage() {
-  const [day, setDay] = useState("понедельник");
-  // После монтирования — сегодняшний день (вс → понедельник). В useEffect,
-  // чтобы первый клиентский рендер совпадал с SSR (иначе hydration #418).
-  const [pair, setPair] = useState("I");
-  // Подсветка кнопки «Свободно прямо сейчас»: активна, только если день/пару
-  // не трогали руками после неё. Ручной выбор дня/пары эту подсветку снимает.
-  const [isNowSlot, setIsNowSlot] = useState(false);
-  // Аудитория, по которой открыта карточка с подробностями. Раньше здесь была
-  // кнопка «Подробнее», разворачивавшая сразу ВЕСЬ список занятых — экран
-  // превращался в простыню, и всё равно приходилось искать глазами нужную.
-  // Теперь подробности открываются по клику на конкретную аудиторию.
-  const [openRoom, setOpenRoom] = useState<string | null>(null);
+  const layout = useLayout();
+  const now = useNow(30_000);
+  const wide = layout === "wide" || layout === "xwide";
+  const phone = layout === "phone";
+
+  const [manual, setManual] = useState<Slot | null>(null);
+  const [weeksAll, setWeeksAll] = useState<Array<{ week_start: string; is_latest: boolean }> | null>(null);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [data, setData] = useState<{ key: string; byPair: Record<string, RoomSlot[]> } | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [retry, setRetry] = useState(0);
+
+  const [filter, setFilter] = useState<Filter>("all");
+  const [query, setQuery] = useState("");
+  const [selRoom, setSelRoom] = useState<string | null>(null);
+  // Пара, которую человек выбрал в подробностях аудитории. Меняет только сами
+  // подробности — плитки слева остаются на паре из «Когда».
+  const [detailPair, setDetailPair] = useState<number | null>(null);
+  const [whenOpen, setWhenOpen] = useState(false);
+  const [whenBtn, setWhenBtn] = useState<HTMLButtonElement | null>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  const nowS: NowSlot | null = useMemo(() => (now ? nowSlot(now) : null), [now]);
+  const slot: Slot | null = manual ?? nowS;
+  const pairIdx = slot ? PAIRS.indexOf(slot.pair) : 0;
+  const today = now ? isoOf(now) : "";
+  const thisMonday = today ? mondayOf(today) : "";
+
+  // ─── Данные ──────────────────────────────────────────────────────────────
   useEffect(() => {
-    // Переход из расписания по клику на аудиторию: ?day=вторник&pair=II.
-    // Адрес читаем после монтирования, а не через useSearchParams — иначе
-    // страница перестала бы собираться статически и потребовала Suspense.
-    const q = new URLSearchParams(window.location.search);
-    const qDay = q.get("day");
-    const qPair = q.get("pair");
-    // ?room=105 — сразу открыть подробности этой аудитории (из «Расписания»)
-    const qRoom = q.get("room");
-    if (qRoom) setOpenRoom(qRoom);
-    if (qDay && DAYS.includes(qDay)) {
-      setDay(qDay);
-      if (qPair && PAIR_TIMES[qPair]) setPair(qPair);
-      return;
-    }
-    const jsDay = new Date().getDay();
-    if (jsDay >= 1 && jsDay <= 6) setDay(DAYS_ORDER[jsDay - 1]);
+    api.getAllWeeks().then(setWeeksAll).catch(() => {});
+    api.getGroups().then(setGroups).catch(() => {});
   }, []);
-  const [rooms, setRooms] = useState<Array<{
-    room_name: string; is_free: boolean; occupied_by?: string;
-    occupied_list?: string[]; conflict?: boolean;
-    free_until?: string | null; occupied_until?: string | null;
-  }>>([]);
-  const [loading, setLoading] = useState(false);
-  const [search, setSearch] = useState("");
-  // «Свободно сейчас» нажали вечером или в воскресенье — показываем пояснение
-  const [noSlotHint, setNoSlotHint] = useState(false);
-  const [weekBarReady, setWeekBarReady] = useState(false);
-  // Пусто на старте (совпадает с SSR), реальную неделю выставит WeekBar после
-  // монтирования — иначе первый клиентский рендер расходится с сервером (#418).
-  const [selectedWeekStart, setSelectedWeekStart] = useState<string>("");
 
-  // Полоса недель не смогла назвать неделю (нет сети или база ещё пуста после
-  // деплоя) — грузим без week_start, бэкенд отдаст последнюю. Без этого экран
-  // навсегда оставался бы на скелетоне: запрос не уходил вообще.
-  const [weeksUnknown, setWeeksUnknown] = useState(false);
-  /** Запрос упал: «нет связи» и «данных нет» — разные сообщения. */
-  const [loadError, setLoadError] = useState(false);
-  /** Счётчик для кнопки «Повторить»: меняется — эффект перезапускается. */
-  const [retryTick, setRetryTick] = useState(0);
-
+  const weekStart = slot?.weekStart ?? null;
   useEffect(() => {
-    if (!selectedWeekStart && !weeksUnknown) return;
-    let cancelled = false;
-    setLoading(true);
-    setLoadError(false);
-    api.getFreeRooms(day, pair, selectedWeekStart || undefined)
-      .then(result => { if (!cancelled) setRooms(result); })
-      // Без catch отказ уходил в unhandled rejection, а на экране оставался
-      // прошлый список — теперь честно показываем, что связи нет.
-      .catch(() => { if (!cancelled) { setRooms([]); setLoadError(true); } })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [day, pair, selectedWeekStart, weeksUnknown, retryTick]);
+    if (!weekStart) return;
+    let alive = true;
+    api.getTeachers(weekStart).then(t => { if (alive) setTeachers(t); }).catch(() => {});
+    return () => { alive = false; };
+  }, [weekStart]);
 
-  const handleWeekChange = (weekStart: string) => {
-    setSelectedWeekStart(weekStart);
-    setWeekBarReady(true);
+  const dataKey = slot ? `${slot.weekStart}|${slot.dayIndex}` : null;
+  useEffect(() => {
+    if (!slot || !dataKey) return;
+    let alive = true;
+    const day = DAYS_ORDER[slot.dayIndex];
+    setFailed(false);
+    Promise.all(PAIRS.map(p => api.getFreeRooms(day, p, slot.weekStart).catch(() => null))).then(list => {
+      if (!alive) return;
+      if (list.every(x => !x)) { setFailed(true); return; }
+      const byPair: Record<string, RoomSlot[]> = {};
+      PAIRS.forEach((p, i) => { byPair[p] = list[i] ?? []; });
+      setData({ key: dataKey, byPair });
+    });
+    return () => { alive = false; };
+    // slot пересчитывается каждые 30 с, а запрашивать нужно только при смене дня/недели
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataKey, retry]);
+
+  // Адрес → выбор (один раз, когда известно «сейчас»)
+  const [booted, setBooted] = useState(false);
+  useEffect(() => {
+    if (booted || !now) return;
+    setBooted(true);
+    const q = new URLSearchParams(window.location.search);
+    const day = q.get("day");
+    const pair = q.get("pair");
+    const room = q.get("room");
+    const week = q.get("week");
+    if (room) setSelRoom(room);
+    const di = day ? DAYS_ORDER.indexOf(day) : -1;
+    if (di >= 0 && di <= 5) {
+      const ws = week && /^\d{4}-\d{2}-\d{2}$/.test(week) ? week : mondayOf(isoOf(now));
+      setManual(makeSlot(ws, di, pair && PAIRS.includes(pair) ? pair : PAIRS[0]));
+    }
+  }, [booted, now]);
+
+  const rooms = useMemo(
+    () => (data && dataKey && data.key === dataKey ? buildDay(data.byPair) : null),
+    [data, dataKey],
+  );
+
+  const view = useMemo(() => {
+    if (!rooms) return null;
+    const free = rooms.filter(d => !d.occupants[pairIdx].length);
+    const busy = rooms.filter(d => d.occupants[pairIdx].length);
+    return { free, busy, total: rooms.length };
+  }, [rooms, pairIdx]);
+
+  // Поиск: подходящие плитки остаются, остальные бледнеют (сетка не прыгает)
+  const hits = useMemo(() => {
+    if (!rooms) return null;
+    const r = searchRooms(rooms.map(d => d.room), query);
+    return r ? new Set([...(r.exact ? [r.exact] : []), ...r.others]) : null;
+  }, [rooms, query]);
+
+  const selDay = rooms?.find(d => d.room === selRoom) ?? null;
+  const slotKey = slot ? `${slot.weekStart}|${slot.dayIndex}|${slot.pair}` : "";
+  // Другая аудитория или другое время сверху — подробности снова на выбранной паре
+  useEffect(() => { setDetailPair(null); }, [selRoom, slotKey]);
+  const detailIdx = detailPair ?? pairIdx;
+
+  // ─── Выбор времени ───────────────────────────────────────────────────────
+  const pick = useCallback((s: Slot) => setManual(s), []);
+  const goNow = () => { setManual(null); setWhenOpen(false); };
+  const step = (dir: -1 | 1) => { if (slot) { const n = stepSlot(slot, dir); if (n) pick(n); } };
+
+  const weekChoices = useMemo(() => {
+    if (!thisMonday) return [];
+    return [thisMonday, addDays(thisMonday, 7)].map(ws => ({
+      weekStart: ws,
+      label: weekLabelFor(ws, thisMonday),
+      enabled: weeksAll ? weeksAll.some(w => w.week_start === ws) : ws === thisMonday,
+    }));
+  }, [thisMonday, weeksAll]);
+
+  // ─── Клавиши ─────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      e.preventDefault();
+      searchRef.current?.focus();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const onSearchKey = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") { setQuery(""); return; }
+    if (e.key !== "Enter" || !rooms) return;
+    const r = searchRooms(rooms.map(d => d.room), query);
+    const first = r?.exact ?? r?.others[0];
+    if (first) setSelRoom(first);
   };
 
-  const handleNoWeeks = useCallback(() => {
-    setWeeksUnknown(true);
-    setWeekBarReady(true);
-  }, []);
+  // ─── Ссылки в подробностях ───────────────────────────────────────────────
+  const links: Links = useMemo(() => ({
+    group: o => {
+      if (o.course == null) return null;
+      const g = groups.find(x => x.year === o.course && shortGroupName(x.name) === o.program);
+      return g && slot ? `/?group=${g.id}&week=${slot.weekStart}` : null;
+    },
+    teacher: name => {
+      const t = teachers.find(x => x.name.trim().toLowerCase() === name.trim().toLowerCase());
+      return t && slot ? `/teachers?teacher=${t.id}&week=${slot.weekStart}` : null;
+    },
+  }), [groups, teachers, slot]);
 
-  const searchedRooms = search.trim()
-    ? rooms.filter(r => r.room_name.toLowerCase().includes(search.trim().toLowerCase()))
-    : rooms;
-  // Внутри каждого списка — по номеру аудитории, а не по времени освобождения:
-  // глазами ищут «где 302», а не «что освободится раньше». Бэкенд отдаёт занятые
-  // отсортированными по времени, поэтому пересортировываем здесь.
-  const freeRooms = searchedRooms.filter(r => r.is_free).sort(byRoomNumber);
-  const busyRooms = searchedRooms.filter(r => !r.is_free).sort(byRoomNumber);
+  // ─── Подписи ─────────────────────────────────────────────────────────────
+  const sub = slot ? (() => {
+    if (!manual && nowS) {
+      const h = headerSubtitle(nowS, nowS, now ?? new Date());
+      return nowS.kind === "nearest" ? { lead: h.lead, rest: ` · ${dayTitle(nowS.date).toLowerCase()}` } : h;
+    }
+    return { lead: null, rest: dayTitle(slot.date) };
+  })() : null;
+  const pairLine = slot ? `${slot.pair} пара · ${PAIR_TIMES[slot.pair][0]}–${PAIR_TIMES[slot.pair][1]}` : "";
+  const nowLabel = nowS ? `Ближайшая пара · ${DAY_SHORT[nowS.dayIndex]}, ${nowS.pair}` : "Ближайшая пара";
+  const prevOk = !!slot && !!stepSlot(slot, -1);
+  const nextOk = !!slot && !!stepSlot(slot, 1);
+
+  const counts = { all: view?.total ?? 0, free: view?.free.length ?? 0, busy: view?.busy.length ?? 0 };
+
+  // ─── Плитки ──────────────────────────────────────────────────────────────
+  const tile = (d: ReturnType<typeof buildDay>[number]) => {
+    const st = roomStatus(d, pairIdx);
+    const name = displayRoom(d.room);
+    const text = st.free ? (st.until ? `до ${st.until}` : "весь день") : `до ${st.until}`;
+    const dim = hits && !hits.has(d.room);
+    return (
+      <button
+        key={d.room}
+        type="button"
+        onClick={() => setSelRoom(d.room)}
+        aria-pressed={selRoom === d.room}
+        aria-label={rowA11y(d, pairIdx)}
+        className={`t-rm ${st.free ? "t-rm-free" : "t-rm-busy"} ${selRoom === d.room ? "t-rm-on" : ""} ${dim ? "t-rm-dim" : ""}`}
+      >
+        <b className={name.length > 5 ? "t-rm-long" : ""}>{name}</b>
+        <span>{text}</span>
+      </button>
+    );
+  };
+
+  const grid = (list: ReturnType<typeof buildDay>) => (
+    <div className="t-rm-grid">{list.map(tile)}</div>
+  );
+
+  const details = selDay && slot ? (
+    <RoomDetails
+      day={selDay}
+      slot={slot}
+      pairIdx={detailIdx}
+      links={links}
+      onPair={setDetailPair}
+      onClose={() => setSelRoom(null)}
+      bare={!wide}
+    />
+  ) : null;
+
+  // ─── Рендер ──────────────────────────────────────────────────────────────
+  const body = failed && !rooms ? (
+    <div className="t-state">
+      <Icon name="wifiOff" size={40} />
+      <h2>Нет связи с сервером</h2>
+      <button type="button" className="t-btn-fill" onClick={() => setRetry(n => n + 1)}>Повторить</button>
+    </div>
+  ) : !view ? (
+    <div className="t-rm-grid" aria-busy="true">
+      {Array.from({ length: 14 }, (_, i) => <span key={i} className="t-rm t-skel" />)}
+    </div>
+  ) : view.total === 0 ? (
+    <div className="t-state">
+      <Icon name="door" size={40} />
+      <h2>Данных на эту неделю нет</h2>
+      <p>Расписание ещё не вышло.</p>
+    </div>
+  ) : (
+    <>
+      {filter !== "busy" && (
+        <section aria-label="Свободные аудитории">
+          <div className="t-rm-head t-rm-head-free">
+            <h2>Свободны · {view.free.length}</h2>
+            <span>из {view.total}</span>
+          </div>
+          {view.free.length ? grid(view.free) : <p className="t-rm-none">Свободных аудиторий нет</p>}
+        </section>
+      )}
+      {filter !== "free" && (
+        <section aria-label="Занятые аудитории">
+          <div className="t-rm-head t-rm-head-busy">
+            <h2>Заняты · {view.busy.length}</h2>
+            <span>нажмите, чтобы узнать, кто</span>
+          </div>
+          {view.busy.length ? grid(view.busy) : <p className="t-rm-none">Все аудитории свободны</p>}
+        </section>
+      )}
+    </>
+  );
 
   return (
-    <div className="min-h-screen">
+    <div className="t-page">
       <Header />
-      <WeekBar onWeekChange={handleWeekChange} selectedWeekStart={selectedWeekStart} onUnavailable={handleNoWeeks} />
-      <main className="max-w-5xl mx-auto px-4 lg:px-8 py-4 lg:py-6 pb-24 lg:pb-6">
-
-        {/* Фильтры */}
-        <div className="card mb-4 lg:mb-5">
-          <h1 className="font-bold text-lg lg:text-2xl mb-3">Свободные аудитории</h1>
-
-          <div className="lg:grid lg:grid-cols-2 lg:gap-6 lg:items-start">
-            <div>
-              <div className="relative mb-4">
-                <svg className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.3-4.3M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
-                </svg>
-                <input
-                  type="search"
-                  placeholder="Найти аудиторию, например 105..."
-                  className="w-full rounded-xl border border-[var(--border)] bg-[var(--background)] pl-10 pr-3 py-2 lg:py-3 text-base focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                />
-              </div>
-
-              {/* Быстрый переход к текущей паре — самый частый вопрос «где сейчас свободно».
-                  Подсвечена, только пока действительно показан текущий слот — выбор дня/пары
-                  руками подсветку снимает, иначе кнопка врала бы, что всё ещё «сейчас». */}
-              <button
-                onClick={() => {
-                  const slot = currentSlot();
-                  if (!slot) { setNoSlotHint(true); return; }
-                  setNoSlotHint(false);
-                  setIsNowSlot(true);
-                  setDay(slot.day);
-                  setPair(slot.pair);
-                }}
-                className={`w-full max-w-sm mb-4 min-h-[48px] rounded-full text-sm font-bold transition-all active:scale-95 ${
-                  isNowSlot
-                    ? "bg-[var(--primary)] text-[var(--on-fill)]"
-                    : "bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)]"
-                }`}
-              >
-                Свободно прямо сейчас
+      <main className={`t-main ${layout ? `t-main-${layout}` : ""}`}>
+        {layout === null || !slot ? null : (
+          <>
+            <div className="t-rm-bar">
+              <button ref={setWhenBtn} type="button" className={`t-rm-when ${whenOpen ? "t-rm-when-on" : ""}`}
+                aria-haspopup="dialog" aria-expanded={whenOpen} onClick={() => setWhenOpen(o => !o)}>
+                <span>
+                  <small>
+                    {sub?.lead && <b>{sub.lead}</b>}
+                    {sub?.rest}
+                  </small>
+                  <strong>{pairLine}</strong>
+                </span>
+                <Icon name="chevronDown" size={20} />
               </button>
-              {noSlotHint && (
-                <p className="text-xs text-[var(--muted)] -mt-2 mb-4">
-                  Сейчас пар нет
-                </p>
-              )}
-            </div>
 
-            <div>
-              {/* День */}
-              <p className="text-xs font-semibold uppercase tracking-wider text-[var(--muted)] mb-2">День</p>
-              <div className="flex gap-2 overflow-x-auto pb-1 mb-4 scrollbar-hide">
-                {DAYS.map(d => (
-                  <button
-                    key={d}
-                    onClick={() => { setDay(d); setIsNowSlot(false); }}
-                    className={`shrink-0 flex flex-col items-center px-4 py-2 rounded-2xl border transition-colors ${
-                      day === d
-                        ? "bg-[var(--primary)] text-[var(--on-fill)] border-[var(--primary)]"
-                        : "bg-[var(--card)] text-[var(--foreground)] border-[var(--border)]"
-                    }`}
-                  >
-                    <span className="text-sm font-bold">{DAY_SHORT[d]}</span>
-                    {selectedWeekStart && (
-                      <span className={`text-xs leading-tight ${day === d ? "text-[var(--on-fill)] opacity-80" : "text-[var(--muted)]"}`}>
-                        {getDayDate(d, selectedWeekStart)}
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </div>
-
-              {/* Пара */}
-              <p className="text-xs font-semibold uppercase tracking-wider text-[var(--muted)] mb-2">Пара</p>
-              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-                {Object.entries(PAIR_TIMES).map(([num, [start]]) => (
-                  <button
-                    key={num}
-                    onClick={() => { setPair(num); setIsNowSlot(false); }}
-                    className={`shrink-0 flex flex-col items-center px-4 py-2 rounded-2xl border transition-colors ${
-                      pair === num
-                        ? "bg-[var(--primary)] text-[var(--on-fill)] border-[var(--primary)]"
-                        : "bg-[var(--card)] text-[var(--foreground)] border-[var(--border)]"
-                    }`}
-                  >
-                    <span className="text-sm font-bold">{num}</span>
-                    <span className={`text-xs ${pair === num ? "text-[var(--on-fill)] opacity-80" : "text-[var(--muted)]"}`}>{start}</span>
-                  </button>
-                ))}
-                {loading && (
-                  <div className="flex items-center px-2">
-                    <div className="w-5 h-5 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {rooms.length > 0 && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
-            {/* Свободные — компактные чипы */}
-            <div>
-              <h2 className="font-semibold text-base lg:text-lg text-green-600 dark:text-green-400 mb-2 flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-green-500 shrink-0"></span>
-                Свободных: {freeRooms.length}
-              </h2>
-              {freeRooms.length === 0 ? (
-                <p className="text-[var(--muted)] text-sm py-2">Нет свободных аудиторий</p>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {freeRooms.map(r => (
-                    <button
-                      key={r.room_name}
-                      onClick={() => setOpenRoom(r.room_name)}
-                      className="flex flex-col items-center min-w-[64px] px-3 py-1.5 rounded-2xl border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 transition-all active:scale-95 hover:border-green-500"
-                    >
-                      <span className="text-sm font-bold text-green-700 dark:text-green-400 leading-tight">{r.room_name}</span>
-                      <span className="text-[10px] text-green-700/70 dark:text-green-400/70 leading-tight">
-                        {r.free_until ? `до ${r.free_until}` : "весь день"}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Занятые */}
-            <div>
-              <h2 className="font-semibold text-base lg:text-lg text-red-600 dark:text-red-400 flex items-center gap-2 mb-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0"></span>
-                Занятых: {busyRooms.length}
-                <span className="ml-auto text-xs font-normal text-[var(--muted)]">нажмите, чтобы узнать кто</span>
-              </h2>
-
-              <div className="flex flex-wrap gap-2">
-                {busyRooms.map(r => (
-                  <button
-                    key={r.room_name}
-                    onClick={() => setOpenRoom(r.room_name)}
-                    className="relative flex flex-col items-center min-w-[64px] px-3 py-1.5 rounded-2xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30 transition-all active:scale-95 hover:border-red-500"
-                  >
-                    <span className="text-sm font-bold text-red-700 dark:text-red-400 leading-tight">{r.room_name}</span>
-                    {r.occupied_until && (
-                      <span className="text-[10px] text-red-700/70 dark:text-red-400/70 leading-tight">до {r.occupied_until}</span>
-                    )}
-                    {/* Накладка в расписании университета — отмечаем точкой прямо на чипе */}
-                    {r.conflict && (
-                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-red-500 border-2 border-[var(--background)]" />
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {rooms.length === 0 && (!weekBarReady || loading) && <SkeletonRooms />}
-
-        {/* Подробности по конкретной аудитории — по клику на неё.
-            Шторка снизу на телефоне, окно по центру на широком экране. */}
-        {openRoom && (() => {
-          const r = rooms.find(x => x.room_name === openRoom);
-          if (!r) return null;
-          const entries = r.occupied_list ?? (r.occupied_by ? [r.occupied_by] : []);
-          const [pairStart, pairEnd] = PAIR_TIMES[pair] ?? ["", ""];
-          return (
-            <Sheet
-              title={`Аудитория ${r.room_name}`}
-              subtitle={`${day.charAt(0).toUpperCase()}${day.slice(1)} · ${pair} пара · ${pairStart}–${pairEnd}`}
-              onClose={() => setOpenRoom(null)}
-            >
-              {r.is_free ? (
-                <>
-                  <div className="flex items-center gap-2 rounded-2xl px-4 py-3 bg-green-50 dark:bg-green-950/30">
-                    <span className="w-2.5 h-2.5 rounded-full bg-green-500 shrink-0" />
-                    <span className="font-semibold text-green-700 dark:text-green-400">
-                      Свободна {r.free_until ? `до ${r.free_until}` : "весь день"}
-                    </span>
-                  </div>
-                  <p className="text-xs mt-3" style={{ color: "var(--muted)" }}>
-                    {r.free_until
-                      ? `После ${r.free_until} аудиторию занимает следующая пара.`
-                      : "До конца дня занятий в этой аудитории нет."}
-                  </p>
-                </>
-              ) : (
-                <>
-                  <div className="flex items-center gap-2 rounded-2xl px-4 py-3 bg-red-50 dark:bg-red-950/30">
-                    <span className="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0" />
-                    <span className="font-semibold text-red-700 dark:text-red-400">
-                      Занята {r.occupied_until ? `до ${r.occupied_until}` : ""}
-                    </span>
-                  </div>
-
-                  {r.conflict && (
-                    <p className="mt-3 text-xs font-bold px-3 py-2 rounded-xl bg-red-500 text-white">
-                      В расписании накладка: {entries.length} группы в одной аудитории одновременно
-                    </p>
-                  )}
-
-                  <div className="mt-3 space-y-2">
-                    {entries.map((e, i) => {
-                      const { top, bottom } = splitOccupantEntry(e);
-                      return (
-                        <div key={i} className="rounded-2xl px-4 py-3" style={{ background: "var(--tag-bg)" }}>
-                          <p className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>{top}</p>
-                          {bottom && <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>{bottom}</p>}
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {r.occupied_until && (
-                    <p className="text-xs mt-3" style={{ color: "var(--muted)" }}>
-                      Освободится в {r.occupied_until}.
-                    </p>
-                  )}
-                </>
-              )}
-            </Sheet>
-          );
-        })()}
-
-        {!loading && rooms.length === 0 && weekBarReady && (
-          <div className="text-center py-16 text-[var(--muted)]">
-            {loadError ? (
-              <>
-                <p>Нет связи с сервером</p>
-                <button
-                  onClick={() => setRetryTick(t => t + 1)}
-                  className="mt-3 px-3 py-1.5 rounded-lg text-xs font-semibold text-[var(--on-fill)]"
-                  style={{ background: "var(--primary)" }}
-                >
-                  Повторить
+              <div className="t-rm-step" onKeyDown={e => {
+                if (e.key === "ArrowLeft") { e.preventDefault(); step(-1); }
+                if (e.key === "ArrowRight") { e.preventDefault(); step(1); }
+              }}>
+                <button type="button" onClick={() => step(-1)} disabled={!prevOk} aria-label="Предыдущая пара">
+                  <Icon name="chevronLeft" size={20} />
                 </button>
-              </>
-            ) : (
-              <p>Данных нет для выбранной недели</p>
-            )}
-          </div>
+                <span>пара</span>
+                <button type="button" onClick={() => step(1)} disabled={!nextOk} aria-label="Следующая пара">
+                  <Icon name="chevronRight" size={20} />
+                </button>
+              </div>
+
+              <label className="t-rm-search">
+                <Icon name="search" size={20} />
+                <input ref={searchRef} type="search" inputMode="numeric" placeholder={phone ? "Номер" : "Номер аудитории"} value={query}
+                  onChange={e => setQuery(e.target.value)} onKeyDown={onSearchKey} aria-label="Номер аудитории" />
+                {wide && !query && <kbd className="t-kbd">/</kbd>}
+                {query && (
+                  <button type="button" className="t-tsearch-clear" onClick={() => { setQuery(""); searchRef.current?.focus(); }} aria-label="Очистить поиск">
+                    <Icon name="close" size={18} />
+                  </button>
+                )}
+              </label>
+
+              <div className="t-seg t-rm-filter" role="radiogroup" aria-label="Фильтр">
+                {([["all", "Все"], ["free", "Свободны"], ["busy", "Заняты"]] as const).map(([k, label]) => (
+                  <button key={k} type="button" role="radio" aria-checked={filter === k}
+                    className={`t-seg-btn ${filter === k ? "t-seg-on" : ""}`} onClick={() => setFilter(k)}>
+                    {label} · {counts[k]}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className={wide ? "t-rm-layout" : ""}>
+              <div className="min-w-0 t-rm-body">{body}</div>
+              {wide && (
+                <aside className="t-rm-side" aria-label="Подробности аудитории">
+                  {details ?? (
+                    <div className="t-rm-empty">
+                      <Icon name="door" size={36} />
+                      <p>Выберите аудиторию, чтобы увидеть, кто в ней занимается и как она занята в течение дня</p>
+                    </div>
+                  )}
+                </aside>
+              )}
+            </div>
+          </>
         )}
       </main>
+
+      {whenOpen && slot && (
+        <Popover anchor={whenBtn} onClose={() => setWhenOpen(false)} width={440} label="Когда">
+          <div className="t-panel">
+            <WhenPanel
+              slot={slot}
+              isNow={!manual}
+              nowLabel={nowLabel}
+              today={today}
+              weeks={weekChoices}
+              onNow={goNow}
+              onWeek={ws => pick(makeSlot(ws, slot.dayIndex, slot.pair))}
+              onDay={i => pick(makeSlot(slot.weekStart, i, slot.pair))}
+              onPair={i => { pick(makeSlot(slot.weekStart, slot.dayIndex, PAIRS[i])); setWhenOpen(false); }}
+              onClose={() => setWhenOpen(false)}
+            />
+          </div>
+        </Popover>
+      )}
+
+      {!wide && selDay && details && (
+        <Sheet onClose={() => setSelRoom(null)} label={`Аудитория ${displayRoom(selDay.room)}`}
+          title={`Аудитория ${displayRoom(selDay.room)}`}>
+          <div className="px-4 pb-2">{details}</div>
+        </Sheet>
+      )}
     </div>
   );
 }

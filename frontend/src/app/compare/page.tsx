@@ -1,265 +1,260 @@
 "use client";
-
-import { useState, useEffect, useMemo, useCallback } from "react";
+/**
+ * «Сравнение групп» в стиле «Табло» (макеты sravnenie-*): та же сетка «дни ×
+ * пары», что в Расписании, по строке на группу в ячейке и полоса окон, когда
+ * свободны все. Своя группа — первая (цвет акцента), остальные — графит и
+ * оранжевый; до трёх групп. На узком экране — один день с полосой дней.
+ *
+ * Адрес: /compare?with=ID,ID&week=YYYY-MM-DD (для ссылки). Выбор не пишется
+ * в localStorage: своя группа не меняется.
+ */
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Header from "@/components/Header";
-import WeekBar from "@/components/WeekBar";
-import GroupSelector from "@/components/GroupSelector";
-import { SkeletonRooms } from "@/components/Skeletons";
-import { api, Group, Lesson, DAYS_ORDER, PAIR_TIMES, PAIR_NUMBERS, shortGroupName } from "@/lib/api";
+import Icon from "@/components/tablo/Icon";
+import { Popover } from "@/components/tablo/Overlay";
+import CompareGrid, { type CmpGroup } from "@/components/tablo/compare/CompareGrid";
+import GroupPicker from "@/components/tablo/compare/GroupPicker";
+import { api, shortGroupName, type Group, type Lesson } from "@/lib/api";
+import { activeDays, everyone, freeWindows, slotMap, windowLabel, type SlotMap } from "@/lib/tablo/compare";
+import { useLayout, useNow } from "@/lib/tablo/hooks";
+import { mondayOf } from "@/lib/tablo/rooms";
+import { addDays, isoOf, rangeLabel } from "@/lib/tablo/schedule";
 
-const DAY_SHORT: Record<string, string> = {
-  понедельник: "Пн", вторник: "Вт", среда: "Ср",
-  четверг: "Чт", пятница: "Пт", суббота: "Сб",
-};
+const MAX_GROUPS = 3;
+const DAY_SHORT = ["пн", "вт", "ср", "чт", "пт", "сб"];
 
-const DAYS = DAYS_ORDER.filter(d => d !== "воскресенье");
+const label = (g: Group) => `${shortGroupName(g.name)} · ${g.year} курс`;
 
-/** Ключ занятого слота: «вторник|III» */
-const slotKey = (day: string, pair: string) => `${day}|${pair}`;
-
-function busySlots(lessons: Lesson[]): Set<string> {
-  return new Set(lessons.map(l => slotKey(l.day_of_week, l.pair_number)));
+/** Неделя группы: week_id у каждой группы свой (привязан к факультету), ищем по week_start. */
+async function loadWeek(g: Group, weekStart: string): Promise<Lesson[] | null> {
+  const wks = await api.getGroupWeeks(g.id);
+  const w = wks.find(x => x.week_start === weekStart);
+  return w ? api.getGroupSchedule(g.id, undefined, w.id) : null;
 }
 
 export default function ComparePage() {
+  const layout = useLayout();
+  const now = useNow(30_000);
+  const wide = layout === "wide" || layout === "xwide";
+
   const [groups, setGroups] = useState<Group[]>([]);
-  const [myGroup, setMyGroup] = useState<Group | null>(null);
-  const [otherGroup, setOtherGroup] = useState<Group | null>(null);
-  const [myLessons, setMyLessons] = useState<Lesson[]>([]);
-  const [otherLessons, setOtherLessons] = useState<Lesson[]>([]);
-  const [loading, setLoading] = useState(false);
-  // Пусто на старте (совпадает с SSR), реальную неделю выставит WeekBar (#418)
-  const [selectedWeekStart, setSelectedWeekStart] = useState<string>("");
-  // Список недель не пришёл (нет сети, база ещё пуста после деплоя) — без
-  // этого сигнала страница ждала бы selectedWeekStart вечно и, как только
-  // человек выбирал группу, показывала бы «На этой неделе занятий нет» —
-  // неправду про каникулы вместо правды про отсутствие связи.
-  const [weeksUnknown, setWeeksUnknown] = useState(false);
-  // Список групп не загрузился — иначе человек с уже выбранной в кабинете
-  // группой видел бы «Сначала укажи свою группу в кабинете», хотя дело в сети.
   const [groupsError, setGroupsError] = useState(false);
-  // Для одной из групп не нашлось той же недели, что у другой (у ЕНФ и ГФ
-  // архивы синхронизируются раздельно, наборы недель могут разойтись) —
-  // сравнивать в этом случае нечего: показать разные недели как одну было
-  // бы тихой ошибкой, а не отсутствием общих окон.
-  const [weekMismatch, setWeekMismatch] = useState(false);
+  const [myId, setMyId] = useState<number | null>(null);
+  const [ids, setIds] = useState<Array<number | null>>([null, null]);
+  const [weeksAll, setWeeksAll] = useState<Array<{ week_start: string; is_latest: boolean }> | null>(null);
+  const [weekStart, setWeekStart] = useState<string | null>(null);
+  const [data, setData] = useState<Record<number, Lesson[] | null>>({});
+  const [loading, setLoading] = useState(false);
+  const [hotKey, setHotKey] = useState<string | null>(null);
+  const [open, setOpen] = useState<number | null>(null);
+  const [openEl, setOpenEl] = useState<HTMLElement | null>(null);
+
+  const today = now ? isoOf(now) : "";
+  const thisMonday = today ? mondayOf(today) : "";
+
+  // ─── Старт: своя группа, группы из адреса, список недель ────────────────
+  useEffect(() => {
+    let my: number | null = null;
+    try { my = Number(localStorage.getItem("selected_group_id")) || null; } catch { /* приватный режим */ }
+    setMyId(my);
+    const q = new URLSearchParams(window.location.search);
+    const withIds = (q.get("with") ?? "").split(",").map(Number).filter(n => n > 0).slice(0, MAX_GROUPS);
+    if (withIds.length) setIds(withIds.length > 1 ? withIds : [withIds[0], null]);
+    else setIds([my, null]);
+    const w = q.get("week");
+    if (w && /^\d{4}-\d{2}-\d{2}$/.test(w)) setWeekStart(w);
+    api.getAllWeeks().then(setWeeksAll).catch(() => setWeeksAll(null));
+  }, []);
 
   const loadGroups = useCallback(() => {
     setGroupsError(false);
-    const saved = localStorage.getItem("selected_group_id");
-    api.getGroups()
-      .then(gs => {
-        setGroups(gs);
-        if (saved) setMyGroup(gs.find(g => g.id === Number(saved)) ?? null);
-      })
-      .catch(() => setGroupsError(true));
+    api.getGroups().then(setGroups).catch(() => setGroupsError(true));
   }, []);
-
   useEffect(() => { loadGroups(); }, [loadGroups]);
 
-  // Расписание обеих групп на выбранную неделю
   useEffect(() => {
-    if (!myGroup || !otherGroup || (!selectedWeekStart && !weeksUnknown)) return;
-    let cancelled = false;
+    if (weekStart || !thisMonday) return;
+    setWeekStart(thisMonday);
+  }, [weekStart, thisMonday]);
+
+  const byId = useMemo(() => new Map(groups.map(g => [g.id, g])), [groups]);
+  const picked = ids.map(id => (id ? byId.get(id) ?? null : null));
+  const chosen = picked.filter((g): g is Group => !!g);
+  const idsKey = chosen.map(g => g.id).join(",");
+
+  // Адрес держим в согласии с выбором
+  useEffect(() => {
+    if (!weekStart || !idsKey) return;
+    window.history.replaceState(null, "", `/compare?with=${idsKey}&week=${weekStart}`);
+  }, [idsKey, weekStart]);
+
+  // ─── Расписание выбранных групп ─────────────────────────────────────────
+  useEffect(() => {
+    if (!weekStart || !chosen.length) return;
+    let alive = true;
     setLoading(true);
-    setWeekMismatch(false);
-    (async () => {
-      try {
-        // week_id у каждой группы свой (он привязан к факультету), поэтому
-        // ищем неделю отдельно для каждой по её week_start.
-        const weekIdFor = async (g: Group) => {
-          const wks = await api.getGroupWeeks(g.id);
-          return wks.find(w => w.week_start === selectedWeekStart)?.id;
-        };
-        const [myWeek, otherWeek] = await Promise.all([weekIdFor(myGroup), weekIdFor(otherGroup)]);
-        // Неделя была указана явно, но нашлась только у одной из групп —
-        // без week_id бэкенд подставит для другой группы ЕЁ текущую неделю,
-        // и сравнение молча сведёт разные недели. Честнее не сравнивать.
-        if (selectedWeekStart && (myWeek == null) !== (otherWeek == null)) {
-          if (cancelled) return;
-          setMyLessons([]);
-          setOtherLessons([]);
-          setWeekMismatch(true);
-          return;
-        }
-        const [mine, theirs] = await Promise.all([
-          api.getGroupSchedule(myGroup.id, undefined, myWeek),
-          api.getGroupSchedule(otherGroup.id, undefined, otherWeek),
-        ]);
-        if (cancelled) return;
-        setMyLessons(mine);
-        setOtherLessons(theirs);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [myGroup, otherGroup, selectedWeekStart, weeksUnknown]);
+    Promise.all(chosen.map(g => loadWeek(g, weekStart).then(ls => [g.id, ls] as const).catch(() => [g.id, undefined] as const)))
+      .then(res => {
+        if (!alive) return;
+        const next: Record<number, Lesson[] | null> = {};
+        for (const [id, ls] of res) if (ls !== undefined) next[id] = ls;
+        setData(next);
+      })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+    // chosen собирается из ids и groups: ключ idsKey достаточен
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idsKey, weekStart]);
 
-  const mineBusy = useMemo(() => busySlots(myLessons), [myLessons]);
-  const theirsBusy = useMemo(() => busySlots(otherLessons), [otherLessons]);
+  const ready = chosen.length >= 2 && chosen.every(g => g.id in data);
+  const missingWeek = chosen.length >= 2 && !loading && chosen.some(g => g.id in data && data[g.id] === null);
+  const cmp: CmpGroup[] = useMemo(
+    () => chosen.filter(g => Array.isArray(data[g.id])).map(g => ({ id: g.id, label: label(g), map: slotMap(data[g.id] as Lesson[]) })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [idsKey, data],
+  );
+  const maps: SlotMap[] = cmp.map(c => c.map);
+  const days = useMemo(() => activeDays(maps), [maps]);
+  const windows = useMemo(() => freeWindows(maps), [maps]);
 
-  // Считаем только слоты в учебных днях: если у ОБЕИХ групп в этот день нет
-  // ни одной пары, день выходной — «свободен» там не значит «можно встретиться».
-  const activeDays = useMemo(
-    () => DAYS.filter(d => PAIR_NUMBERS.some(p => mineBusy.has(slotKey(d, p)) || theirsBusy.has(slotKey(d, p)))),
-    [mineBusy, theirsBusy],
+  // ─── Управление ─────────────────────────────────────────────────────────
+  const setAt = (i: number, g: Group) => setIds(a => a.map((x, j) => (j === i ? g.id : x)));
+  const swap = () => setIds(a => (a.length > 1 ? [a[1], a[0], ...a.slice(2)] : a));
+  const addGroup = () => setIds(a => (a.length < MAX_GROUPS ? [...a, null] : a));
+  const removeAt = (i: number) => { setIds(a => a.filter((_, j) => j !== i)); setOpen(null); };
+
+  const weekChoices = useMemo(() => {
+    if (!thisMonday) return [];
+    return [thisMonday, addDays(thisMonday, 7)].map(ws => ({
+      ws, enabled: weeksAll ? weeksAll.some(w => w.week_start === ws) : ws === thisMonday,
+    }));
+  }, [thisMonday, weeksAll]);
+  const prevWeek = weekChoices.find(w => w.ws < (weekStart ?? "") && w.enabled);
+  const nextWeek = weekChoices.find(w => w.ws > (weekStart ?? "") && w.enabled);
+  const goWeek = (ws: string) => { setWeekStart(ws); setHotKey(null); };
+
+  const needMine = !myId && !chosen.length;
+
+  const strip = ready && windows.length > 0 && (
+    <div className="t-cg-strip">
+      <strong>{everyone(cmp.length)}</strong>
+      <div role="group" aria-label="Окна">
+        {windows.map(w => (
+          <button key={w.key} type="button" aria-pressed={hotKey === w.key}
+            className={`t-cg-chip ${hotKey === w.key ? "t-cg-chip-on" : ""}`}
+            onClick={() => setHotKey(k => (k === w.key ? null : w.key))}>
+            {DAY_SHORT[w.dayIndex]} · {windowLabel(w)}
+          </button>
+        ))}
+      </div>
+      {wide && <em>нажмите на окно дня, чтобы выделить его</em>}
+    </div>
   );
 
-  const commonFree = useMemo(() => {
-    let n = 0;
-    for (const d of activeDays) {
-      for (const p of PAIR_NUMBERS) {
-        if (!mineBusy.has(slotKey(d, p)) && !theirsBusy.has(slotKey(d, p))) n++;
-      }
-    }
-    return n;
-  }, [activeDays, mineBusy, theirsBusy]);
-
-  const ready = myGroup && otherGroup && !loading;
-
   return (
-    <div className="min-h-screen">
+    <div className="t-page">
       <Header />
-      <WeekBar onWeekChange={setSelectedWeekStart} selectedWeekStart={selectedWeekStart} onUnavailable={() => setWeeksUnknown(true)} />
-      <main className="max-w-5xl mx-auto px-4 lg:px-8 py-4 lg:py-6 pb-24 lg:pb-6">
-
-        <div className="card mb-4 lg:mb-5">
-          <h1 className="font-bold text-lg lg:text-2xl mb-1">Сравнить с другой группой</h1>
-          <p className="text-sm text-[var(--muted)] mb-3">
-            {myGroup
-              ? <>Когда у вас ({shortGroupName(myGroup.name)} · {myGroup.year} курс) и у выбранной группы одновременно нет пар.</>
-              : groupsError
-                ? "Не удалось загрузить группы — нет связи с сервером."
-                : "Сначала укажите свою группу в кабинете."}
-          </p>
-          {myGroup && (
-            <>
-              <p className="text-xs font-semibold uppercase tracking-wider text-[var(--muted)] mb-2">
-                С кем сравнить
-              </p>
-              <GroupSelector groups={groups} value={otherGroup} onChange={setOtherGroup} collapsible />
-            </>
-          )}
-        </div>
-
-        {myGroup && otherGroup && loading && <SkeletonRooms />}
-
-        {ready && weekMismatch && (
-          <div className="text-center py-16 text-[var(--muted)]">
-            <p>Эта неделя есть в расписании не у обеих групп</p>
-          </div>
-        )}
-
-        {ready && !weekMismatch && activeDays.length === 0 && (
-          <div className="text-center py-16 text-[var(--muted)]">
-            <p>На этой неделе занятий нет ни у одной из групп</p>
-          </div>
-        )}
-
-        {ready && !weekMismatch && activeDays.length > 0 && (
-          <div className="card">
-            <div className="flex items-baseline gap-2 mb-3">
-              <span className="text-3xl font-extrabold" style={{ color: "var(--primary)" }}>{commonFree}</span>
-              <span className="text-sm" style={{ color: "var(--muted)" }}>общих свободных пар</span>
+      <main className={`t-main ${layout ? `t-main-${layout}` : ""}`}>
+        {layout === null ? null : (
+          <>
+            <div className="t-cg-bar">
+              {ids.map((id, i) => {
+                const g = picked[i];
+                return (
+                  <div key={i} className="t-cg-sel">
+                    {i === 1 && (
+                      <button type="button" className="t-icon-btn t-cg-swap" onClick={swap} aria-label="Поменять группы местами">
+                        <Icon name="swap" size={22} />
+                      </button>
+                    )}
+                    <button type="button"
+                      className={`t-cg-pick ${open === i ? "t-cg-pick-on" : ""}`} aria-haspopup="dialog" aria-expanded={open === i}
+                      onClick={e => { setOpenEl(e.currentTarget); setOpen(o => (o === i ? null : i)); }}>
+                      <i className={`t-cg-mark t-cg-m${i} t-cg-on`} aria-hidden="true" />
+                      <b>{g ? label(g) : "Выберите группу"}</b>
+                      {g && id === myId && <small>моя</small>}
+                      <Icon name="chevronDown" size={18} />
+                    </button>
+                  </div>
+                );
+              })}
+              {ids.length < MAX_GROUPS && (
+                <button type="button" className="t-cg-add" onClick={addGroup}>+ ещё группа</button>
+              )}
+              <div className="t-cg-week" role="group" aria-label="Неделя">
+                <button type="button" disabled={!prevWeek} onClick={() => prevWeek && goWeek(prevWeek.ws)} aria-label="Предыдущая неделя">
+                  <Icon name="chevronLeft" size={20} />
+                </button>
+                <span>{weekStart ? rangeLabel(weekStart, addDays(weekStart, 5)) : ""}</span>
+                <button type="button" disabled={!nextWeek} onClick={() => nextWeek && goWeek(nextWeek.ws)} aria-label="Следующая неделя">
+                  <Icon name="chevronRight" size={20} />
+                </button>
+              </div>
             </div>
-            <div className="overflow-x-auto scrollbar-hide">
-              {/* table-fixed: без него ширину колонки считает самое широкое
-                  содержимое в ней — а время пары набрано пропорциональным
-                  шрифтом, где "0"/"8"/"9" шире "1", поэтому «08:00» физически
-                  шире «11:30». Квадраты под них (aspect-square) выходили
-                  заметно разного размера. С фиксированной раскладкой все
-                  колонки пар делят оставшееся место поровну. */}
-              <table className="w-full min-w-[420px] table-fixed border-separate" style={{ borderSpacing: "4px" }}>
-                <thead>
-                  <tr>
-                    <th className="w-12" />
-                    {PAIR_NUMBERS.map(p => (
-                      <th key={p} className="text-center pb-1">
-                        <div className="text-xs font-bold">{p}</div>
-                        <div className="text-[10px] font-normal text-[var(--muted)]">{PAIR_TIMES[p][0]}</div>
-                      </th>
+
+            {groupsError && !groups.length ? (
+              <div className="t-state">
+                <Icon name="wifiOff" size={40} />
+                <h2>Нет связи с сервером</h2>
+                <button type="button" className="t-btn-fill" onClick={loadGroups}>Повторить</button>
+              </div>
+            ) : needMine || chosen.length < 2 ? (
+              <div className="t-state">
+                <Icon name="swap" size={40} />
+                <h2>Выберите две группы</h2>
+                <p>{needMine ? "Свою группу можно указать в кабинете, или выберите обе здесь." : "Выберите вторую группу, чтобы увидеть общие окна."}</p>
+              </div>
+            ) : missingWeek ? (
+              <div className="t-state">
+                <Icon name="calendar" size={40} />
+                <h2>Этой недели нет у одной из групп</h2>
+                <p>Расписание ещё не вышло для всех выбранных групп.</p>
+              </div>
+            ) : !ready ? (
+              <div className="t-skel t-skel-block" style={{ height: 420 }} aria-busy="true" />
+            ) : days.length === 0 ? (
+              <div className="t-state">
+                <Icon name="calendar" size={40} />
+                <h2>Пар нет</h2>
+                <p>На этой неделе занятий нет ни у одной из групп.</p>
+              </div>
+            ) : (
+              <>
+                {strip}
+                {wide && cmp.length > 0 && (
+                  <div className="t-cg-legend">
+                    {cmp.map((c, i) => (
+                      <span key={c.id}><i className={`t-cg-mark t-cg-m${i} t-cg-on`} aria-hidden="true" />{c.label}</span>
                     ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {activeDays.map(day => (
-                    <tr key={day}>
-                      <td className="text-sm font-semibold pr-2 whitespace-nowrap">{DAY_SHORT[day]}</td>
-                      {PAIR_NUMBERS.map(p => {
-                        const mine = mineBusy.has(slotKey(day, p));
-                        const theirs = theirsBusy.has(slotKey(day, p));
-                        const bothFree = !mine && !theirs;
-                        // Занята только одна из групп — раньше «у тебя» и «у них»
-                        // красились одинаковым янтарным, отличить можно было
-                        // только наведя мышь. Теперь у своей и чужой группы
-                        // разные цвета, а в легенде подписана настоящая чужая
-                        // группа — понятно без наведения и без деталей пары.
-                        const cls = bothFree
-                          ? "bg-green-200 dark:bg-green-900/60 border-green-300 dark:border-green-800"
-                          : mine && theirs
-                            ? "bg-[var(--tag-bg)] border-[var(--border)]"
-                            : mine
-                              ? "bg-amber-100 dark:bg-amber-900/40 border-amber-200 dark:border-amber-800"
-                              : "bg-blue-100 dark:bg-blue-900/40 border-blue-200 dark:border-blue-800";
-                        const otherLabel = otherGroup ? `${shortGroupName(otherGroup.name)} · ${otherGroup.year} курс` : "у них";
-                        const title = bothFree
-                          ? "Оба свободны"
-                          : mine && theirs
-                            ? "Пары у обеих групп"
-                            : mine ? "Пара у вас" : `Пара у ${otherLabel}`;
-                        return (
-                          <td key={p} className="p-0">
-                            <div className={`w-full aspect-square rounded-lg border ${cls}`} title={title} />
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-3 pt-3 border-t border-[var(--border)] text-xs text-[var(--muted)]">
-              <span className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded-[4px] bg-green-200 dark:bg-green-900/60 border border-green-300 dark:border-green-800 inline-block" />
-                оба свободны
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded-[4px] bg-amber-100 dark:bg-amber-900/40 border border-amber-200 dark:border-amber-800 inline-block" />
-                занята ваша
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded-[4px] bg-blue-100 dark:bg-blue-900/40 border border-blue-200 dark:border-blue-800 inline-block" />
-                занята {otherGroup ? `${shortGroupName(otherGroup.name)} · ${otherGroup.year} курс` : "их"}
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded-[4px] bg-[var(--tag-bg)] border border-[var(--border)] inline-block" />
-                заняты обе
-              </span>
-            </div>
-          </div>
-        )}
-
-        {myGroup && !otherGroup && (
-          <div className="text-center py-16 text-[var(--muted)]">
-            <p>Выберите группу выше</p>
-          </div>
-        )}
-
-        {!myGroup && groupsError && (
-          <div className="text-center py-16 text-[var(--muted)]">
-            <p>Нет связи с сервером</p>
-            <button
-              onClick={loadGroups}
-              className="mt-3 px-3 py-1.5 rounded-lg text-xs font-semibold text-[var(--on-fill)]"
-              style={{ background: "var(--primary)" }}
-            >
-              Повторить
-            </button>
-          </div>
+                  </div>
+                )}
+                <CompareGrid
+                  groups={cmp}
+                  weekStart={weekStart!}
+                  now={now}
+                  activeDays={days}
+                  windows={windows}
+                  hotKey={hotKey}
+                  single={!wide}
+                />
+              </>
+            )}
+          </>
         )}
       </main>
+
+      {open !== null && (
+        <Popover anchor={openEl} onClose={() => setOpen(null)} width={400} label="Выбор группы">
+          <div className="t-panel">
+            <GroupPicker
+              groups={groups}
+              value={picked[open]}
+              onPick={g => { setAt(open, g); setHotKey(null); }}
+              onRemove={open >= 2 ? () => removeAt(open) : undefined}
+            />
+          </div>
+        </Popover>
+      )}
     </div>
   );
 }
