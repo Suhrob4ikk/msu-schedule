@@ -8,13 +8,13 @@ import json
 import logging
 from datetime import datetime, date, timedelta
 from typing import Optional
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
 from app.models import (
     Faculty, Group, Teacher, Room, WeekSchedule,
-    Lesson, ScheduleChange, SyncLog, stable_group_id
+    Lesson, ScheduleChange, SyncLog, AttendanceRecord, stable_group_id
 )
 from app.services.parser import (
     download_xls, parse_xls_file, get_remote_last_modified,
@@ -249,6 +249,14 @@ def cleanup_old_schedules(db: Session, faculty_code: str):
         )
         .all()
     )
+    if old:
+        # Postgres, в отличие от SQLite, проверяет внешние ключи: одна запись
+        # в attendance_records (публичный POST /user/attendance, фронты его не
+        # зовут) на удаляемую пару роняла бы всю синхронизацию факультета.
+        old_lesson_ids = select(Lesson.id).where(Lesson.week_schedule_id.in_([ws.id for ws in old]))
+        db.query(AttendanceRecord).filter(AttendanceRecord.lesson_id.in_(old_lesson_ids)).delete(
+            synchronize_session=False
+        )
     for ws in old:
         db.delete(ws)
     if old:
