@@ -1,4 +1,9 @@
-"""Личный кабинет: заметки, посещаемость, подписки."""
+"""Регистрация пользователя, push-токены и подписки.
+
+Эндпоинты заметок и посещаемости (/user/notes, /user/attendance) удалены 5 окт
+2026: клиенты их не вызывали с июня (пропуски и заметки хранятся только на
+устройстве), а публичная запись в attendance_records в Postgres ломала чистку
+архива. Таблицы lesson_notes и attendance_records остались — их не трогаем."""
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
@@ -7,11 +12,7 @@ from sqlalchemy.orm import Session
 import json
 
 from app.database import get_db
-from app.models import LessonNote, AttendanceRecord, Lesson, Group, UserSubscription, UserRegistration
-from app.schemas import (
-    LessonNoteCreate, LessonNoteSchema,
-    AttendanceCreate, AttendanceSchema,
-)
+from app.models import Group, UserSubscription, UserRegistration
 from app.core.config import settings
 
 router = APIRouter(prefix="/user", tags=["user"])
@@ -98,78 +99,6 @@ def set_push_token(device_id: str, token: str, app_version: Optional[str] = None
         reg.app_version = app_version[:20]
     db.commit()
     return {"ok": True}
-
-
-@router.get("/notes/{session_id}")
-def get_notes(session_id: str, db: Session = Depends(get_db)):
-    """Заметки пользователя к парам."""
-    notes = db.query(LessonNote).filter_by(session_id=session_id).all()
-    return notes
-
-
-@router.post("/notes", response_model=LessonNoteSchema)
-def create_note(
-    session_id: str,
-    note_data: LessonNoteCreate,
-    db: Session = Depends(get_db),
-):
-    note = LessonNote(session_id=session_id, **note_data.model_dump())
-    db.add(note)
-    db.commit()
-    db.refresh(note)
-    return note
-
-
-@router.delete("/notes/{note_id}")
-def delete_note(note_id: int, session_id: str, db: Session = Depends(get_db)):
-    note = db.query(LessonNote).filter_by(id=note_id, session_id=session_id).first()
-    if not note:
-        raise HTTPException(404, "Заметка не найдена")
-    db.delete(note)
-    db.commit()
-    return {"ok": True}
-
-
-@router.post("/attendance")
-def mark_attendance(
-    session_id: str,
-    data: AttendanceCreate,
-    db: Session = Depends(get_db),
-):
-    """Отметить посещение / пропуск пары."""
-    existing = db.query(AttendanceRecord).filter_by(
-        session_id=session_id, lesson_id=data.lesson_id
-    ).first()
-
-    if existing:
-        existing.attended = data.attended
-        db.commit()
-        return existing
-
-    record = AttendanceRecord(
-        session_id=session_id,
-        lesson_id=data.lesson_id,
-        attended=data.attended,
-    )
-    db.add(record)
-    db.commit()
-    db.refresh(record)
-    return record
-
-
-@router.get("/attendance/{session_id}")
-def get_attendance(session_id: str, db: Session = Depends(get_db)):
-    """Статистика посещаемости студента."""
-    records = db.query(AttendanceRecord).filter_by(session_id=session_id).all()
-    total = len(records)
-    attended = sum(1 for r in records if r.attended)
-    return {
-        "total": total,
-        "attended": attended,
-        "skipped": total - attended,
-        "rate": round(attended / total * 100, 1) if total else 0,
-        "records": [{"lesson_id": r.lesson_id, "attended": r.attended} for r in records],
-    }
 
 
 @router.post("/subscribe")

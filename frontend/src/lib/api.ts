@@ -596,28 +596,6 @@ export const api = {
     fetchApi<{ group_id: number; group_name: string; year: number } | null>
       (`/user/subscription/${sessionId}`),
 
-  markAttendance: (sessionId: string, lessonId: number, attended: boolean) =>
-    fetch(`${API_BASE}/user/attendance?session_id=${sessionId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ lesson_id: lessonId, attended }),
-    }).then(r => r.json()),
-
-  getAttendance: (sessionId: string) =>
-    fetchApi<{ total: number; attended: number; skipped: number; rate: number; records: Array<{ lesson_id: number; attended: boolean }> }>
-      (`/user/attendance/${sessionId}`),
-
-  addNote: (sessionId: string, data: { group_id: number; day_of_week: string; pair_number: string; note: string }) =>
-    fetch(`${API_BASE}/user/notes?session_id=${sessionId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    }).then(r => r.json()),
-
-  getNotes: (sessionId: string) =>
-    fetchApi<Array<{ id: number; group_id: number; day_of_week: string; pair_number: string; note: string }>>
-      (`/user/notes/${sessionId}`),
-
   // Регистрация пользователя — сохраняем имя + группу на сервере.
   // silent — тихая перерегистрация после деплоя (см. components/ServerResync.tsx),
   // без письма владельцу о «новом пользователе».

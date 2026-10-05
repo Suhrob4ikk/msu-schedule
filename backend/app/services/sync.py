@@ -251,8 +251,9 @@ def cleanup_old_schedules(db: Session, faculty_code: str):
     )
     if old:
         # Postgres, в отличие от SQLite, проверяет внешние ключи: одна запись
-        # в attendance_records (публичный POST /user/attendance, фронты его не
-        # зовут) на удаляемую пару роняла бы всю синхронизацию факультета.
+        # в attendance_records на удаляемую пару роняла бы всю синхронизацию
+        # факультета. Эндпоинт записи (/user/attendance) удалён 5 окт 2026, но
+        # оставшиеся в базе строки ещё могут ссылаться на архивные пары.
         old_lesson_ids = select(Lesson.id).where(Lesson.week_schedule_id.in_([ws.id for ws in old]))
         db.query(AttendanceRecord).filter(AttendanceRecord.lesson_id.in_(old_lesson_ids)).delete(
             synchronize_session=False

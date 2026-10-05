@@ -73,40 +73,6 @@ class ScheduleChangeSchema(BaseModel):
         from_attributes = True
 
 
-class LessonNoteCreate(BaseModel):
-    group_id: int
-    day_of_week: str
-    pair_number: str
-    note: str
-
-
-class LessonNoteSchema(BaseModel):
-    id: int
-    group_id: int
-    day_of_week: str
-    pair_number: str
-    note: str
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
-
-
-class AttendanceCreate(BaseModel):
-    lesson_id: int
-    attended: bool
-
-
-class AttendanceSchema(BaseModel):
-    id: int
-    lesson_id: int
-    attended: bool
-    marked_at: datetime
-
-    class Config:
-        from_attributes = True
-
-
 class SyncLogSchema(BaseModel):
     id: int
     started_at: datetime
