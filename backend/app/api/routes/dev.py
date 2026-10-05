@@ -220,8 +220,12 @@ class OverrideBody(BaseModel):
 
 def _reload_overrides(db: Session) -> None:
     from app.services.parser import set_active_overrides
+    from app.api.routes.schedule import clear_free_rooms_cache
     rows = db.query(TeacherOverride).all()
     set_active_overrides([(r.subject, r.code, r.real_name) for r in rows])
+    # ФИО подставляются при выдаче — и в кэшированные /bulk-sync и /free-rooms
+    # тоже. Без сброса правка доходила до приложения только через 10–15 минут.
+    clear_free_rooms_cache()
 
 
 @router.get("/overrides", dependencies=[Depends(require_dev)])
