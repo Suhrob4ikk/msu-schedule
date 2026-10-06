@@ -130,6 +130,18 @@ export default function Login({ groups, groupsError, onRetry, name, onName, grou
   }, [a, isSetup]);
   const mode = a ? resolveMode(a.background) : "light";
   const nameOk = name.trim().length > 0;
+  // Нажали кнопку, не заполнив всё, — подсказываем, чего не хватает, и ставим курсор в поле имени
+  const [tried, setTried] = useState(false);
+  const nameRef = useRef<HTMLInputElement>(null);
+  const submit = () => {
+    if (saving) return;
+    if (!group || !nameOk) {
+      setTried(true);
+      if (group && !nameOk) nameRef.current?.focus();
+      return;
+    }
+    onSave();
+  };
 
   const pickDirection = (d: string) => {
     const options = groups.filter(g => shortGroupName(g.name) === d).sort((a, b) => a.year - b.year);
@@ -139,7 +151,7 @@ export default function Login({ groups, groupsError, onRetry, name, onName, grou
 
   return (
     <div className="t-lg">
-      <form className="t-lg-card" onSubmit={e => { e.preventDefault(); if (group && nameOk && !saving) onSave(); }}>
+      <form className="t-lg-card" onSubmit={e => { e.preventDefault(); submit(); }} noValidate>
         <div className="t-lg-form">
           <div className="t-lg-brand">
             {/* eslint-disable-next-line @next/next/no-img-element -- маленький статичный знак */}
@@ -172,12 +184,16 @@ export default function Login({ groups, groupsError, onRetry, name, onName, grou
                   </button>
                 ))}
               </div>
+              {tried && !group && <p className="t-lg-hint" role="alert">Выберите направление и курс</p>}
             </>
           )}
 
           <label className="t-over" htmlFor="t-lg-name">Как вас зовут</label>
-          <input id="t-lg-name" className="t-lg-input" placeholder="Имя" value={name} maxLength={60} required
+          <input ref={nameRef} id="t-lg-name" className={`t-lg-input ${tried && !nameOk ? "t-lg-input-err" : ""}`}
+            placeholder="Имя" value={name} maxLength={60} required aria-invalid={tried && !nameOk}
+            aria-describedby={tried && !nameOk ? "t-lg-name-err" : undefined}
             onChange={e => onName(e.target.value)} autoComplete="given-name" />
+          {tried && !nameOk && <p id="t-lg-name-err" className="t-lg-hint" role="alert">Введите имя, чтобы открыть расписание</p>}
 
           {a && (
             <>
@@ -199,7 +215,7 @@ export default function Login({ groups, groupsError, onRetry, name, onName, grou
           )}
 
           <div className="t-lg-actions">
-            <button type="submit" className="t-lg-go" disabled={!group || !nameOk || saving}>
+            <button type="submit" className="t-lg-go" disabled={saving}>
               {saving ? "Сохраняем…" : isSetup ? "Открыть расписание" : "Сохранить"}
               {!saving && <kbd>Enter</kbd>}
             </button>
