@@ -8,6 +8,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, DAYS_ORDER, shortGroupName, type Group, type Lesson } from "@/lib/api";
 import { addDays, dayTitle, dushanbeNow, isoOf, plural } from "@/lib/tablo/schedule";
+import { displayRoom } from "@/lib/tablo/rooms";
+
+/** «601 704» (пара в двух аудиториях) → «601, 704»; «стадион» → «Стадион». */
+const roomLabel = (name: string | undefined) => (name ?? "").split(/\s+/).filter(Boolean).map(displayRoom).join(", ");
+/** Длинное название — мельче, иначе не помещается рядом с временем и предметом. */
+const roomCls = (label: string) => (label.length > 4 ? "t-lg-room-long" : "");
 
 const DIRECTION_ORDER = ["ПМиИ", "ХФММ", "Геология", "МО", "Лингвистика", "ГМУ"];
 
@@ -58,7 +64,7 @@ function Preview({ group }: { group: Group | null }) {
           <p className="t-lg-sub">{day.title} · {day.pairs.length} {plural(day.pairs.length, "пара", "пары", "пар")}</p>
           <div className="t-lg-next">
             <span className="t-lg-pill">Первая пара · {first.pair_number}</span>
-            <div><strong>{first.pair_time_start}</strong><b>{first.room?.name ?? ""}</b></div>
+            <div><strong>{first.pair_time_start}</strong><b className={roomCls(roomLabel(first.room?.name))}>{roomLabel(first.room?.name)}</b></div>
             <p>{first.subject}</p>
           </div>
           {rest.length > 0 && (
@@ -67,7 +73,7 @@ function Preview({ group }: { group: Group | null }) {
                 <div key={l.id}>
                   <span><b>{l.pair_time_start}</b><small>{l.pair_number} пара</small></span>
                   <strong>{l.subject}</strong>
-                  <b>{l.room?.name ?? ""}</b>
+                  <b className={roomCls(roomLabel(l.room?.name))}>{roomLabel(l.room?.name)}</b>
                 </div>
               ))}
             </div>
