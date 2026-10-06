@@ -8,10 +8,12 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import Icon from "../Icon";
+import { Popover } from "../Overlay";
+import ColorPicker from "./ColorPicker";
 import { api, DAYS_ORDER, shortGroupName, type Group, type Lesson } from "@/lib/api";
 import { addDays, dayTitle, dushanbeNow, isoOf, plural } from "@/lib/tablo/schedule";
 import { displayRoom } from "@/lib/tablo/rooms";
-import { ACCENT_PRESETS, presetVars, resolveMode, saveAppearance, type AccentPresetId } from "@/lib/appearance";
+import { ACCENT_PRESETS, accentHex, accentVars, presetVars, resolveMode, saveAppearance, type AccentPresetId } from "@/lib/appearance";
 import { useAppearance } from "@/lib/tablo/hooks";
 
 const ACCENT_NAME: Record<AccentPresetId, string> = {
@@ -130,6 +132,8 @@ export default function Login({ groups, groupsError, onRetry, name, onName, grou
   }, [a, isSetup]);
   const mode = a ? resolveMode(a.background) : "light";
   const nameOk = name.trim().length > 0;
+  // «Свой» цвет: окно с палитрой у кнопки «+»
+  const [customAt, setCustomAt] = useState<HTMLElement | null>(null);
   // Нажали кнопку, не заполнив всё, — подсказываем, чего не хватает, и ставим курсор в поле имени
   const [tried, setTried] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
@@ -210,7 +214,30 @@ export default function Login({ groups, groupsError, onRetry, name, onName, grou
                     </button>
                   );
                 })}
+                {(() => {
+                  const on = a.accent.preset === "custom";
+                  return (
+                    <button type="button" role="radio" aria-checked={on} aria-label="Свой цвет" title="Свой цвет"
+                      className={`t-lg-acc ${on ? "t-lg-acc-on" : ""}`}
+                      onClick={e => { const el = e.currentTarget; setCustomAt(cur => (cur ? null : el)); }}>
+                      <span className={on ? "" : "t-lg-acc-plus"} style={on ? { background: accentHex(a), color: accentVars(a, mode).onFill } : undefined}>
+                        {on ? <Icon name="check" size={18} strokeWidth={2.6} /> : <b>+</b>}
+                      </span>
+                    </button>
+                  );
+                })()}
               </div>
+              {customAt && (
+                <Popover anchor={customAt} onClose={() => setCustomAt(null)} width={420} label="Свой цвет" autoFocus={false}>
+                  <div className="t-panel">
+                    <ColorPicker
+                      initial={a.accent.custom ?? accentHex(a)}
+                      onCancel={() => setCustomAt(null)}
+                      onApply={hex => { saveAppearance({ ...a, accent: { preset: "custom", custom: hex } }); setCustomAt(null); }}
+                    />
+                  </div>
+                </Popover>
+              )}
             </>
           )}
 
