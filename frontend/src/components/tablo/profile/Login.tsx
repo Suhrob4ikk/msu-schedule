@@ -60,7 +60,7 @@ function Preview({ group }: { group: Group | null }) {
   }, [gid]);
   const day = useMemo(() => (lessons ? nextDay(lessons) : null), [lessons]);
 
-  if (!group) return <aside className="t-lg-prev t-lg-prev-empty"><p>Выберите направление и курс, и здесь появится ваше завтра</p></aside>;
+  if (!group) return <aside className="t-lg-prev t-lg-prev-empty"><p>Выберите направление и курс, и здесь появятся ваши пары на ближайший день</p></aside>;
   const first = day?.pairs[0];
   const rest = day?.pairs.slice(1, 3) ?? [];
   return (
