@@ -169,7 +169,7 @@ export default function ProfilePage() {
   const group = useMemo(() => groups.find(g => g.id === groupId) ?? null, [groups, groupId]);
 
   const handleSave = async () => {
-    if (!group) return;
+    if (!group || !name.trim()) return;
     setSaving(true);
     try {
       localStorage.setItem("user_name", name.trim());
@@ -185,7 +185,7 @@ export default function ProfilePage() {
       deviceId = crypto.randomUUID();
       try { localStorage.setItem("msu_device_id_v2", deviceId); } catch { /* приватный режим */ }
     }
-    await api.registerUser(deviceId, name.trim() || "Аноним", group.id);
+    await api.registerUser(deviceId, name.trim(), group.id);
     // Подписка на уведомления помнит группу — без этого после смены группы уведомления шли бы о старой
     resyncPush(deviceId, group.id);
     window.dispatchEvent(new Event("storage"));

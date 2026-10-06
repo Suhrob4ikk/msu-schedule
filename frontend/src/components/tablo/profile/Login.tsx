@@ -1,14 +1,23 @@
 "use client";
 /**
  * «Вход» (макеты vhod-*): карточка с выбором группы — направление и курс
- * чипами, имя для аватара, «Открыть расписание» (Enter) — и справа пример
- * завтрашнего дня выбранной группы. Тот же экран открывается из Кабинета
- * («Изменить имя или группу»), тогда кнопка называется «Сохранить».
+ * чипами, имя (обязательно), цвет оформления — и справа пример завтрашнего дня
+ * выбранной группы в выбранном цвете. Новым пользователям по умолчанию
+ * изумрудный (решение владельца, окт 2026). Тот же экран открывается из
+ * Кабинета («Изменить имя или группу»), тогда кнопка называется «Сохранить».
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import Icon from "../Icon";
 import { api, DAYS_ORDER, shortGroupName, type Group, type Lesson } from "@/lib/api";
 import { addDays, dayTitle, dushanbeNow, isoOf, plural } from "@/lib/tablo/schedule";
 import { displayRoom } from "@/lib/tablo/rooms";
+import { ACCENT_PRESETS, presetVars, resolveMode, saveAppearance, type AccentPresetId } from "@/lib/appearance";
+import { useAppearance } from "@/lib/tablo/hooks";
+
+const ACCENT_NAME: Record<AccentPresetId, string> = {
+  blue: "Синий", violet: "Фиолетовый", emerald: "Изумруд", teal: "Бирюзовый", pink: "Розовый",
+  orange: "Оранжевый", yellow: "Жёлтый", graphite: "Графит",
+};
 
 /** «601 704» (пара в двух аудиториях) → «601, 704»; «стадион» → «Стадион». */
 const roomLabel = (name: string | undefined) => (name ?? "").split(/\s+/).filter(Boolean).map(displayRoom).join(", ");
@@ -111,6 +120,17 @@ export default function Login({ groups, groupsError, onRetry, name, onName, grou
     () => [...new Set(groups.filter(g => shortGroupName(g.name) === dir).map(g => g.year))].sort((a, b) => a - b),
     [groups, dir],
   );
+  // Цвет оформления: при первом входе — изумрудный, пока человек не выберет другой
+  const a = useAppearance();
+  const defaulted = useRef(false);
+  useEffect(() => {
+    if (!a || defaulted.current || !isSetup) return;
+    defaulted.current = true;
+    if (a.accent.preset === "blue") saveAppearance({ ...a, accent: { ...a.accent, preset: "emerald" } });
+  }, [a, isSetup]);
+  const mode = a ? resolveMode(a.background) : "light";
+  const nameOk = name.trim().length > 0;
+
   const pickDirection = (d: string) => {
     const options = groups.filter(g => shortGroupName(g.name) === d).sort((a, b) => a.year - b.year);
     const g = options.find(x => x.year === group?.year) ?? options[0];
@@ -119,7 +139,7 @@ export default function Login({ groups, groupsError, onRetry, name, onName, grou
 
   return (
     <div className="t-lg">
-      <form className="t-lg-card" onSubmit={e => { e.preventDefault(); if (group && !saving) onSave(); }}>
+      <form className="t-lg-card" onSubmit={e => { e.preventDefault(); if (group && nameOk && !saving) onSave(); }}>
         <div className="t-lg-form">
           <div className="t-lg-brand">
             {/* eslint-disable-next-line @next/next/no-img-element -- маленький статичный знак */}
@@ -155,12 +175,31 @@ export default function Login({ groups, groupsError, onRetry, name, onName, grou
             </>
           )}
 
-          <label className="t-over" htmlFor="t-lg-name">Как вас зовут · необязательно</label>
-          <input id="t-lg-name" className="t-lg-input" placeholder="Имя" value={name} maxLength={60}
+          <label className="t-over" htmlFor="t-lg-name">Как вас зовут</label>
+          <input id="t-lg-name" className="t-lg-input" placeholder="Имя" value={name} maxLength={60} required
             onChange={e => onName(e.target.value)} autoComplete="given-name" />
 
+          {a && (
+            <>
+              <p className="t-over">Цвет оформления</p>
+              <div className="t-lg-accents" role="radiogroup" aria-label="Цвет оформления">
+                {ACCENT_PRESETS.map(p => {
+                  const on = a.accent.preset === p.id;
+                  const v = presetVars(p.id, mode);
+                  return (
+                    <button key={p.id} type="button" role="radio" aria-checked={on} aria-label={ACCENT_NAME[p.id]} title={ACCENT_NAME[p.id]}
+                      className={`t-lg-acc ${on ? "t-lg-acc-on" : ""}`}
+                      onClick={() => saveAppearance({ ...a, accent: { ...a.accent, preset: p.id } })}>
+                      <span style={{ background: v.fill, color: v.onFill }}>{on && <Icon name="check" size={18} strokeWidth={2.6} />}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
           <div className="t-lg-actions">
-            <button type="submit" className="t-lg-go" disabled={!group || saving}>
+            <button type="submit" className="t-lg-go" disabled={!group || !nameOk || saving}>
               {saving ? "Сохраняем…" : isSetup ? "Открыть расписание" : "Сохранить"}
               {!saving && <kbd>Enter</kbd>}
             </button>
