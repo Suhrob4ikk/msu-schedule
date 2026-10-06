@@ -41,72 +41,48 @@ export default function InstallPrompt() {
 
   if (!visible || pathname?.startsWith("/dev")) return null;
 
+  // Компактная плашка внизу, над нижними вкладками (просьба владельца, окт 2026)
+  const Shell = ({ children }: { children: React.ReactNode }) => (
+    <div className="t-install anim-slide-up" role="dialog" aria-label="Установить приложение">
+      {/* eslint-disable-next-line @next/next/no-img-element -- маленький статичный знак */}
+      <img src="/logo.png" alt="" width={32} height={32} />
+      {children}
+      <button type="button" onClick={dismiss} className="t-install-x" aria-label="Закрыть">×</button>
+    </div>
+  );
+
   // Инструкция для iOS: "Поделиться → На экран Домой"
   if (showIOS) {
     return (
-      <div className="fixed bottom-24 sm:bottom-6 left-4 right-4 z-[300] anim-slide-up">
-        <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-4 shadow-2xl max-w-sm mx-auto">
-          <div className="flex items-start gap-3">
-            <div className="w-11 h-11 rounded-xl bg-[var(--primary)] flex items-center justify-center shrink-0 text-[var(--on-fill)] text-xs font-bold">
-              МГУ
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-sm leading-tight">Установить на iPhone</p>
-              <p className="text-xs text-[var(--muted)] mt-1 leading-relaxed">
-                Нажмите{" "}
-                {/* Иконка "Поделиться" из Safari */}
-                <svg className="inline w-4 h-4 mb-0.5 text-[var(--ink)]" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M10 2a1 1 0 011 1v5.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 011.414-1.414L9 8.586V3a1 1 0 011-1z" />
-                  <path d="M3 10a1 1 0 011-1h1a1 1 0 010 2H5v5h10v-5h-1a1 1 0 010-2h1a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2z" />
-                </svg>{" "}
-                внизу браузера, затем{" "}
-                <strong>«На экран «Домой»»</strong>
-              </p>
-            </div>
-            {/* Минимум 44×44px для touch-цели */}
-            <button
-              onClick={dismiss}
-              className="w-11 h-11 flex items-center justify-center rounded-lg text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--tag-bg)] transition-colors shrink-0 text-xl"
-              aria-label="Закрыть"
-            >
-              ×
-            </button>
-          </div>
-        </div>
-      </div>
+      <Shell>
+        <p className="t-install-text">
+          Установить: нажмите{" "}
+          <svg className="inline w-4 h-4 -mt-0.5 text-[var(--ink)]" fill="currentColor" viewBox="0 0 20 20" aria-label="«Поделиться»">
+            <path d="M10 2a1 1 0 011 1v5.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 011.414-1.414L9 8.586V3a1 1 0 011-1z" />
+            <path d="M3 10a1 1 0 011-1h1a1 1 0 010 2H5v5h10v-5h-1a1 1 0 010-2h1a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2z" />
+          </svg>{" "}
+          → «На экран «Домой»»
+        </p>
+      </Shell>
     );
   }
 
   // Android / Chrome: нативный prompt
   if (hasPrompt) {
     return (
-      <div className="fixed bottom-24 sm:bottom-6 left-4 right-4 z-[300] anim-slide-up">
-        <div className="bg-[var(--primary)] text-[var(--on-fill)] rounded-2xl p-4 shadow-2xl flex items-center gap-3 max-w-sm mx-auto">
-          <div className="w-11 h-11 rounded-xl bg-black/10 flex items-center justify-center shrink-0 text-sm font-bold">
-            МГУ
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-semibold text-sm leading-tight">Установить приложение</p>
-            <p className="text-xs opacity-75 mt-0.5">Иконка на экране · офлайн режим</p>
-          </div>
-          <button
-            onClick={async () => {
-              if (await runInstall()) dismiss();
-              setVisible(false);
-            }}
-            className="min-h-[44px] px-3 py-2 rounded-xl bg-[var(--surface)] text-[var(--ink)] text-sm font-bold shrink-0 hover:opacity-90 transition-colors"
-          >
-            Установить
-          </button>
-          <button
-            onClick={dismiss}
-            className="w-11 h-11 flex items-center justify-center opacity-70 hover:opacity-100 shrink-0 text-xl"
-            aria-label="Закрыть"
-          >
-            ×
-          </button>
-        </div>
-      </div>
+      <Shell>
+        <p className="t-install-text">Установить как приложение</p>
+        <button
+          type="button"
+          onClick={async () => {
+            if (await runInstall()) dismiss();
+            setVisible(false);
+          }}
+          className="t-install-go"
+        >
+          Установить
+        </button>
+      </Shell>
     );
   }
 
