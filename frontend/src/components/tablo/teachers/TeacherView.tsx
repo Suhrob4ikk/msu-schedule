@@ -228,6 +228,19 @@ export default function TeacherView({
     io.observe(el);
     return () => io.disconnect();
   }, [onBack]);
+  // «К сегодня» на узком экране: у педагога сегодня есть пары, а их не видно
+  // (прокручено или открыта следующая неделя). Как в приложении (7 окт 2026).
+  const todayIso = now ? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}` : null;
+  const todayHere = !!todayIso && !!days?.some(d => d.date === todayIso && d.blocks.length);
+  const [todayVisible, setTodayVisible] = useState(true);
+  useEffect(() => {
+    if (wide || !todayHere || !todayIso) { setTodayVisible(true); return; }
+    const sec = document.getElementById(`tday-${todayIso}`)?.closest("section");
+    if (!sec) { setTodayVisible(true); return; }
+    const io = new IntersectionObserver(([e]) => setTodayVisible(e.isIntersecting), { rootMargin: "-120px 0px -150px 0px" });
+    io.observe(sec);
+    return () => io.disconnect();
+  }, [wide, todayHere, todayIso, days]);
   const dimPast = rel === "current";
   const summary = days && now && rel ? teacherSummary(days, rel, now) : null;
   const groups = days
@@ -362,6 +375,17 @@ export default function TeacherView({
       {wide && focus && now && hasPairs && <FocusWide focus={focus} now={now} onOpen={onOpen} />}
 
       {body}
+
+      {!wide && todayHere && !todayVisible && todayIso && (
+        <div className="t-floatbar">
+          <button type="button" className="t-float" aria-label="К сегодняшнему дню" onClick={() => {
+            const el = document.getElementById(`tday-${todayIso}`);
+            if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 128, behavior: "smooth" });
+          }}>
+            <Icon name="calendar" size={18} />К сегодня
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -355,6 +355,25 @@ export default function SchedulePage() {
     requestAnimationFrame(() => scrollUnderHeader(document.getElementById(`day-${target}`), false));
   }, [wideScreen, pagesOn, weekStart, group, loading, now, focus, rel, todayIso]);
 
+  // ─── «К сегодня» (владелец, 7 окт 2026; так же в приложении) ────────────
+  // Эта неделя открыта, а сегодняшнего дня не видно: в «Лентой» он прокручен
+  // за экран (наблюдатель), в «По дням» — перелистнут. На широком экране
+  // «Сегодня» и так всегда слева — там кнопки нет.
+  const todayDow = now ? (now.getDay() + 6) % 7 : -1;
+  const [todayInView, setTodayInView] = useState(true);
+  useEffect(() => {
+    if (wideScreen || pagesOn || rel !== "current" || !todayIso || loading) { setTodayInView(true); return; }
+    const sec = document.getElementById(`day-${todayIso}`)?.closest("section");
+    if (!sec) { setTodayInView(true); return; }
+    const io = new IntersectionObserver(([e]) => setTodayInView(e.isIntersecting), { rootMargin: "-120px 0px -150px 0px" });
+    io.observe(sec);
+    return () => io.disconnect();
+  }, [wideScreen, pagesOn, rel, todayIso, loading, shownDays]);
+  const toToday = useCallback(() => {
+    if (pagesOn) { setPageDay(todayDow); return; }
+    scrollUnderHeader(todayIso ? document.getElementById(`day-${todayIso}`) : null, true);
+  }, [pagesOn, todayDow, todayIso]);
+
   const scrollToDay = useCallback((dayIndex: number) => {
     const d = days.find(x => x.dayIndex === dayIndex);
     if (!d) return;
@@ -616,12 +635,38 @@ export default function SchedulePage() {
         {layout === "tablet" && !notPublished && <FreeRooms now={now} limit={6} className="mt-6" />}
       </main>
 
-      {/* «К этой неделе» — когда открыта не текущая неделя (телефон и планшет) */}
-      {!wideScreen && layout && thisWeek && weekStart !== thisWeek.week_start && !notPublished && (
-        <button type="button" className="t-tothis" onClick={toThisWeek}>
-          <Icon name="chevronUp" size={18} strokeWidth={2.2} />К этой неделе
-        </button>
-      )}
+      {/* Плавающие кнопки внизу (телефон и планшет): «К моей группе» (на телефоне —
+          на планшете она в панели инструментов), «К этой неделе», «К сегодня».
+          Рядом с «К моей группе» остальные — круглые значки, чтобы не налезали
+          друг на друга (владелец, 7 окт 2026; так же в приложении). */}
+      {(() => {
+        if (wideScreen || !layout || notPublished) return null;
+        const mine = layout === "phone" && foreign && myGroup ? myGroup : null;
+        const otherWeek = !!thisWeek && weekStart !== thisWeek.week_start;
+        const today = !otherWeek && rel === "current" && todayDow >= 0 && shownDays.some(d => d.dayIndex === todayDow)
+          && (pagesOn ? activePageDay !== todayDow : !todayInView);
+        if (!mine && !otherWeek && !today) return null;
+        const round = !!mine;
+        return (
+          <div className="t-floatbar">
+            {mine && (
+              <button type="button" className="t-float t-float-mine" onClick={() => pickGroup(mine)}>
+                <Icon name="undo" size={18} />К моей группе · {shortGroupName(mine.name)} {mine.year}
+              </button>
+            )}
+            {otherWeek && (
+              <button type="button" className={`t-float ${round ? "t-float-round" : ""}`} onClick={toThisWeek} aria-label="К этой неделе">
+                <Icon name="chevronUp" size={round ? 22 : 18} strokeWidth={2.2} />{!round && "К этой неделе"}
+              </button>
+            )}
+            {today && (
+              <button type="button" className={`t-float ${round ? "t-float-round" : ""}`} onClick={toToday} aria-label="К сегодняшнему дню">
+                <Icon name="calendar" size={round ? 22 : 18} />{!round && "К сегодня"}
+              </button>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Выбор недели и группы */}
       {groupOpen && (layout === "phone" ? (

@@ -623,7 +623,41 @@ html.page-transitioning .t-bottom { view-transition-name: app-bottom-nav; }
   .t-mine-btn { padding: 0 12px; font-size: 15px; }
 }
 
-/* «К этой неделе» */
+/* Плавающие кнопки внизу: «К моей группе», «К этой неделе», «К сегодня» (7 окт 2026) */
+.t-floatbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 84px;
+  z-index: 45;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 16px;
+  pointer-events: none;
+}
+.t-floatbar > * { pointer-events: auto; }
+.t-float {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 48px;
+  min-width: 48px;
+  padding: 0 20px;
+  border-radius: 999px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 15px;
+  font-weight: 700;
+  box-shadow: var(--shadow);
+  white-space: nowrap;
+}
+.t-float-mine { background: var(--fill); color: var(--on-fill); min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.t-float-round { width: 48px; padding: 0; }
+@media (min-width: 640px) { .t-floatbar { bottom: 24px; } }
+
+/* «К этой неделе» (прежняя одиночная кнопка, оставлена для печати) */
 .t-tothis {
   position: fixed;
   left: 50%;
@@ -1004,7 +1038,7 @@ html.page-transitioning .t-bottom { view-transition-name: app-bottom-nav; }
 
 /* ═════ Печать: только расписание ═════ */
 @media print {
-  .t-top, .t-toolbar, .t-bottom, .t-phead, .t-tothis, .t-toast, .t-daybar, .t-pop { display: none !important; }
+  .t-top, .t-toolbar, .t-bottom, .t-phead, .t-tothis, .t-floatbar, .t-toast, .t-daybar, .t-pop { display: none !important; }
   body, .t-page { background: #fff !important; }
   .t-main { padding: 0 !important; max-width: none !important; }
   .t-wfeed-left { position: static; }
