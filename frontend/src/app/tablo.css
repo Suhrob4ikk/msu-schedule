@@ -429,8 +429,8 @@ html.page-transitioning .t-bottom { view-transition-name: app-bottom-nav; }
 .t-row {
   display: grid;
   /* Формат приложения msu.tj (владелец, 7 окт 2026): цифра · предмет · время */
-  grid-template-columns: 44px minmax(0, 1fr) auto;
-  column-gap: 12px;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  column-gap: 10px;
   align-items: center;
   width: 100%;
   min-height: 64px;
@@ -440,11 +440,13 @@ html.page-transitioning .t-bottom { view-transition-name: app-bottom-nav; }
 }
 .t-row:hover, .t-crow:hover { background: color-mix(in oklab, var(--chip) 65%, var(--surface)); }
 .t-row.t-sel, .t-crow.t-sel { background: var(--soft); }
-.t-row-num { font-size: 34px; font-weight: 500; line-height: 1; color: var(--text); letter-spacing: -0.02em; }
+.t-row-num { font-size: 36px; font-weight: 500; line-height: 1; color: var(--text); letter-spacing: -0.02em; }
 /* Обычный текст, не flex: при переносе точка остаётся в конце строки, а не в начале */
 .t-row-line { display: block; font-size: 14px; color: var(--text-2); line-height: 1.35; min-width: 0; }
 .t-row-line > span:not(:last-child)::after { content: " · "; font-weight: 400; color: var(--text-2); }
 .t-row-aud { font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+/* «ауд.» перед номером — только на широком экране; на телефоне место дороже (владелец, 7 окт 2026) */
+@media (max-width: 639px) { .t-aud-word { display: none; } }
 .t-row-range { align-self: center; display: flex; flex-direction: column; align-items: flex-end; line-height: 1.25; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .t-row-range b { font-size: 17px; font-weight: 700; color: var(--text); }
 .t-row-range span { font-size: 13px; color: var(--text-2); }
@@ -454,7 +456,7 @@ html.page-transitioning .t-bottom { view-transition-name: app-bottom-nav; }
 .t-row-time b { font-size: 18px; font-weight: 700; line-height: 1.2; }
 .t-row-time span { font-size: 13px; color: var(--text-2); }
 .t-row-main { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
-.t-row-subj { font-size: 16px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
+.t-row-subj { font-size: 17px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
 .t-row-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 14px; color: var(--text-2); min-width: 0; }
 .t-row-slots { font-size: 13px; color: var(--text-2); }
 .t-row-room {

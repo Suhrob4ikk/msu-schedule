@@ -117,7 +117,7 @@ export function LessonRow({ block, past, selected, onOpen, meta = teacherMeta }:
         <span className="t-row-line">
           {who && <span>{who}</span>}
           {kind && <span>{kind.label}</span>}
-          {l.room?.name && <span className="t-row-aud">ауд. {l.room.name}</span>}
+          {l.room?.name && <span className="t-row-aud"><span className="t-aud-word">ауд. </span>{l.room.name}</span>}
         </span>
         {slots && <span className="t-row-slots">{slots}</span>}
       </span>
