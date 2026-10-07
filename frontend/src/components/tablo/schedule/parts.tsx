@@ -93,10 +93,16 @@ export interface RowProps {
   meta?: MetaFn;
 }
 
-/** Строка ленты: время 62 px · предмет · аудитория. */
+/**
+ * Строка ленты в формате приложения msu.tj (решение владельца, 7 окт 2026):
+ * крупная римская цифра слева на всю высоту · предмет, под ним серым
+ * «преподаватель · тип · аудитория» · справа серым «11:30–13:00».
+ */
 export function LessonRow({ block, past, selected, onOpen, meta = teacherMeta }: RowProps) {
   const l = block.lessons[0];
   const slots = slotsLabel(block);
+  const kind = lessonKind(l.lesson_type);
+  const who = meta(block);
   return (
     <button
       type="button"
@@ -106,19 +112,16 @@ export function LessonRow({ block, past, selected, onOpen, meta = teacherMeta }:
       aria-label={blockA11y(block, past ? "прошла" : undefined)}
     >
       <span className="t-row-num" aria-hidden="true">{block.pairs[0]}</span>
-      <span className="t-row-time">
-        <b>{block.start}</b>
-        <span>{block.end}</span>
-      </span>
       <span className="t-row-main">
         <span className="t-row-subj">{l.subject}</span>
-        <span className="t-row-meta">
-          <TypeBadge type={l.lesson_type} past={past} />
-          {meta(block) && <span>{meta(block)}</span>}
+        <span className="t-row-line">
+          {who && <span>{who}</span>}
+          {kind && <span>{kind.label}</span>}
+          {l.room?.name && <span className="t-row-aud">ауд. {l.room.name}</span>}
         </span>
         {slots && <span className="t-row-slots">{slots}</span>}
       </span>
-      <span className={`t-row-room ${l.room ? "" : "t-none"}`}>{l.room?.name ?? "—"}</span>
+      <span className="t-row-range"><b>{block.start}</b><span>{block.end}</span></span>
     </button>
   );
 }
@@ -260,10 +263,8 @@ export function DayBody({ day, now, focus, dimPast, selectedKey, onOpen, doneLin
     PAIR_NUMBERS.slice(0, Math.max(0, first)).forEach(p => rows.push(
       <div key={`e${p}`} className="t-row t-emptypair" aria-label={`${p} пара, ${PAIR_TIMES[p][0]}–${PAIR_TIMES[p][1]}, пары нет`}>
         <span className="t-row-num">{p}</span>
-        <span className="t-row-time">
-          <b>{PAIR_TIMES[p][0]}</b>
-          <span>{PAIR_TIMES[p][1]}</span>
-        </span>
+        <span />
+        <span className="t-row-range"><b>{PAIR_TIMES[p][0]}</b><span>{PAIR_TIMES[p][1]}</span></span>
       </div>,
     ));
   }
