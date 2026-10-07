@@ -6,6 +6,7 @@
  * «Таблица» или «Лента». Вместо преподавателя в строках — группы.
  */
 import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 import { DAYS_ORDER } from "@/lib/api";
 import {
   dayTitle, diffDays, isoOf, isPast, parseIso, gapLabel, type Block,
@@ -17,7 +18,7 @@ import { BREAK_MAX_MIN } from "@/lib/api";
 import Icon from "../Icon";
 import TableView from "../schedule/TableView";
 import {
-  CompactRow, Countdown, DayBody, DayHeading, dayName, daySub, TypeBadge,
+  CompactRow, Countdown, DayBody, DayHeading, dayName, daySub, FocusRoom, TypeBadge,
   type FocusLike, type MetaFn,
 } from "../schedule/parts";
 
@@ -63,10 +64,7 @@ function FocusWide({ focus, now, onOpen }: { focus: FocusLike; now: Date; onOpen
           {b.groups.length > 0 && <span>{b.groups.map(g => g.chip).join(" · ")}</span>}
         </span>
       </span>
-      <span className="t-focus-room">
-        <span className="t-over">Аудитория</span>
-        <span className={`t-display ${b.room ? "" : "t-none"}`}>{b.room ?? "—"}</span>
-      </span>
+      <FocusRoom name={b.room} />
       {progress != null && <span className="t-progress" aria-hidden="true"><i style={{ width: `${progress * 100}%` }} /></span>}
     </button>
   );
@@ -216,6 +214,20 @@ export default function TeacherView({
   empty: { title: string; text: string | null; nearest: string | null; showNext: boolean } | null;
   onShowNext: () => void;
 }) {
+  // Крупное имя ушло под прилипшую строку «← Педагоги» (верхняя панель 56–64 +
+  // строка ≈ 52 px) — показать имя в ней. Наблюдатель, а не обработчик прокрутки.
+  const nameRef = useRef<HTMLHeadingElement>(null);
+  const [nameGone, setNameGone] = useState(false);
+  useEffect(() => {
+    const el = nameRef.current;
+    if (!el || !onBack) return;
+    const io = new IntersectionObserver(
+      ([e]) => setNameGone(!e.isIntersecting && e.boundingClientRect.top < 200),
+      { rootMargin: "-120px 0px 0px 0px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [onBack]);
   const dimPast = rel === "current";
   const summary = days && now && rel ? teacherSummary(days, rel, now) : null;
   const groups = days
@@ -287,13 +299,18 @@ export default function TeacherView({
   return (
     <div className="t-tview">
       {onBack && (
-        <button type="button" className="t-btn-ghost t-tback" onClick={onBack}>
-          <Icon name="arrowLeft" size={20} />Педагоги
-        </button>
+        // Прилипает под верхней панелью; крупное имя уехало — имя проступает рядом
+        // с «Педагоги» (как в приложении, просьба владельца 7 окт 2026)
+        <div className="t-tbar">
+          <button type="button" className="t-btn-ghost t-tback" onClick={onBack}>
+            <Icon name="arrowLeft" size={20} />Педагоги
+          </button>
+          <span className="t-tbar-name" data-on={nameGone} aria-hidden="true">{name}</span>
+        </div>
       )}
       <div className="t-thead">
         <div className="min-w-0">
-          <h1 className="t-tname">{name}</h1>
+          <h1 className="t-tname" ref={nameRef}>{name}</h1>
           {summary && (
             <p className="t-tsum">{summary.strong && <b>{summary.strong}</b>}{summary.rest}</p>
           )}

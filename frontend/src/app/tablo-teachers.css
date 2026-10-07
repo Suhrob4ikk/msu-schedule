@@ -186,6 +186,29 @@
 /* Неделя педагога */
 .t-tview { display: flex; flex-direction: column; gap: 14px; }
 .t-tback { align-self: flex-start; margin-left: -8px; }
+.t-tbar {
+  position: sticky;
+  top: 64px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 52px;
+  background: var(--bg);
+}
+.t-tbar .t-tback { align-self: center; flex-shrink: 0; }
+.t-tbar-name {
+  min-width: 0;
+  font-size: 17px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.t-tbar-name[data-on="true"] { opacity: 1; }
+@media (max-width: 639px) { .t-tbar { top: 56px; } }
 .t-thead { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px 20px; }
 .t-tname { font-size: 34px; font-weight: 800; line-height: 1.15; letter-spacing: -0.02em; overflow-wrap: anywhere; }
 .t-tsum { margin-top: 4px; font-size: 16px; color: var(--text-2); }

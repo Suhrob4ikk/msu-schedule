@@ -53,7 +53,7 @@ export default function WideFeed({ days, now, focus, dimPast, selectedKey, onOpe
         </div>
         {left.blocks.length ? (
           <DayBody day={left} now={now} focus={focus && focus.block.date === left.date ? focus : null}
-            dimPast={dimPast} selectedKey={selectedKey} onOpen={onOpen} doneLine={done} />
+            dimPast={dimPast} selectedKey={selectedKey} onOpen={onOpen} doneLine={done} emptyBefore />
         ) : (
           <div className="t-card t-emptyday">Пар нет</div>
         )}

@@ -362,9 +362,7 @@ export default function RoomsPage() {
               today={today}
               weeks={weekChoices}
               onNow={goNow}
-              onWeek={ws => pick(makeSlot(ws, slot.dayIndex, slot.pair))}
-              onDay={i => pick(makeSlot(slot.weekStart, i, slot.pair))}
-              onPair={i => { pick(makeSlot(slot.weekStart, slot.dayIndex, PAIRS[i])); setWhenOpen(false); }}
+              onApply={s => { pick(makeSlot(s.weekStart, s.dayIndex, s.pair)); setWhenOpen(false); }}
               onClose={() => setWhenOpen(false)}
             />
           </div>

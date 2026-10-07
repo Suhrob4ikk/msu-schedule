@@ -4,7 +4,7 @@
  * DaySection): строка пары, раскрытая карточка, день с перерывами и линией
  * «на сегодня всё». Цвета — только токены (globals.css, tablo.css).
  */
-import { DAYS_ORDER } from "@/lib/api";
+import { DAYS_ORDER, PAIR_NUMBERS, PAIR_TIMES } from "@/lib/api";
 import {
   blockA11y, diffDays, freeFromLabel, gapLabel, isoOf, isPast, leftParts, leftSpoken, lessonKind, pairsLabel,
   parseIso, plural, slotsLabel, type Block, type DayData, type Focus,
@@ -105,10 +105,10 @@ export function LessonRow({ block, past, selected, onOpen, meta = teacherMeta }:
       onClick={e => onOpen(block, e.currentTarget)}
       aria-label={blockA11y(block, past ? "прошла" : undefined)}
     >
+      <span className="t-row-num" aria-hidden="true">{block.pairs[0]}</span>
       <span className="t-row-time">
         <b>{block.start}</b>
         <span>{block.end}</span>
-        <span>{pairsLabel(block)}</span>
       </span>
       <span className="t-row-main">
         <span className="t-row-subj">{l.subject}</span>
@@ -181,22 +181,26 @@ export function FocusCard({ focus, now, selected, onOpen, meta = teacherMeta }: 
           <Countdown ms={focus.targetAt - t} label={focus.countdownLabel} />
         )}
       </span>
-      <span className="t-focus-mid">
-        <span>
-          <span className="t-display">{l.pair_time_start}</span>
-          <span className="t-focus-until">до {focus.block.lessons.length > 1 ? focus.block.end : l.pair_time_end}</span>
+      {/* Несколько аудиторий: первая — на уровне времени, остальные спускаются на
+          пустое место рядом с предметом (t-focus-multi, владелец 7 окт 2026) */}
+      <span className="t-focus-body">
+      <span className={roomCount(l.room?.name) > 1 ? "t-focus-multi" : "t-focus-single"}>
+        <span className="t-focus-mid">
+          <span>
+            <span className="t-display">{l.pair_time_start}</span>
+            <span className="t-focus-until">до {focus.block.lessons.length > 1 ? focus.block.end : l.pair_time_end}</span>
+          </span>
+          {roomCount(l.room?.name) <= 1 && <FocusRoom name={l.room?.name} />}
         </span>
-        <span className="t-focus-room">
-          <span className="t-over">Аудитория</span>
-          <span className={`t-display ${l.room ? "" : "t-none"}`}>{l.room?.name ?? "—"}</span>
+        <span className="t-focus-subj">{l.subject}</span>
+        <span className="t-row-meta">
+          <TypeBadge type={l.lesson_type} onFill={live} />
+          {meta(focus.block) && <span>{meta(focus.block)}</span>}
         </span>
+        {slotsLabel(focus.block) && <span className="t-row-slots">{slotsLabel(focus.block)}</span>}
       </span>
-      <span className="t-focus-subj">{l.subject}</span>
-      <span className="t-row-meta">
-        <TypeBadge type={l.lesson_type} onFill={live} />
-        {meta(focus.block) && <span>{meta(focus.block)}</span>}
+      {roomCount(l.room?.name) > 1 && <FocusRoom name={l.room?.name} />}
       </span>
-      {slotsLabel(focus.block) && <span className="t-row-slots">{slotsLabel(focus.block)}</span>}
       {progress != null && (
         <span className="t-progress" aria-hidden="true"><i style={{ width: `${progress * 100}%` }} /></span>
       )}
@@ -231,6 +235,11 @@ export interface DayProps {
   meta?: MetaFn;
   /** Подпись после последней пары: «свободны с 13:00», у педагога — «после 13:00 пар нет». */
   endLabel?: (last: Block) => string;
+  /**
+   * Пустые пары до первой — бледные строки «I · 08:00–09:30» (проба по просьбе
+   * владельца, 7 окт 2026, как в приложении msu.tj). Только расписание группы.
+   */
+  emptyBefore?: boolean;
 }
 
 /**
@@ -238,7 +247,7 @@ export interface DayProps {
  * «свободны с 13:00». Раскрытая карточка стоит вместо своей строки, и
  * карточка дня рвётся вокруг неё.
  */
-export function DayBody({ day, now, focus, dimPast, selectedKey, onOpen, doneLine, meta, endLabel = freeFromLabel }: DayProps) {
+export function DayBody({ day, now, focus, dimPast, selectedKey, onOpen, doneLine, meta, endLabel = freeFromLabel, emptyBefore = false }: DayProps) {
   if (!day.blocks.length) return null;
   const segments: React.ReactNode[] = [];
   let rows: React.ReactNode[] = [];
@@ -246,6 +255,18 @@ export function DayBody({ day, now, focus, dimPast, selectedKey, onOpen, doneLin
     if (rows.length) segments.push(<div key={key} className="t-daycard">{rows}</div>);
     rows = [];
   };
+  if (emptyBefore) {
+    const first = PAIR_NUMBERS.indexOf(day.blocks[0].pairs[0]);
+    PAIR_NUMBERS.slice(0, Math.max(0, first)).forEach(p => rows.push(
+      <div key={`e${p}`} className="t-row t-emptypair" aria-label={`${p} пара, ${PAIR_TIMES[p][0]}–${PAIR_TIMES[p][1]}, пары нет`}>
+        <span className="t-row-num">{p}</span>
+        <span className="t-row-time">
+          <b>{PAIR_TIMES[p][0]}</b>
+          <span>{PAIR_TIMES[p][1]}</span>
+        </span>
+      </div>,
+    ));
+  }
   day.blocks.forEach((b, i) => {
     const prev = day.blocks[i - 1];
     const gap = prev ? gapLabel(prev, b) : null;
@@ -268,6 +289,25 @@ export function DayBody({ day, now, focus, dimPast, selectedKey, onOpen, doneLin
       {segments}
       {doneLine && now && <NowLine now={now} />}
     </div>
+  );
+}
+
+/**
+ * Аудитория в раскрытой карточке. Несколько («404 401») — одна под другой, а не
+ * рядом (просьба владельца, 7 окт 2026), заголовок «Аудитории».
+ */
+const roomList = (name: string | null | undefined) => (name ?? "").trim().split(/\s+/).filter(Boolean);
+const roomCount = (name: string | null | undefined) => roomList(name).length;
+
+export function FocusRoom({ name }: { name: string | null | undefined }) {
+  const rooms = roomList(name);
+  return (
+    <span className="t-focus-room">
+      <span className="t-over">{rooms.length > 1 ? "Аудитории" : "Аудитория"}</span>
+      {rooms.length
+        ? rooms.map(r => <span key={r} className="t-display">{r}</span>)
+        : <span className="t-display t-none">—</span>}
+    </span>
   );
 }
 

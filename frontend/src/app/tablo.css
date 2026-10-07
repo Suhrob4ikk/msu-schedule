@@ -346,8 +346,20 @@ html.page-transitioning .t-bottom { view-transition-name: app-bottom-nav; }
   text-overflow: ellipsis;
 }
 .t-phead-title { font-size: 20px; font-weight: 700; line-height: 1.25; }
-/* Шеврон — под датой, как в приложении: дата не переносится из-за него */
-.t-phead-btn > svg { margin-top: -2px; color: var(--text-2); flex-shrink: 0; }
+/* Дата и шеврон — на плашке цвета акцента (--soft / --ink), как в приложении (7 окт 2026):
+   раньше это был просто текст, и было неясно, что на него можно нажать */
+.t-phead-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  margin-top: 2px;
+  padding: 2px 8px 2px 12px;
+  border-radius: 999px;
+  background: var(--soft);
+  color: var(--ink);
+}
+.t-phead-pill > svg { flex-shrink: 0; }
 
 /* Ряд дней */
 .t-daybar {
@@ -407,10 +419,14 @@ html.page-transitioning .t-bottom { view-transition-name: app-bottom-nav; }
 .dark .t-daycard, .dark .t-card, .dark .t-wday { box-shadow: inset 0 0 0 1px var(--line); }
 .t-daycard > * + * { border-top: 1px solid var(--line); }
 .t-gap { text-align: center; font-size: 13px; color: var(--text-2); padding: 7px 12px; }
+/* Пустая пара до первой: столбик как у пары, сверху «II пара», ниже время — бледно (7 окт 2026) */
+.t-emptypair, .t-emptypair:hover { cursor: default; background: transparent; }
+.t-emptypair .t-row-time b { color: var(--text-2); font-weight: 600; }
 
 .t-row {
   display: grid;
-  grid-template-columns: 62px minmax(0, 1fr) auto;
+  /* Номер пары римской цифрой — отдельным столбцом слева (владелец, 7 окт 2026) */
+  grid-template-columns: 26px 62px minmax(0, 1fr) auto;
   column-gap: 12px;
   align-items: start;
   width: 100%;
@@ -421,6 +437,7 @@ html.page-transitioning .t-bottom { view-transition-name: app-bottom-nav; }
 }
 .t-row:hover, .t-crow:hover { background: color-mix(in oklab, var(--chip) 65%, var(--surface)); }
 .t-row.t-sel, .t-crow.t-sel { background: var(--soft); }
+.t-row-num { font-size: 22px; font-weight: 700; line-height: 1.1; color: var(--text-2); }
 .t-row-time { display: flex; flex-direction: column; line-height: 1.3; font-variant-numeric: tabular-nums; }
 .t-row-time b { font-size: 18px; font-weight: 700; line-height: 1.2; }
 .t-row-time span { font-size: 13px; color: var(--text-2); }
@@ -464,6 +481,10 @@ html.page-transitioning .t-bottom { view-transition-name: app-bottom-nav; }
 .t-focus-live { background: var(--fill); color: var(--on-fill); padding-bottom: 24px; }
 .t-focus.t-sel { box-shadow: inset 0 0 0 2.5px var(--ink); }
 .t-focus-live.t-sel { box-shadow: inset 0 0 0 2.5px var(--on-fill); }
+/* Тело карточки: слева время, предмет, тип; справа — аудитории, если их несколько */
+.t-focus-body { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 16px; align-items: start; }
+.t-focus-single, .t-focus-multi { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.t-focus-multi .t-focus-mid { padding-top: 19px; } /* время — на уровне первой аудитории, под подписью */
 .t-focus-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
 .t-pill {
   display: inline-flex;
@@ -856,6 +877,7 @@ html.page-transitioning .t-bottom { view-transition-name: app-bottom-nav; }
 .t-gpanel { display: flex; flex-direction: column; padding: 16px 18px 18px; }
 .t-gpanel > .t-over { margin: 16px 0 6px; }
 .t-gpanel > .t-over:first-child, .t-back-mine + .t-over { margin-top: 0; }
+.t-gpanel-hint { margin-top: 8px; font-size: 13px; font-weight: 600; color: var(--ink); }
 .t-back-mine + .t-over { margin-top: 12px; }
 .t-radios { display: flex; flex-direction: column; }
 .t-radio {

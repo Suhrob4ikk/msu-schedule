@@ -14,10 +14,12 @@
   height: 64px;
   padding: 0 18px 0 20px;
   border-radius: 18px;
-  background: var(--surface);
-  border: 1px solid var(--line);
+  /* Плашка цвета акцента, как кнопка даты в приложении (7 окт 2026) */
+  background: var(--soft);
+  border: 1px solid transparent;
   text-align: left;
 }
+.t-rm-when strong, .t-rm-when > svg { color: var(--ink); }
 .t-rm-when:hover, .t-rm-when-on { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
 .t-rm-when span { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .t-rm-when small { font-size: 14px; color: var(--text-2); white-space: nowrap; }
@@ -154,6 +156,7 @@
 .t-when-chip-on span { color: inherit; }
 .t-when-chip-on.t-when-chip-today { box-shadow: inset 0 0 0 2px var(--ring); }
 .t-when-hint { margin-top: 10px; font-size: 14px; color: var(--text-2); line-height: 1.4; }
+.t-when-apply { width: 100%; margin-top: 14px; }
 
 /* Подробности аудитории */
 .t-rd { padding: 24px 24px 22px; }

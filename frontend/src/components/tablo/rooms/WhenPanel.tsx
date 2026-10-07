@@ -1,8 +1,12 @@
 "use client";
 /**
  * Панель «Когда» (макет auditorii-4): ближайшая пара, неделя, день, пара.
- * Неделя и день применяются сразу, выбор пары закрывает панель (решение владельца, окт 2026).
+ * Неделя, день и пара выбираются внутри панели, список аудиторий меняется только
+ * по кнопке «Показать · чт, III пара» (решение владельца, 7 окт 2026: раньше
+ * плитки перестраивались на каждом нажатии, пока выбор ещё не закончен — как в
+ * приложении, src/rooms/WhenSheet.tsx). Крестик закрывает без изменений.
  */
+import { useState } from "react";
 import Icon from "../Icon";
 import { PAIR_TIMES } from "@/lib/api";
 import { addDays, parseIso } from "@/lib/tablo/schedule";
@@ -13,7 +17,7 @@ const DAY_SHORT = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
 export interface WhenWeek { weekStart: string; label: string; enabled: boolean }
 
 export default function WhenPanel({
-  slot, isNow, nowLabel, today, weeks, onNow, onWeek, onDay, onPair, onClose,
+  slot, isNow, nowLabel, today, weeks, onNow, onApply, onClose,
 }: {
   slot: Slot;
   isNow: boolean;
@@ -23,12 +27,14 @@ export default function WhenPanel({
   today: string;
   weeks: WhenWeek[];
   onNow: () => void;
-  onWeek: (ws: string) => void;
-  onDay: (i: number) => void;
-  onPair: (i: number) => void;
+  onApply: (s: Slot) => void;
   onClose: () => void;
 }) {
-  const pairIdx = PAIRS.indexOf(slot.pair);
+  // Панель создаётся заново при каждом открытии — черновик стартует с текущего выбора
+  const [draft, setDraft] = useState<Slot>(slot);
+  const set = (weekStart: string, dayIndex: number, pair: string) =>
+    setDraft({ weekStart, dayIndex, pair, date: addDays(weekStart, dayIndex) });
+  const pairIdx = PAIRS.indexOf(draft.pair);
   return (
     <div className="t-when">
       <div className="t-when-head">
@@ -45,9 +51,9 @@ export default function WhenPanel({
       <p className="t-over">Неделя</p>
       <div className="t-seg" role="radiogroup" aria-label="Неделя">
         {weeks.map(w => (
-          <button key={w.weekStart} type="button" role="radio" aria-checked={w.weekStart === slot.weekStart}
-            disabled={!w.enabled} onClick={() => onWeek(w.weekStart)}
-            className={`t-seg-btn ${w.weekStart === slot.weekStart ? "t-seg-on" : ""} ${w.enabled ? "" : "t-seg-off"}`}>
+          <button key={w.weekStart} type="button" role="radio" aria-checked={w.weekStart === draft.weekStart}
+            disabled={!w.enabled} onClick={() => set(w.weekStart, draft.dayIndex, draft.pair)}
+            className={`t-seg-btn ${w.weekStart === draft.weekStart ? "t-seg-on" : ""} ${w.enabled ? "" : "t-seg-off"}`}>
             {w.label}
           </button>
         ))}
@@ -56,11 +62,11 @@ export default function WhenPanel({
       <p className="t-over">День</p>
       <div className="t-when-days" role="radiogroup" aria-label="День">
         {DAY_SHORT.map((d, i) => {
-          const iso = addDays(slot.weekStart, i);
+          const iso = addDays(draft.weekStart, i);
           return (
-            <button key={d} type="button" role="radio" aria-checked={i === slot.dayIndex}
-              className={`t-when-chip ${i === slot.dayIndex ? "t-when-chip-on" : ""} ${iso === today ? "t-when-chip-today" : ""}`}
-              onClick={() => onDay(i)}>
+            <button key={d} type="button" role="radio" aria-checked={i === draft.dayIndex}
+              className={`t-when-chip ${i === draft.dayIndex ? "t-when-chip-on" : ""} ${iso === today ? "t-when-chip-today" : ""}`}
+              onClick={() => set(draft.weekStart, i, draft.pair)}>
               <b>{d}</b>
               <span>{parseIso(iso).getDate()}</span>
             </button>
@@ -72,16 +78,16 @@ export default function WhenPanel({
       <div className="t-when-pairs" role="radiogroup" aria-label="Пара">
         {PAIRS.map((p, i) => (
           <button key={p} type="button" role="radio" aria-checked={i === pairIdx}
-            className={`t-when-chip ${i === pairIdx ? "t-when-chip-on" : ""}`} onClick={() => onPair(i)}>
+            className={`t-when-chip ${i === pairIdx ? "t-when-chip-on" : ""}`} onClick={() => set(draft.weekStart, draft.dayIndex, p)}>
             <b>{p}</b>
             <span>{PAIR_TIMES[p][0]}</span>
           </button>
         ))}
       </div>
 
-      <p className="t-when-hint">
-        Сначала день, затем пара: после выбора пары окно закроется
-      </p>
+      <button type="button" className="t-btn-fill t-when-apply" onClick={() => onApply(draft)}>
+        Показать · {DAY_SHORT[draft.dayIndex].toLowerCase()}, {draft.pair} пара
+      </button>
     </div>
   );
 }

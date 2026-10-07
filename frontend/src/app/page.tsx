@@ -456,6 +456,7 @@ export default function SchedulePage() {
             selectedKey={sel?.key ?? null}
             onOpen={openBlock}
             doneLine={doneToday && d.date === todayIso}
+            emptyBefore
           />
         </section>
       ))}
@@ -478,6 +479,7 @@ export default function SchedulePage() {
             selectedKey={sel?.key ?? null}
             onOpen={openBlock}
             doneLine={doneToday && d.date === todayIso}
+            emptyBefore
           />
         </section>
       </div>
@@ -535,8 +537,11 @@ export default function SchedulePage() {
               {group ? groupLabel(group) : "Группа"}
               {weekStart && now ? ` · ${weekWord(weekStart, now).toLowerCase()}` : ""}
             </span>
-            <span className="t-phead-title">{weekStart && now ? headerTitle(weekStart, now) : "Расписание"}</span>
-            <Icon name="chevronDown" size={18} strokeWidth={2.2} />
+            {/* Плашка цвета акцента — видно, что это кнопка (как в приложении, 7 окт 2026) */}
+            <span className="t-phead-pill">
+              <span className="t-phead-title">{weekStart && now ? headerTitle(weekStart, now) : "Расписание"}</span>
+              <Icon name="chevronDown" size={18} strokeWidth={2.2} />
+            </span>
           </button>
           <StatusChip compact />
           <Bell />

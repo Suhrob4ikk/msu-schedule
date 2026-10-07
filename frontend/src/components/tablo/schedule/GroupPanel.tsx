@@ -2,10 +2,13 @@
 /**
  * Выбор недели и группы (макет 4; на телефоне — шторка, как в приложении):
  * «Неделя» (радио; невышедшая — неактивна), на телефоне ещё «Вид», затем
- * «Направление» и «Курс» чипами. Выбор применяется сразу. При чужой группе —
- * «Вернуться к моей группе».
+ * «Направление» и «Курс» чипами. Неделя применяется сразу; направление только
+ * отмечается — группа открывается, когда выбран курс (решение владельца, 7 окт
+ * 2026: раньше ХФММ 3 → «ПМиИ» сразу открывало ПМиИ 3 и закрывало панель, до
+ * ПМиИ 2 было не дойти). У направления один курс — открывается сразу.
+ * При чужой группе — «Вернуться к моей группе».
  */
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { shortGroupName, type Group } from "@/lib/api";
 import Icon from "../Icon";
 
@@ -41,17 +44,23 @@ export default function GroupPanel({
       return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.localeCompare(b, "ru");
     });
   }, [groups]);
-  const dir = group ? shortGroupName(group.name) : null;
+  const groupDir = group ? shortGroupName(group.name) : null;
+  // Отмеченное, но ещё не применённое направление. Живёт, пока открыта та же
+  // группа: сменилась группа — отметка сама теряет силу (без эффекта).
+  const [pending, setPending] = useState<{ dir: string; forGroup: number | null } | null>(null);
+  const pendingDir = pending && pending.forGroup === (group?.id ?? null) && pending.dir !== groupDir ? pending.dir : null;
+  const dir = pendingDir ?? groupDir;
   const courses = useMemo(
     () => [...new Set(groups.filter(g => shortGroupName(g.name) === dir).map(g => g.year))].sort((a, b) => a - b),
     [groups, dir],
   );
 
   const pickDirection = (d: string) => {
-    const options = groups.filter(g => shortGroupName(g.name) === d).sort((a, b) => a.year - b.year);
+    const options = groups.filter(g => shortGroupName(g.name) === d);
     if (!options.length) return;
-    const same = options.find(g => g.year === group?.year);
-    onPickGroup(same ?? options[0]);
+    if (d === groupDir) { setPending(null); return; }
+    if (options.length === 1) { setPending(null); onPickGroup(options[0]); return; }
+    setPending({ dir: d, forGroup: group?.id ?? null });
   };
   const pickCourse = (y: number) => {
     const g = groups.find(x => shortGroupName(x.name) === dir && x.year === y);
@@ -113,13 +122,17 @@ export default function GroupPanel({
 
       <p className="t-over">Курс</p>
       <div className="t-chips" role="radiogroup" aria-label="Курс">
-        {courses.map(y => (
-          <button key={y} type="button" role="radio" aria-checked={y === group?.year}
-            className={`t-chip ${y === group?.year ? "t-chip-sel" : ""}`} onClick={() => pickCourse(y)}>
-            {y} курс
-          </button>
-        ))}
+        {courses.map(y => {
+          const on = !pendingDir && y === group?.year;
+          return (
+            <button key={y} type="button" role="radio" aria-checked={on}
+              className={`t-chip ${on ? "t-chip-sel" : ""}`} onClick={() => pickCourse(y)}>
+              {y} курс
+            </button>
+          );
+        })}
       </div>
+      {pendingDir && <p className="t-gpanel-hint" role="status">Выберите курс — {pendingDir}</p>}
       {footer}
     </div>
   );
