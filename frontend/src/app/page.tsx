@@ -468,7 +468,7 @@ export default function SchedulePage() {
     const d = shownDays[i];
     if (!d) return null;
     return (
-      <div className="t-feed" {...swipe}>
+      <div className="t-feed t-feed-pages" {...swipe}>
         <section key={d.date} className="t-day t-slide" aria-label={dayName(d)}>
           <DayHeading day={d} now={now} id={`day-${d.date}`} />
           <DayBody

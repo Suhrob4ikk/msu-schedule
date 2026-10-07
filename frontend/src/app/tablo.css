@@ -401,6 +401,9 @@ html.page-transitioning .t-bottom { view-transition-name: app-bottom-nav; }
 
 /* ═════ Лента (телефон, планшет, левая колонка «Ленты») ═════ */
 .t-feed { display: flex; flex-direction: column; gap: 8px; }
+/* «По дням»: свайп ловится на всём экране до нижних вкладок, а не только на парах —
+   в день с одной-двумя парами ниже было пустое место, где листать не получалось (7 окт 2026) */
+.t-feed-pages { min-height: calc(100dvh - 210px); }
 .t-weekstats { text-align: center; font-size: 14px; color: var(--text-2); padding-top: 10px; }
 .t-dayhead {
   display: flex;
