@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, CSSProperties, ReactNode } from "react";
 import Link from "next/link";
+import { shortGroupName } from "@/lib/api";
 
 // Панель разработчика. Инструкция для владельца — docs/Панель разработчика - инструкция.html
 // в корне репозитория. Меняете разделы здесь — поправьте и её.
@@ -176,6 +177,11 @@ function Action({ label, busyLabel, hint, busy, disabled, onClick }: {
 }
 
 // ── Полные имена преподавателей (backend/app/services/full_names.py) ─────
+// «1 курс · ГОСУДАРСТВЕННОЕ И МУНИЦИПАЛЬНОЕ УПРАВЛЕНИЕ» → «1 курс ГМУ»
+const shortGroups = (gs: string[]) => gs.map(g => {
+  const [year, name] = g.split(" · ");
+  return name ? `${year} ${shortGroupName(name)}` : g;
+}).join(", ");
 const STATUS_RU: Record<string, string> = { open: "в опросе", pending: "на проверке", final: "утверждено" };
 const votesWord = (n: number) => (n % 10 === 1 && n % 100 !== 11 ? "голос" : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? "голоса" : "голосов");
 
@@ -205,7 +211,7 @@ function FullNamesSection({ data, busy, act, api }: {
           <div key={p.id} style={{ background: c.panel2, borderRadius: 12, padding: 14 }}>
             <div style={{ fontSize: 14.5 }}>
               <b style={{ color: c.yellow }}>{p.teacher}</b>
-              <span style={{ color: c.muted }}> · {p.groups.join(", ") || "на этой неделе пар нет"}</span>
+              <span style={{ color: c.muted }}> · {shortGroups(p.groups) || "на этой неделе пар нет"}</span>
             </div>
             <div style={{ margin: "8px 0", fontSize: 15 }}>
               Новый вариант: <b>{p.name}</b>
@@ -259,7 +265,7 @@ function FullNamesSection({ data, busy, act, api }: {
               <b style={{ fontSize: 14.5 }}>{t.teacher}</b>
               {t.final
                 ? <span style={{ color: c.green, fontSize: 14 }}>→ {t.final}</span>
-                : <span style={{ color: c.muted, fontSize: 12.5 }}>{t.groups.length ? t.groups.join(", ") : "сейчас пар нет"}{t.dunno ? ` · «не знаю»: ${t.dunno}` : ""}</span>}
+                : <span style={{ color: c.muted, fontSize: 12.5 }}>{t.groups.length ? shortGroups(t.groups) : "сейчас пар нет"}{t.dunno ? ` · «не знаю»: ${t.dunno}` : ""}</span>}
               {t.final && (
                 <button style={{ ...btn, padding: "3px 10px", fontSize: 12, marginLeft: "auto", color: c.red }} disabled={!!busy}
                   onClick={() => {

@@ -306,7 +306,8 @@ def admin_overview(db: Session) -> dict:
                 "votes": counts.get(v.id, 0)}
 
     pending = []
-    for v in variants:
+    # Варианты про одного преподавателя — рядом, внутри — по времени
+    for v in sorted(variants, key=lambda v: (v.teacher, v.id)):
         if v.status != "pending":
             continue
         others = []

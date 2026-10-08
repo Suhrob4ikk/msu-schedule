@@ -26,7 +26,8 @@ export default function TeacherName({ name, data, size = 20 }: {
         aria-label={open ? "Свернуть имя" : "Раскрыть полное имя"}
         onClick={e => { e.preventDefault(); e.stopPropagation(); setOpen(o => !o); }}
       >
-        <Icon name="chevronDown" size={size} />
+        {/* Открыто — стрелка вверх, свёрнуто — вниз (просьба владельца) */}
+        <Icon name={open ? "chevronUp" : "chevronDown"} size={size} />
       </button>
     </>
   );
