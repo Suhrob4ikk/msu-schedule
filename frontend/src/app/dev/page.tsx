@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, CSSProperties, ReactNode } from "react";
+import Link from "next/link";
 
 // Панель разработчика. Инструкция для владельца — docs/Панель разработчика - инструкция.html
 // в корне репозитория. Меняете разделы здесь — поправьте и её.
@@ -122,6 +123,10 @@ function Login({ onOk }: { onOk: (t: string) => void }) {
           {busy ? "Проверяем…" : "Войти"}
         </button>
         {err && <div style={{ color: c.red, fontSize: 13, lineHeight: 1.4 }}>{err}</div>}
+        {/* Сайт часто открыт как установленное приложение — без кнопки «Назад» браузера */}
+        <Link href="/profile" style={{ ...btn, textAlign: "center", textDecoration: "none", padding: 11, fontSize: 14 }}>
+          ← Вернуться в расписание
+        </Link>
       </form>
     </div>
   );
@@ -281,6 +286,7 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
               {busy === "refresh" ? "Обновляем…" : "Обновить"}
             </button>
             <button onClick={onLogout} style={btn}>Выйти</button>
+            <Link href="/profile" style={{ ...btn, textDecoration: "none" }}>На сайт</Link>
           </div>
         </header>
 
