@@ -43,6 +43,16 @@ def _new_registration_allowed() -> bool:
     return True
 
 
+# Регистрации владельца и тестовые — без письма «новый пользователь» (просьба владельца
+# 9 окт 2026): удобно проверять разные группы, не засоряя почту. По первому слову имени.
+NO_EMAIL_NAMES = {"сухроб", "suhrob", "тест", "test"}
+
+
+def _no_email_name(name: str) -> bool:
+    first = (name or "").strip().split()
+    return bool(first) and first[0].lower() in NO_EMAIL_NAMES
+
+
 def forget_push_tokens(tokens: list[str]) -> None:
     """Токены стёрты из базы (приложение удалено) — пусть следующая присылка
     такого токена снова дойдёт до базы."""
@@ -105,7 +115,7 @@ def register_user(
 
     # Письмо — только при первой регистрации И только если такой же name+group_id ещё нет
     # (один человек с разных браузеров не должен слать дубли)
-    if is_new and not silent:
+    if is_new and not silent and not _no_email_name(name):
         duplicate = db.query(UserRegistration).filter(
             UserRegistration.name == name.strip(),
             UserRegistration.group_id == group_id,

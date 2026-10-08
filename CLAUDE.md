@@ -210,7 +210,7 @@ https://frontend-ten-nu-80.vercel.app/backend/*  →  https://msu-schedule.onren
 | `ADMIN_SECRET` | заголовок `X-Admin-Secret` для `/api/admin/*` |
 | `DEV_PANEL_PASSWORD` | пароль панели `/dev`. Пусто → панель полностью выключена (404) |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | web-push. **Потеря = все подписки мертвы** |
-| `RESEND_API_KEY`, `NOTIFY_EMAIL` | письмо владельцу при регистрации нового пользователя |
+| `RESEND_API_KEY`, `NOTIFY_EMAIL` | письмо владельцу при регистрации нового пользователя (кроме имён на «Сухроб» / «Suhrob» / «Тест» / «Test» — `NO_EMAIL_NAMES` в `user.py`, для проверок) |
 | `GITHUB_API_TOKEN` | чтение GitHub Releases для `/api/app/version` (см. «Сроки») |
 | `DEBUG` | `false` в проде |
 
