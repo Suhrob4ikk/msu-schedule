@@ -10,6 +10,7 @@ import "./tablo-compare.css";
 import "./tablo-profile.css";
 import "./tablo-names.css";
 import BottomNav from "@/components/BottomNav";
+import GlobalNamesReminder from "@/components/tablo/names/GlobalNamesReminder";
 import ServerResync from "@/components/ServerResync";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import InstallPrompt from "@/components/InstallPrompt";
@@ -75,6 +76,7 @@ export default function RootLayout({
       </head>
       <body className={`${onest.variable} min-h-full flex flex-col antialiased`}>
         {children}
+        <GlobalNamesReminder />
         <BottomNav />
         <InstallPrompt />
         <ServiceWorkerRegister />

@@ -28,8 +28,6 @@ import WideFeed from "@/components/tablo/schedule/WideFeed";
 import FreeRooms from "@/components/tablo/schedule/FreeRooms";
 import LessonDetails from "@/components/tablo/schedule/LessonDetails";
 import GroupPanel, { type WeekOption } from "@/components/tablo/schedule/GroupPanel";
-import NamesReminder from "@/components/tablo/names/NamesReminder";
-import { personsOf, useFullNames } from "@/lib/fullNames";
 import { DayBar, NotPublished, ShareList, type ShareAction } from "@/components/tablo/schedule/bits";
 import { api, onApiUpdate, shortGroupName, DAYS_ORDER, type Group, type Lesson, type WeekInfo } from "@/lib/api";
 import { shareScheduleImage } from "@/lib/shareImage";
@@ -206,12 +204,6 @@ export default function SchedulePage() {
 
   // ─── Производные ─────────────────────────────────────────────────────────
   const days = useMemo(() => (weekStart ? buildWeek(lessons, weekStart) : []), [lessons, weekStart]);
-  // Напоминание «Помогите узнать полные имена…» — кто ведёт пары у своей группы (lib/fullNames.ts)
-  const fullNames = useFullNames();
-  const nameTeachers = useMemo(
-    () => [...new Set(lessons.flatMap(l => personsOf(l.teacher?.name)))].sort((a, b) => a.localeCompare(b, "ru")),
-    [lessons],
-  );
   const shownDays = useMemo(() => days.filter(d => d.dayIndex < 6 || d.blocks.length), [days]);
   const rel = weekStart && now ? weekRel(weekStart, now) : null;
   const focus = useMemo(() => (now && rel && days.length ? computeFocus(now, days, rel) : null), [now, rel, days]);
@@ -580,9 +572,6 @@ export default function SchedulePage() {
 
       <main className={`t-main ${layout ? `t-main-${layout}` : ""}`}>
         <CourseCheckBanner />
-        {!foreign && rel === "current" && nameTeachers.length > 0 && (
-          <NamesReminder teachers={nameTeachers} data={fullNames} />
-        )}
 
         {/* Панель инструментов — от 640 px */}
         {layout && layout !== "phone" && (
