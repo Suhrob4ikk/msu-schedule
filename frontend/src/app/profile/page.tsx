@@ -103,6 +103,9 @@ function PushRow({ sessionId, groupId }: { sessionId: string; groupId: number | 
 
 // ─── Страница ──────────────────────────────────────────────────────────────
 
+// Telegram владельца — ошибки и предложения. В приложении то же — src/profile/ProfileScreen.tsx
+const DEVELOPER_TELEGRAM = "https://t.me/davlatov3007";
+
 export default function ProfilePage() {
   const router = useRouter();
   const appearance = useAppearance();
@@ -361,6 +364,14 @@ export default function ProfilePage() {
                 <Icon name="history" size={20} />{syncing ? "Обновляем…" : "Обновить расписание"}
               </button>
             </section>
+            {/* Связь с владельцем: ошибки и предложения (просьба владельца 8 окт 2026) */}
+            <nav className="t-pf-card t-pf-nav t-pf-contact" aria-label="Связь">
+              <a href={DEVELOPER_TELEGRAM} target="_blank" rel="noopener noreferrer">
+                <span className="t-pf-ic"><Icon name="send" size={22} /></span>
+                <b>Связаться с разработчиком</b>
+                <Icon name="chevronRight" size={20} />
+              </a>
+            </nav>
             <p className="t-pf-foot">
               МГУ Душанбе · Расписание · Данные с msu.tj
               {isOwner && <> · <Link href="/dev">режим разработчика</Link></>}

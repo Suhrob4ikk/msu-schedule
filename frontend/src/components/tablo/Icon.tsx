@@ -20,6 +20,7 @@ const PATHS: Record<string, React.ReactNode> = {
   download: <><path d="M12 3v12M7.5 10.5L12 15l4.5-4.5" /><path d="M4 19h16" /></>,
   undo: <><path d="M9 14L4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 010 11H11" /></>,
   check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
+  send: <><path d="M21 3L10.5 13.5" /><path d="M21 3l-6.5 18-4-7.5L3 9.5z" /></>,
   search: <><circle cx="11" cy="11" r="7" /><path d="M20.5 20.5L16 16" /></>,
   arrowLeft: <><path d="M19 12H5" /><path d="M11 6l-6 6 6 6" /></>,
   note: <><path d="M14.5 4.5l5 5L9 20H4v-5z" /></>,

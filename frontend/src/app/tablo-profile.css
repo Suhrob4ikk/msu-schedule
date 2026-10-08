@@ -279,3 +279,6 @@ html.compact .t-row { min-height: 52px; padding-top: 6px; padding-bottom: 6px; }
 html.compact .t-crow { min-height: 52px; padding-top: 6px; padding-bottom: 6px; }
 html.compact .t-daybody, html.compact .t-feed { gap: 4px; }
 html.compact .t-gap { padding-top: 3px; padding-bottom: 3px; }
+
+/* «Связаться с разработчиком» — отдельной карточкой после «Синхронизации» */
+.t-pf-contact { margin-top: 16px; }
