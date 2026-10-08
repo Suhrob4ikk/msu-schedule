@@ -17,6 +17,24 @@ from app.core.config import settings
 
 router = APIRouter(prefix="/user", tags=["user"])
 
+# Что уже записано в базу с момента запуска сервера: device_id → значения.
+# Телефоны перерегистрируются молча каждые 30 минут (src/pushToken.ts) — при
+# 100 студентах это несколько записей в минуту, и база Neon из-за них не
+# засыпала бы весь день (бесплатный тариф — ~400 часов работы в месяц).
+# Если ничего не поменялось, базу не трогаем. После перезапуска сервера
+# (деплой, ночной сон Render) память пуста — первая же отметка запишется.
+_saved_reg: dict[str, tuple] = {}
+_saved_token: dict[str, tuple] = {}
+
+
+def forget_push_tokens(tokens: list[str]) -> None:
+    """Токены стёрты из базы (приложение удалено) — пусть следующая присылка
+    такого токена снова дойдёт до базы."""
+    dead = set(tokens)
+    for device_id, saved in list(_saved_token.items()):
+        if saved[0] in dead:
+            _saved_token.pop(device_id, None)
+
 
 @router.post("/register")
 def register_user(
@@ -42,6 +60,11 @@ def register_user(
     if len(device_id) > 100:
         raise HTTPException(400, "Слишком длинный device_id")
     name = name.strip()[:200]
+    version = app_version[:20] if app_version else None
+
+    saved = _saved_reg.get(device_id)
+    if silent and saved and saved == (name, group_id, version or saved[2]):
+        return {"ok": True}
 
     group = db.get(Group, group_id)
     if not group:
@@ -57,9 +80,10 @@ def register_user(
     else:
         reg = UserRegistration(device_id=device_id, name=name.strip(), group_id=group_id)
         db.add(reg)
-    if app_version:
-        reg.app_version = app_version[:20]
+    if version:
+        reg.app_version = version
     db.commit()
+    _saved_reg[device_id] = (name, group_id, reg.app_version)
 
     # Письмо — только при первой регистрации И только если такой же name+group_id ещё нет
     # (один человек с разных браузеров не должен слать дубли)
@@ -88,6 +112,10 @@ def set_push_token(device_id: str, token: str, app_version: Optional[str] = None
     """
     if len(token) > 200:
         raise HTTPException(400, "Слишком длинный токен")
+    version = app_version[:20] if app_version else None
+    saved = _saved_token.get(device_id)
+    if saved and saved == (token, version or saved[1]):
+        return {"ok": True}
     reg = db.query(UserRegistration).filter_by(device_id=device_id).first()
     if not reg:
         # Регистрации ещё нет (не должно случаться при обычном порядке экранов,
@@ -95,9 +123,10 @@ def set_push_token(device_id: str, token: str, app_version: Optional[str] = None
         # пропадает, приложение попробует прислать его снова при следующем запуске.
         return {"ok": False}
     reg.expo_push_token = token
-    if app_version:
-        reg.app_version = app_version[:20]
+    if version:
+        reg.app_version = version
     db.commit()
+    _saved_token[device_id] = (token, reg.app_version)
     return {"ok": True}
 
 

@@ -1,5 +1,6 @@
 """Главный файл FastAPI приложения."""
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
@@ -9,6 +10,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
 from app.database import engine
+from app.core.response_cache import ResponseCacheMiddleware
 from app.models import Base, CANONICAL_ROOMS
 from app.api.routes import schedule, export, user, admin, dev, app_update
 from app.services.scheduler import start_scheduler, stop_scheduler
@@ -38,6 +40,10 @@ class HeadMethodMiddleware(BaseHTTPMiddleware):
             request.scope["method"] = "GET"
         response = await call_next(request)
         if is_head:
+            # Вернуть HEAD: uvicorn по методу в scope решает, ждать ли тело.
+            # С «GET» он ждал тело длиной Content-Length и писал в лог
+            # «Response content shorter than Content-Length».
+            request.scope["method"] = "HEAD"
             return Response(
                 status_code=response.status_code,
                 headers=response.headers,
@@ -249,14 +255,22 @@ async def lifespan(app: FastAPI):
 
     start_scheduler()
 
-    try:
-        from app.services.sync import sync_all
-        logger.info("Первоначальная синхронизация расписания...")
-        await sync_all()
-    except Exception as e:
-        logger.warning(f"Первоначальная синхронизация не удалась: {e}")
+    # Первоначальная синхронизация — в фоне. Раньше сервер ждал её до первого
+    # ответа: после ночного сна Render первый студент утра ждал ещё и msu.tj.
+    # Расписание уже лежит в базе — отдаём его сразу, свежее подтянется следом.
+    async def _initial_sync():
+        try:
+            from app.services.sync import sync_all
+            logger.info("Первоначальная синхронизация расписания...")
+            await sync_all()
+        except Exception as e:
+            logger.warning(f"Первоначальная синхронизация не удалась: {e}")
+
+    initial_sync = asyncio.create_task(_initial_sync())
 
     yield
+
+    initial_sync.cancel()
 
     stop_scheduler()
 
@@ -269,6 +283,8 @@ app = FastAPI(
 )
 
 app.add_middleware(GZipMiddleware, minimum_size=1000)
+# Между сжатием и HEAD: хранит ответ уже сжатым, а HEAD к нему приходит как GET
+app.add_middleware(ResponseCacheMiddleware)
 app.add_middleware(HeadMethodMiddleware)
 
 app.add_middleware(

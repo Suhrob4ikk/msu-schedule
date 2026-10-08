@@ -231,6 +231,8 @@ def send_expo_push(db, tokens: list[str], title: str, body: str,
             for reg in db.query(UserRegistration).filter(UserRegistration.expo_push_token.in_(dead)).all():
                 reg.expo_push_token = None
             db.commit()
+            from app.api.routes.user import forget_push_tokens
+            forget_push_tokens(dead)
 
     if result["errors"]:
         logger.warning(f"Expo push: ушло {result['sent']} из {len(tokens)}, ошибки: {sorted(set(result['errors']))}")

@@ -201,13 +201,15 @@ async def dev_sync():
 def dev_clear_cache():
     from app.api.routes.schedule import clear_free_rooms_cache
     clear_free_rooms_cache()
-    return {"ok": True, "message": "Кэш свободных аудиторий очищен"}
+    return {"ok": True, "message": "Кэш расписания очищен"}
 
 
 @router.post("/rebuild-rooms", dependencies=[Depends(require_dev)])
 def dev_rebuild_rooms():
     from app.main import seed_rooms
+    from app.api.routes.schedule import clear_free_rooms_cache
     seed_rooms()
+    clear_free_rooms_cache()
     return {"ok": True, "message": "Аудитории пересобраны (дубли по регистру объединены)"}
 
 

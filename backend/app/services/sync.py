@@ -6,6 +6,7 @@
 import asyncio
 import json
 import logging
+import threading
 from datetime import datetime, date, timedelta
 from typing import Optional
 from sqlalchemy import func, select
@@ -417,7 +418,7 @@ def _apply_html_teachers(parsed: dict, html_map: dict) -> int:
     return fixed
 
 
-async def sync_faculty(faculty_code: str, force: bool = False,
+async def _sync_faculty(faculty_code: str, force: bool = False,
                        html_teacher_map: Optional[dict] = None,
                        require_head: bool = False) -> dict:
     """
@@ -545,7 +546,28 @@ async def sync_faculty(faculty_code: str, force: bool = False,
 # Синхронизации не должны идти одновременно: стартовая, плановая (теперь
 # частая) и ручная из /dev могли бы наложиться, и обе версии одной недели
 # сравнивались бы каждая со «своей» предыдущей — дубли изменений и пушей.
-_sync_lock = asyncio.Lock()
+# Замок потоковый: синхронизация идёт в отдельном потоке (см. _off_loop).
+_sync_lock = threading.Lock()
+
+
+async def _off_loop(make_coro):
+    """Синхронизация — в отдельном потоке со своим циклом событий.
+
+    Внутри неё почти всё блокирующее: разбор XLS, сотни запросов к базе,
+    рассылка push (httpx.post, pywebpush). В основном цикле сервер на всё это
+    время переставал отвечать всем — а сразу после рассылки «расписание
+    изменилось» как раз приходят запросы со всех телефонов группы."""
+    def run():
+        with _sync_lock:
+            return asyncio.run(make_coro())
+    return await asyncio.to_thread(run)
+
+
+async def sync_faculty(faculty_code: str, force: bool = False,
+                       html_teacher_map: Optional[dict] = None,
+                       require_head: bool = False) -> dict:
+    return await _off_loop(lambda: _sync_faculty(
+        faculty_code, force=force, html_teacher_map=html_teacher_map, require_head=require_head))
 
 
 def cleanup_sync_logs(db: Session) -> None:
@@ -556,25 +578,28 @@ def cleanup_sync_logs(db: Session) -> None:
 
 
 async def sync_all(force: bool = False, require_head: bool = False) -> list[dict]:
-    """Синхронизирует оба факультета параллельно."""
-    async with _sync_lock:
-        # Один раз собираем HTML-данные для обоих факультетов
-        try:
-            html_map = await scrape_html_teacher_map()
-        except Exception as e:
-            logger.warning(f"HTML-скрапинг в sync_all не удался: {e}")
-            html_map = {}
+    """Синхронизирует оба факультета параллельно (в отдельном потоке)."""
+    return await _off_loop(lambda: _sync_all(force=force, require_head=require_head))
 
-        results = await asyncio.gather(
-            sync_faculty("ЕНФ", force=force, html_teacher_map=html_map, require_head=require_head),
-            sync_faculty("ГФ", force=force, html_teacher_map=html_map, require_head=require_head),
-        )
 
-        db = SessionLocal()
-        try:
-            cleanup_sync_logs(db)
-        except Exception as e:
-            logger.warning(f"Не удалось почистить журнал синхронизаций: {e}")
-        finally:
-            db.close()
-        return list(results)
+async def _sync_all(force: bool = False, require_head: bool = False) -> list[dict]:
+    # Один раз собираем HTML-данные для обоих факультетов
+    try:
+        html_map = await scrape_html_teacher_map()
+    except Exception as e:
+        logger.warning(f"HTML-скрапинг в sync_all не удался: {e}")
+        html_map = {}
+
+    results = await asyncio.gather(
+        _sync_faculty("ЕНФ", force=force, html_teacher_map=html_map, require_head=require_head),
+        _sync_faculty("ГФ", force=force, html_teacher_map=html_map, require_head=require_head),
+    )
+
+    db = SessionLocal()
+    try:
+        cleanup_sync_logs(db)
+    except Exception as e:
+        logger.warning(f"Не удалось почистить журнал синхронизаций: {e}")
+    finally:
+        db.close()
+    return list(results)
