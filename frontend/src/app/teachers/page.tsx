@@ -20,7 +20,7 @@ import type { FocusLike } from "@/components/tablo/schedule/parts";
 import TeacherList from "@/components/tablo/teachers/TeacherList";
 import TeacherView, { TeacherDetails, type WeekChoice } from "@/components/tablo/teachers/TeacherView";
 import NamePoll from "@/components/tablo/names/NamePoll";
-import { answerOf, isHidden, myGroupId, useFullNames } from "@/lib/fullNames";
+import { answerOf, isHidden, myGroupId, personsOf, useFullNames } from "@/lib/fullNames";
 import { api, DAYS_ORDER, type Lesson, type Teacher } from "@/lib/api";
 import { shareScheduleImage } from "@/lib/shareImage";
 import { useLayout, useNow } from "@/lib/tablo/hooks";
@@ -127,14 +127,13 @@ export default function TeachersPage() {
   const [pollTick, setPollTick] = useState(0);
   const [pollOpen, setPollOpen] = useState(false);
   useEffect(() => { setPollOpen(new URLSearchParams(window.location.search).get("poll") === "1"); }, [selId]);
+  // Про кого спросить. Ответить может любой, кто знает (решение владельца 8 окт 2026):
+  // строка свёрнута и с крестиком. Запись на двоих («Махмудова Ф.С., Шодиев М.») —
+  // отдельный опрос про каждого, у кого полного имени нет.
   const pollFor = useMemo(() => {
     void pollTick;
-    const name = selTeacher?.name;
-    // Ответить может любой, кто знает (решение владельца 8 окт 2026): строка свёрнута
-    // и с крестиком. Сами спрашиваем (напоминание в «Расписании») только свою группу.
-    if (!name || !fullNames || fullNames.names[name] || !myGroupId() || !lessons || !lessons.length) return null;
-    if (!answerOf(name) && isHidden(name)) return null;
-    return name;
+    if (!selTeacher || !fullNames || !myGroupId() || !lessons || !lessons.length) return [];
+    return personsOf(selTeacher.name).filter(p => !fullNames.names[p] && (answerOf(p) || !isHidden(p)));
   }, [selTeacher, fullNames, lessons, pollTick]);
 
   // Подробности пары: какая открыта и у какой ячейки
@@ -354,11 +353,12 @@ export default function TeachersPage() {
       empty={empty}
       onShowNext={() => weekStart && pickWeek(addDays(weekStart, 7))}
       fullNames={fullNames}
-      poll={pollFor ? (
-        <NamePoll key={pollFor} teacher={pollFor} variants={fullNames?.variants[pollFor] ?? []}
+      poll={pollFor.length ? pollFor.map(p => (
+        <NamePoll key={p} teacher={p} variants={fullNames?.variants[p] ?? []}
+          named={pollFor.length > 1 || personsOf(selTeacher?.name).length > 1}
           ownGroup={!!lessons?.some(l => l.group?.id === myGroupId())}
-          startOpen={pollOpen} onHide={() => setPollTick(t => t + 1)} />
-      ) : null}
+          startOpen={pollOpen && pollFor.length === 1} onHide={() => setPollTick(t => t + 1)} />
+      )) : null}
     />
   ) : null;
 
