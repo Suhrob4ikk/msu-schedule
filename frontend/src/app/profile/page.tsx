@@ -346,16 +346,16 @@ export default function ProfilePage() {
               {origin && (
                 <section className="t-pf-card t-pf-invite">
                   <div className="t-pf-qr"><QRCodeSVG value={origin} size={116} fgColor="#111111" bgColor="#ffffff" /></div>
-                  <div>
+                  <div className="t-pf-invite-text">
                     <h3>Позвать одногруппников</h3>
                     <p>{origin.replace(/^https?:\/\//, "")}</p>
-                    <button type="button" className="t-pf-ghost" onClick={async () => {
-                      try {
-                        if (navigator.share) { await navigator.share({ title: "МГУ Расписание", text: "МГУ Душанбе: расписание занятий. Заходите:", url: origin }); return; }
-                      } catch { return; }
-                      try { await navigator.clipboard.writeText(origin); setToast("Ссылка скопирована"); } catch { window.prompt("Ссылка", origin); }
-                    }}><Icon name="share" size={18} />Поделиться ссылкой</button>
                   </div>
+                  <button type="button" className="t-pf-ghost t-pf-invite-btn" onClick={async () => {
+                    try {
+                      if (navigator.share) { await navigator.share({ title: "МГУ Расписание", text: "МГУ Душанбе: расписание занятий. Заходите:", url: origin }); return; }
+                    } catch { return; }
+                    try { await navigator.clipboard.writeText(origin); setToast("Ссылка скопирована"); } catch { window.prompt("Ссылка", origin); }
+                  }}><Icon name="share" size={18} />Поделиться ссылкой</button>
                 </section>
               )}
             <h2 className="t-over t-pf-h">Синхронизация</h2>

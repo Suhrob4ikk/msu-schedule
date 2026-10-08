@@ -58,7 +58,24 @@
 .t-pf-refresh:hover:not(:disabled) { filter: brightness(0.97); }
 .t-pf-refresh:disabled { opacity: 0.6; }
 
-.t-pf-invite { display: flex; align-items: center; gap: 20px; padding: 20px; }
+/* QR слева, справа название и ссылка, под ними кнопка. На узком телефоне кнопка — под QR
+   во всю ширину: рядом с QR ей и слову «одногруппников» не хватало места (8 окт 2026). */
+.t-pf-invite {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "qr text" "qr btn";
+  column-gap: 20px; align-items: center; padding: 20px;
+}
+.t-pf-invite .t-pf-qr { grid-area: qr; }
+.t-pf-invite-text { grid-area: text; min-width: 0; align-self: end; }
+.t-pf-invite-btn { grid-area: btn; justify-self: start; align-self: start; }
+.t-pf-invite h3 { overflow-wrap: anywhere; }
+@media (max-width: 459px) {
+  .t-pf-invite { grid-template-areas: "qr text" "btn btn"; column-gap: 14px; row-gap: 14px; padding: 16px; }
+  .t-pf-invite-text { align-self: center; }
+  .t-pf-invite h3 { font-size: 19px; }
+  .t-pf-invite p { margin-bottom: 0; }
+  .t-pf-invite .t-pf-qr svg { width: 92px; height: 92px; }
+  .t-pf-invite-btn { justify-self: stretch; justify-content: center; }
+}
 .t-pf-invite h3, .t-pf-notes h3 { font-size: 21px; font-weight: 800; }
 .t-pf-invite p { margin: 4px 0 12px; font-size: 16px; color: var(--text-2); overflow-wrap: anywhere; }
 .t-pf-qr { padding: 8px; border-radius: 14px; background: #fff; flex-shrink: 0; line-height: 0; }
