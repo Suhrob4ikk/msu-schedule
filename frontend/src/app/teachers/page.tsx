@@ -130,10 +130,9 @@ export default function TeachersPage() {
   const pollFor = useMemo(() => {
     void pollTick;
     const name = selTeacher?.name;
-    const mine = myGroupId();
-    if (!name || !fullNames || fullNames.names[name] || !mine || !lessons) return null;
-    // Спрашиваем только тех, у чьей группы он ведёт пары (на открытой неделе)
-    if (!lessons.some(l => l.group?.id === mine)) return null;
+    // Ответить может любой, кто знает (решение владельца 8 окт 2026): строка свёрнута
+    // и с крестиком. Сами спрашиваем (напоминание в «Расписании») только свою группу.
+    if (!name || !fullNames || fullNames.names[name] || !myGroupId() || !lessons || !lessons.length) return null;
     if (!answerOf(name) && isHidden(name)) return null;
     return name;
   }, [selTeacher, fullNames, lessons, pollTick]);
@@ -357,6 +356,7 @@ export default function TeachersPage() {
       fullNames={fullNames}
       poll={pollFor ? (
         <NamePoll key={pollFor} teacher={pollFor} variants={fullNames?.variants[pollFor] ?? []}
+          ownGroup={!!lessons?.some(l => l.group?.id === myGroupId())}
           startOpen={pollOpen} onHide={() => setPollTick(t => t + 1)} />
       ) : null}
     />

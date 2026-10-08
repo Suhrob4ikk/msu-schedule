@@ -150,22 +150,6 @@ def persons(lesson: Lesson) -> list[str]:
     return [p.strip() for p in name.split(",") if p.strip() and is_real_teacher_name(p.strip())]
 
 
-def group_teachers(db: Session, group_id: int, weeks: int = 1) -> set[str]:
-    """Кто ведёт пары у группы на этой неделе (weeks=2 — и на следующей)."""
-    from app.api.routes.schedule import dushanbe_today
-    today = dushanbe_today()
-    monday = today - timedelta(days=today.weekday())
-    ids = []
-    for k in range(weeks):
-        ids += _week_ids(db, monday + timedelta(days=7 * k))
-    if not ids:
-        return set()
-    out: set[str] = set()
-    for l in db.query(Lesson).filter(Lesson.week_schedule_id.in_(ids), Lesson.group_id == group_id).all():
-        out.update(persons(l))
-    return out
-
-
 def all_current_teachers(db: Session) -> dict[str, set]:
     """Все преподаватели этой и следующей недели → группы, у которых они ведут."""
     from app.api.routes.schedule import dushanbe_today
@@ -239,8 +223,11 @@ def vote(db: Session, device_id: str, teacher: str, variant_id: Optional[int] = 
     reg = db.query(UserRegistration).filter_by(device_id=device_id).first()
     if not reg or not reg.group_id:
         raise VoteError("Сначала выберите группу в Кабинете")
-    if teacher not in group_teachers(db, reg.group_id, weeks=2):
-        raise VoteError("У вашей группы этот преподаватель сейчас не ведёт пары")
+    # Ответить можно про любого, кто ведёт пары на этой или следующей неделе — вдруг
+    # человек знает и чужого преподавателя (решение владельца 8 окт 2026). Спрашиваем
+    # сами (напоминание) по-прежнему только свою группу.
+    if teacher not in all_current_teachers(db):
+        raise VoteError("Этот преподаватель сейчас не ведёт пары")
     if db.get(TeacherFullName, teacher):
         raise VoteError("Полное имя уже известно")
 

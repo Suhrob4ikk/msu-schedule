@@ -15,8 +15,10 @@ import Icon from "../Icon";
 
 type Choice = { kind: "variant"; id: number } | { kind: "own" } | { kind: "dunno" } | null;
 
-export default function NamePoll({ teacher, variants, startOpen = false, closable = true, named = false, onHide, onAnswered, onSkip }: {
+export default function NamePoll({ teacher, variants, startOpen = false, closable = true, named = false, ownGroup = true, onHide, onAnswered, onSkip }: {
   teacher: string;
+  /** ведёт ли он у группы пользователя — от этого только текст вопроса */
+  ownGroup?: boolean;
   /** в списке нескольких преподавателей — имя прямо в строке */
   named?: boolean;
   variants: Array<{ id: number; name: string }>;
@@ -118,7 +120,9 @@ export default function NamePoll({ teacher, variants, startOpen = false, closabl
       {open && showForm && (
         <div className="t-fn-body">
           <p className="t-fn-q">
-            У вашей группы ведёт пары <b>{teacher}</b>. Полное имя преподавателя есть в журнале группы.
+            {ownGroup
+              ? <>У вашей группы ведёт пары <b>{teacher}</b>. Полное имя преподавателя есть в журнале группы.</>
+              : <>Знаете, как полностью зовут <b>{teacher}</b>? Подскажите — это поможет тем, у кого этот преподаватель ведёт пары.</>}
           </p>
           <div role="radiogroup" aria-label="Полное имя">
             {variants.map(v => (
