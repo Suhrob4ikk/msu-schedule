@@ -94,6 +94,17 @@ def _reset_fails(ip: str) -> None:
     _attempts.pop(ip, None)
 
 
+# Имя владельца: ссылку на панель на сайте видит только он, и только на его
+# устройства уходит «Тестовый push» (раньше — всем студентам). Защита панели
+# от этого не зависит — она по-прежнему только в пароле.
+OWNER_NAMES = {"сухроб", "suhrob"}
+
+
+def is_owner_name(name: Optional[str]) -> bool:
+    first = (name or "").strip().split()
+    return bool(first) and first[0].lower() in OWNER_NAMES
+
+
 def require_dev(x_dev_token: str = Header(default="")) -> None:
     """Зависимость для защищённых маршрутов. Невалидный токен → 404."""
     if not _verify_token(x_dev_token):
@@ -270,6 +281,7 @@ def dev_overrides_delete(override_id: int, db: Session = Depends(get_db)):
 @router.get("/performance", dependencies=[Depends(require_dev)])
 def dev_performance(db: Session = Depends(get_db)):
     from app.api.routes.schedule import _FREE_ROOMS_CACHE
+    from app.core.response_cache import cache_stats
     timings = {}
     # Замеряем время простых операций на стороне сервера
     for name, fn in [
@@ -287,6 +299,7 @@ def dev_performance(db: Session = Depends(get_db)):
             "warm": len(_FREE_ROOMS_CACHE) > 0,
             "entries": len(_FREE_ROOMS_CACHE),
         },
+        "response_cache": cache_stats(),
     }
 
 
@@ -298,8 +311,29 @@ def dev_users(db: Session = Depends(get_db)):
         .filter(UserSubscription.push_endpoint.isnot(None))
         .count()
     )
+    from app.api.routes.app_update import parse_version
+
+    # Приложение присылает свою версию при каждой отметке, сайт — нет. Так и
+    # отличаем: версия есть — человек с приложением.
+    by_version = dict(
+        db.query(UserRegistration.app_version, func.count(UserRegistration.id))
+        .group_by(UserRegistration.app_version)
+        .all()
+    )
+    site_users = by_version.pop(None, 0)
+    app_versions = sorted(
+        ({"version": v, "count": n} for v, n in by_version.items()),
+        key=lambda x: parse_version(x["version"]), reverse=True,
+    )
+    owner_devices = sum(
+        1 for (name,) in db.query(UserRegistration.name).all() if is_owner_name(name)
+    )
     return {
         "registered_users": db.query(UserRegistration).count(),
+        "app_users": sum(x["count"] for x in app_versions),
+        "site_users": site_users,
+        "app_versions": app_versions,
+        "owner_devices": owner_devices,
         "push_subscribers": push_count,
         "expo_tokens": (
             db.query(UserRegistration)
@@ -312,19 +346,24 @@ def dev_users(db: Session = Depends(get_db)):
 
 @router.post("/test-push", dependencies=[Depends(require_dev)])
 def dev_test_push(db: Session = Depends(get_db)):
-    """Тестовое уведомление во ВСЕ каналы: браузеры (Web Push) и приложение
-    (Expo). Раньше проверялись только браузеры, и было не узнать, доходит ли
-    что-то до приложения. Ошибки Expo показываем как есть: InvalidCredentials
-    значит, что в Expo не загружен ключ Firebase (`eas credentials`)."""
+    """Тестовое уведомление в оба канала — браузер (Web Push) и приложение
+    (Expo), но только на устройства владельца (имя «Сухроб» / «Suhrob»).
+    До 8 окт 2026 оно уходило всем студентам. Ошибки Expo показываем как есть:
+    InvalidCredentials значит, что в Expo не загружен ключ Firebase."""
     from app.services.push import send_push, send_expo_push
 
-    title, body = "Тест", "Проверка уведомлений из панели /dev"
+    title, body = "Тест", "Проверка уведомлений из панели разработчика"
+
+    owner_regs = [r for r in db.query(UserRegistration).all() if is_owner_name(r.name)]
+    owner_ids = [r.device_id for r in owner_regs]
 
     web_sent, subs = 0, []
-    if settings.VAPID_PUBLIC_KEY and settings.VAPID_PRIVATE_KEY:
+    if settings.VAPID_PUBLIC_KEY and settings.VAPID_PRIVATE_KEY and owner_ids:
+        # На сайте подписка на push заведена под тем же id, что и регистрация
         subs = (
             db.query(UserSubscription)
-            .filter(UserSubscription.push_endpoint.isnot(None))
+            .filter(UserSubscription.push_endpoint.isnot(None),
+                    UserSubscription.session_id.in_(owner_ids))
             .all()
         )
         for s in subs:
@@ -334,19 +373,20 @@ def dev_test_push(db: Session = Depends(get_db)):
             except Exception:
                 pass
 
-    tokens = [
-        r.expo_push_token for r in
-        db.query(UserRegistration).filter(UserRegistration.expo_push_token.isnot(None)).all()
-    ]
+    tokens = [r.expo_push_token for r in owner_regs if r.expo_push_token]
     expo = send_expo_push(db, tokens, title, body) if tokens else {"sent": 0, "errors": []}
 
+    if not owner_ids:
+        return {"message": "Нет ни одного устройства с именем «Сухроб» или «Suhrob» — "
+                           "впишите это имя в Кабинете приложения или сайта",
+                "sent": 0, "total": 0, "expo": {"sent": 0, "total": 0, "errors": []}}
     web_part = (f"сайт {web_sent} из {len(subs)}"
                 if settings.VAPID_PUBLIC_KEY else "сайт: VAPID-ключи не настроены")
     expo_part = f"приложение {expo['sent']} из {len(tokens)}"
     if expo["errors"]:
         expo_part += f" (ошибки: {', '.join(sorted(set(expo['errors'])))})"
     return {
-        "message": f"Отправлено: {web_part}; {expo_part}",
+        "message": f"Отправлено на ваши устройства: {web_part}; {expo_part}",
         "sent": web_sent,
         "total": len(subs),
         "expo": {"sent": expo["sent"], "total": len(tokens), "errors": sorted(set(expo["errors"]))},

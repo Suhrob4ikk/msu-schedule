@@ -238,6 +238,10 @@ export default function ProfilePage() {
   }
 
   const letter = name.trim().charAt(0).toUpperCase();
+  // Ссылку на панель разработчика видит только владелец. Это не защита — та
+  // в пароле панели (DEV_PANEL_PASSWORD), — а чтобы студенты её не видели.
+  // Те же имена — OWNER_NAMES в backend/app/api/routes/dev.py.
+  const isOwner = ["сухроб", "suhrob"].includes(name.trim().split(/\s+/)[0]?.toLowerCase() ?? "");
   const deviceId = (() => { try { return localStorage.getItem("msu_device_id_v2") ?? ""; } catch { return ""; } })();
 
   return (
@@ -358,8 +362,8 @@ export default function ProfilePage() {
               </button>
             </section>
             <p className="t-pf-foot">
-              МГУ Душанбе · Расписание · Данные с msu.tj ·{" "}
-              <Link href="/dev">режим разработчика</Link>
+              МГУ Душанбе · Расписание · Данные с msu.tj
+              {isOwner && <> · <Link href="/dev">режим разработчика</Link></>}
             </p>
         </div>
       </main>
