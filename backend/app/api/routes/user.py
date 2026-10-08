@@ -27,6 +27,22 @@ _saved_reg: dict[str, tuple] = {}
 _saved_token: dict[str, tuple] = {}
 
 
+# Общий лимит новых регистраций в час — подменой адреса не обойти (core/rate_limit.py).
+# Обычно новых пользователей единицы в день; 200 в час — только скрипт.
+NEW_REG_PER_HOUR = 200
+_new_regs: list = []
+
+
+def _new_registration_allowed() -> bool:
+    import time
+    now = time.time()
+    _new_regs[:] = [t for t in _new_regs if now - t < 3600]
+    if len(_new_regs) >= NEW_REG_PER_HOUR:
+        return False
+    _new_regs.append(now)
+    return True
+
+
 def forget_push_tokens(tokens: list[str]) -> None:
     """Токены стёрты из базы (приложение удалено) — пусть следующая присылка
     такого токена снова дойдёт до базы."""
@@ -78,6 +94,8 @@ def register_user(
         reg.name = name.strip()
         reg.group_id = group_id
     else:
+        if not _new_registration_allowed():
+            raise HTTPException(429, "Слишком много новых регистраций — попробуйте позже")
         reg = UserRegistration(device_id=device_id, name=name.strip(), group_id=group_id)
         db.add(reg)
     if version:

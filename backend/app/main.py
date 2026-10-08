@@ -11,6 +11,7 @@ from starlette.responses import Response
 
 from app.database import engine
 from app.core.response_cache import ResponseCacheMiddleware
+from app.core.rate_limit import RateLimitMiddleware
 from app.models import Base, CANONICAL_ROOMS
 from app.api.routes import schedule, export, user, admin, dev, app_update, names
 from app.services.scheduler import start_scheduler, stop_scheduler
@@ -293,6 +294,9 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 # Между сжатием и HEAD: хранит ответ уже сжатым, а HEAD к нему приходит как GET
 app.add_middleware(ResponseCacheMiddleware)
 app.add_middleware(HeadMethodMiddleware)
+# Частота запросов, которые пишут в базу (core/rate_limit.py); внутри CORS — чтобы
+# у ответа 429 были CORS-заголовки и браузер показал текст ошибки
+app.add_middleware(RateLimitMiddleware)
 
 app.add_middleware(
     CORSMiddleware,

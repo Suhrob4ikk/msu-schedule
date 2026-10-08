@@ -7,6 +7,10 @@
 - Любая ошибка авторизации возвращает 404 (а не 401/403), чтобы панель
   нельзя было обнаружить перебором.
 - Защита от перебора: 5 неверных попыток с одного IP → блок на 15 минут.
+  IP берётся из X-Forwarded-For, а его при запросе прямо на Render можно подделать
+  в каждой попытке. Поэтому есть и общий лимит: 10 неверных паролей от кого угодно
+  за 15 минут → вход закрыт для всех на 15 минут (8 окт 2026). Владелец в худшем
+  случае подождёт 15 минут; подобрать пароль перебором нельзя.
 """
 
 import hmac
@@ -37,6 +41,10 @@ LOCKOUT_SECONDS = 15 * 60       # 15 минут
 
 # IP -> {"fails": int, "until": epoch}
 _attempts: dict = {}
+# Все неверные попытки (время) — для общего лимита, который не обойти подменой IP
+GLOBAL_MAX_FAILS = 10
+_global_fails: list = []
+_global_until = [0.0]
 NOT_FOUND = HTTPException(status_code=404, detail="Not Found")
 
 
@@ -77,11 +85,20 @@ def _client_ip(request: Request) -> str:
 
 
 def _is_locked(ip: str) -> bool:
+    if _global_until[0] > time.time():
+        return True
     rec = _attempts.get(ip)
     return bool(rec and rec.get("until", 0) > time.time())
 
 
 def _record_fail(ip: str) -> None:
+    now = time.time()
+    _global_fails[:] = [t for t in _global_fails if now - t < LOCKOUT_SECONDS] + [now]
+    if len(_global_fails) >= GLOBAL_MAX_FAILS:
+        _global_until[0] = now + LOCKOUT_SECONDS
+        _global_fails.clear()
+        logger.warning("Панель разработчика: %s неверных паролей за 15 минут — вход закрыт для всех на 15 минут",
+                       GLOBAL_MAX_FAILS)
     rec = _attempts.get(ip) or {"fails": 0, "until": 0}
     rec["fails"] += 1
     if rec["fails"] >= MAX_ATTEMPTS:

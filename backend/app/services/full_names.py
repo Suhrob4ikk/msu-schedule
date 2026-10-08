@@ -30,6 +30,8 @@ from app.models import (
 logger = logging.getLogger(__name__)
 
 MAX_PROPOSALS_PER_DAY = 10
+# Общий лимит новых вариантов в час от всех вместе — защита от скрипта с разных адресов
+MAX_NEW_VARIANTS_PER_HOUR = 100
 _NAME_RE = re.compile(r"^(.*?)\s+((?:[А-ЯЁ][а-яё]?\.\s*)+)$")
 
 
@@ -250,6 +252,11 @@ def vote(db: Session, device_id: str, teacher: str, variant_id: Optional[int] = 
                                   TeacherNameVariant.created_at > day_ago).count())
             if mine_today >= MAX_PROPOSALS_PER_DAY:
                 raise VoteError("Слишком много предложений за день — попробуйте завтра")
+            hour_ago = datetime.utcnow() - timedelta(hours=1)
+            if (db.query(TeacherNameVariant)
+                    .filter(TeacherNameVariant.source == "student",
+                            TeacherNameVariant.created_at > hour_ago).count()) >= MAX_NEW_VARIANTS_PER_HOUR:
+                raise VoteError("Сейчас слишком много новых вариантов — попробуйте через час")
             var = TeacherNameVariant(teacher=teacher, full_name=value, status="pending",
                                      source="student", proposed_by=device_id)
             db.add(var)
