@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, CSSProperties, ReactNode } from "react";
+import { useState, useEffect, useCallback, useRef, CSSProperties, ReactNode } from "react";
 import Link from "next/link";
 
 // Панель разработчика. Инструкция для владельца — docs/Панель разработчика - инструкция.html
@@ -189,6 +189,9 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
   const [rawGroup, setRawGroup] = useState("");
   const [raw, setRaw] = useState<any>(null);
   const [clientPerf, setClientPerf] = useState<Record<string, number>>({});
+  const [missing, setMissing] = useState<any[]>([]);
+  const overrideForm = useRef<HTMLDivElement>(null);
+  const realNameInput = useRef<HTMLInputElement>(null);
 
   const api = useCallback(<T,>(p: string, o?: RequestInit) => devApi<T>(p, token, o), [token]);
 
@@ -200,6 +203,8 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
       ]);
       setOv(o); setOverrides(ovr); setPerf(p); setUsers(u);
     } catch (e: any) { if (e.message === "unauthorized") onLogout(); }
+    // Отдельно и без выхода при ошибке: на старом сервере этого адреса ещё нет
+    try { setMissing(await api<any[]>("/missing-teachers")); } catch { setMissing([]); }
   }, [api, onLogout]);
 
   useEffect(() => { refresh(); }, [refresh]);
@@ -246,10 +251,19 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
 
   const saveOverride = () =>
     act("ovr", async () => { await api("/overrides", { method: "POST", body: JSON.stringify(edit) });
-      setEdit({ subject: "", code: "", real_name: "" }); return { message: "Замена сохранена и уже действует" }; });
+      setEdit({ subject: "", code: "", real_name: "" });
+      return { message: "Замена сохранена: в расписании имя уже новое. Чтобы преподаватель появился в «Педагогах», нажмите «Проверить msu.tj сейчас»." }; });
   const delOverride = (o: any) => {
     if (!window.confirm(`Удалить замену «${o.code}» → «${o.real_name}»?`)) return;
     act("ovr" + o.id, async () => { await api(`/overrides/${o.id}`, { method: "DELETE" }); return { message: "Замена удалена" }; });
+  };
+
+  // «Сделать замену» из списка «Нет в «Педагогах»»: поля предмета и кода — ровно
+  // как на сервере, осталось вписать ФИО
+  const startOverride = (m: any) => {
+    setEdit({ subject: m.subject, code: m.teacher, real_name: "" });
+    overrideForm.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    setTimeout(() => realNameInput.current?.focus(), 400);
   };
 
   const loadRaw = async () => {
@@ -263,11 +277,14 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
   const last = ov.last_sync;
   const lastAt = parseUtc(last?.started_at);
   const zero = ov.zero_lesson_groups as any[];
+  const missingNew = missing.filter(m => !m.override);
   const health =
     last?.status === "error"
       ? { tone: "red", text: "Последняя проверка msu.tj закончилась ошибкой", sub: last?.message }
       : zero.length > 0
         ? { tone: "yellow", text: `${zero.length} ${zero.length === 1 ? "группа" : "групп(ы)"} без пар на этой неделе`, sub: "Возможно, парсер не разобрал файл — список в разделе «Расписание в базе»" }
+        : missingNew.length > 0
+        ? { tone: "yellow", text: `${missingNew.length} ${missingNew.length === 1 ? "преподавателя" : "преподавателей"} не видно во вкладке «Педагоги»`, sub: "Список и кнопка «Сделать замену» — в разделе «Нет во вкладке «Педагоги»» ниже" }
         : { tone: "green", text: "Всё в порядке", sub: `msu.tj проверялся ${ago(lastAt)} · ${syncMessage(last?.message)}` };
   const toneBg = { red: c.redBg, yellow: c.yellowBg, green: c.greenBg }[health.tone]!;
   const toneFg = { red: c.red, yellow: c.yellow, green: c.green }[health.tone]!;
@@ -409,6 +426,31 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
             </div>
           </Section>
 
+          <Section wide title="Нет во вкладке «Педагоги»" hint={<>Сервер сам находит тех, кто ведёт пары на этой или следующей неделе, но не попадает в список педагогов: в файле msu.tj у них нет инициалов («Шодибеки Сафар») или вместо имени код кафедры. Нажмите <b style={{ color: c.fg }}>«Сделать замену»</b> — поля ниже заполнятся сами, останется вписать «Фамилия И.О.».</>}>
+            {missing.length === 0
+              ? <div style={{ color: c.green, fontSize: 14 }}>Все преподаватели этой и следующей недели есть в «Педагогах»</div>
+              : <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {missing.map((m) => (
+                    <div key={m.subject + m.teacher} style={{ display: "flex", alignItems: "center", gap: 12, background: c.panel2, borderRadius: 10, padding: "10px 12px", flexWrap: "wrap" }}>
+                      <div style={{ flex: "1 1 260px", minWidth: 0 }}>
+                        <div style={{ fontSize: 14.5 }}>
+                          <span style={{ color: c.yellow, fontWeight: 700 }}>{m.teacher}</span>
+                          <span style={{ color: c.muted }}> · {m.subject}</span>
+                        </div>
+                        <div style={{ fontSize: 12.5, color: c.muted, marginTop: 2 }}>
+                          {m.groups.join(", ")} · {m.lessons} {m.lessons === 1 ? "пара" : m.lessons < 5 ? "пары" : "пар"}
+                        </div>
+                      </div>
+                      {m.override
+                        ? <div style={{ fontSize: 12.5, color: c.green, maxWidth: 320, lineHeight: 1.4 }}>
+                            Замена на «{m.override}» есть. Чтобы он появился в «Педагогах», нажмите «Проверить msu.tj сейчас».
+                          </div>
+                        : <button style={btnPrimary} onClick={() => startOverride(m)}>Сделать замену</button>}
+                    </div>
+                  ))}
+                </div>}
+          </Section>
+
           <Section wide title="Замены ФИО преподавателей" hint={<>В файле msu.tj вместо преподавателя иногда стоит код кафедры («ИТУ», «английский»). Здесь можно сказать: «если предмет — <i>информатика</i> и стоит код <i>ИТУ</i>, показывать <i>Джумаев Э.Х.</i>». Действует сразу, у всех.</>}>
             <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 14 }}>
               {overrides.length === 0 && <div style={{ fontSize: 13, color: c.muted }}>Замен пока нет</div>}
@@ -423,7 +465,7 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
                 </div>
               ))}
             </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "flex-end" }}>
+            <div ref={overrideForm} style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "flex-end" }}>
               {([
                 ["subject", "Предмет (как в расписании)", "информатика"],
                 ["code", "Что стоит вместо ФИО", "ИТУ"],
@@ -431,7 +473,8 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
               ] as const).map(([k, label, ph]) => (
                 <label key={k} style={{ fontSize: 12, color: c.muted, flex: "1 1 180px", display: "flex", flexDirection: "column", gap: 5 }}>
                   {label}
-                  <input placeholder={ph} value={(edit as any)[k]} onChange={e => setEdit({ ...edit, [k]: e.target.value })} style={input} />
+                  <input placeholder={ph} value={(edit as any)[k]} onChange={e => setEdit({ ...edit, [k]: e.target.value })} style={input}
+                    ref={k === "real_name" ? realNameInput : undefined} />
                 </label>
               ))}
               <button style={{ ...btnPrimary, opacity: edit.subject && edit.code && edit.real_name ? 1 : 0.5 }}

@@ -200,6 +200,63 @@ def dev_overview(db: Session = Depends(get_db)):
     }
 
 
+# ── Преподаватели, которых нет во вкладке «Педагоги» ─────────────────────
+@router.get("/missing-teachers", dependencies=[Depends(require_dev)])
+def dev_missing_teachers(db: Session = Depends(get_db)):
+    """Кто ведёт пары на этой и следующей неделе, но не попадает в список
+    педагогов: в файле msu.tj вместо «Фамилия И.О.» стоит код кафедры или имя
+    без инициалов («Шодибеки Сафар»), а /schedule/teachers берёт только ФИО с
+    инициалами (is_real_teacher_name). Лечится заменой ФИО в панели.
+
+    Пропускаем пары, где «преподаватель» совпадает с предметом («НИР» / «НИР»):
+    это не человек, а вид занятия."""
+    from app.api.routes.schedule import is_real_teacher_name, dushanbe_today
+    from app.services.parser import override_teacher_name
+
+    monday = dushanbe_today() - timedelta(days=dushanbe_today().weekday())
+    wanted = {monday, monday + timedelta(days=7)}
+    week_ids = []
+    for fcode in ["ЕНФ", "ГФ"]:
+        for ws in wanted:
+            w = (
+                db.query(WeekSchedule)
+                .filter(WeekSchedule.faculty_code == fcode, WeekSchedule.week_start == ws)
+                .order_by(WeekSchedule.downloaded_at.desc())
+                .first()
+            )
+            if w:
+                week_ids.append(w.id)
+    if not week_ids:
+        return []
+
+    rows: dict = {}
+    lessons = (
+        db.query(Lesson)
+        .join(Lesson.teacher)
+        .filter(Lesson.week_schedule_id.in_(week_ids))
+        .all()
+    )
+    for l in lessons:
+        name = l.teacher.name
+        if not name or is_real_teacher_name(name):
+            continue
+        if name.strip().lower() == (l.subject or "").strip().lower():
+            continue
+        key = (l.subject, name)
+        r = rows.setdefault(key, {
+            "subject": l.subject, "teacher": name, "lessons": 0, "groups": set(),
+            # Замена уже есть, но пары ещё записаны со старым именем — её
+            # подхватит следующая запись недели («Проверить msu.tj сейчас»).
+            "override": override_teacher_name(l.subject, name),
+        })
+        r["lessons"] += 1
+        if l.group:
+            r["groups"].add(f"{l.group.year} курс · {l.group.name}")
+
+    out = [{**r, "groups": sorted(r["groups"])} for r in rows.values()]
+    return sorted(out, key=lambda r: (r["override"] is not None, -r["lessons"]))
+
+
 # ── Ручные действия ──────────────────────────────────────────────────────
 @router.post("/sync", dependencies=[Depends(require_dev)])
 async def dev_sync():
