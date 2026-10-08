@@ -175,6 +175,131 @@ function Action({ label, busyLabel, hint, busy, disabled, onClick }: {
   );
 }
 
+// ── Полные имена преподавателей (backend/app/services/full_names.py) ─────
+const STATUS_RU: Record<string, string> = { open: "в опросе", pending: "на проверке", final: "утверждено" };
+const votesWord = (n: number) => (n % 10 === 1 && n % 100 !== 11 ? "голос" : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? "голоса" : "голосов");
+
+function FullNamesSection({ data, busy, act, api }: {
+  data: any;
+  busy: string;
+  act: (name: string, fn: () => Promise<any>) => Promise<void>;
+  api: <T>(p: string, o?: RequestInit) => Promise<T>;
+}) {
+  const [filter, setFilter] = useState<"todo" | "all">("todo");
+  const [manual, setManual] = useState<Record<string, string>>({});
+  if (!data) return null;
+  const post = (path: string, body?: object) => api(path, { method: "POST", body: JSON.stringify(body ?? {}) });
+  const pending: any[] = data.pending;
+  const teachers: any[] = data.teachers.filter((t: any) => filter === "all" || (!t.final && t.current));
+  const finalCount = data.teachers.filter((t: any) => t.final).length;
+  const todoCount = data.teachers.filter((t: any) => !t.final && t.current).length;
+
+  return (
+    <Section wide title="Полные имена преподавателей" hint={<>Студенты, у которых преподаватель ведёт пары, видят опрос «Знаете полное имя?». Новые варианты, вписанные студентами, другим не видны, пока вы их не <b style={{ color: c.fg }}>разрешите</b>. Полное имя появляется у всех только после <b style={{ color: c.fg }}>«Утвердить»</b>. Письмо о новых вариантах приходит раз в день в 13:00.</>}>
+
+      <div style={{ fontSize: 13.5, fontWeight: 700, margin: "4px 0 8px" }}>
+        Ждут проверки: <span style={{ color: pending.length ? c.yellow : c.green }}>{pending.length || "нет"}</span>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 18 }}>
+        {pending.map((p: any) => (
+          <div key={p.id} style={{ background: c.panel2, borderRadius: 12, padding: 14 }}>
+            <div style={{ fontSize: 14.5 }}>
+              <b style={{ color: c.yellow }}>{p.teacher}</b>
+              <span style={{ color: c.muted }}> · {p.groups.join(", ") || "на этой неделе пар нет"}</span>
+            </div>
+            <div style={{ margin: "8px 0", fontSize: 15 }}>
+              Новый вариант: <b>{p.name}</b>
+              <span style={{ color: c.muted, fontSize: 12.5 }}> · {p.votes} {votesWord(p.votes)}</span>
+            </div>
+            <div style={{ fontSize: 12.5, color: c.muted, marginBottom: 6 }}>Уже есть:</div>
+            {p.others.length === 0 && <div style={{ fontSize: 13, color: c.muted, marginBottom: 6 }}>других вариантов нет</div>}
+            {p.others.map((o: any) => (
+              <div key={o.id ?? "final"} style={{ fontSize: 13.5, padding: "7px 10px", borderRadius: 9, marginBottom: 6,
+                border: `1px solid ${o.similar ? c.yellow + "66" : c.border}`, background: o.similar ? c.yellowBg : "transparent" }}>
+                {o.name} <span style={{ color: c.muted }}>· {STATUS_RU[o.status] ?? o.status}{o.status !== "final" ? ` · ${o.votes} ${votesWord(o.votes)}` : ""}{o.source === "msu.tj" ? " · с msu.tj" : ""}</span>
+                {o.similar && <div style={{ color: c.yellow, fontSize: 12.5 }}>⚠ {o.similar}</div>}
+              </div>
+            ))}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+              <button style={btnPrimary} disabled={!!busy}
+                onClick={() => act("fa" + p.id, async () => { await post(`/full-names/variants/${p.id}/approve`); return { message: `«${p.name}» теперь в опросе у всех` }; })}>
+                Разрешить как новый
+              </button>
+              {p.others.filter((o: any) => o.similar && o.id).map((o: any) => (
+                <button key={o.id} style={btn} disabled={!!busy}
+                  onClick={() => act("fm" + p.id, async () => { await post(`/full-names/variants/${p.id}/merge/${o.id}`); return { message: `Голос перенесён в «${o.name}»` }; })}>
+                  Это то же, что «{o.name}» — засчитать туда
+                </button>
+              ))}
+              <button style={{ ...btn, color: c.red }} disabled={!!busy}
+                onClick={() => {
+                  if (!window.confirm(`Отклонить «${p.name}»? Кто за него голосовал, сможет ответить заново.`)) return;
+                  act("fr" + p.id, async () => { await post(`/full-names/variants/${p.id}/reject`); return { message: "Вариант отклонён" }; });
+                }}>
+                Отклонить
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+        <div style={{ display: "flex", background: c.panel2, borderRadius: 10, padding: 3 }}>
+          {([["todo", `Без имени · ${todoCount}`], ["all", `Все · утверждено ${finalCount}`]] as const).map(([v, label]) => (
+            <button key={v} onClick={() => setFilter(v)} style={{ ...btn, border: "none", padding: "6px 12px",
+              background: filter === v ? c.panel : "transparent", color: filter === v ? c.fg : c.muted }}>{label}</button>
+          ))}
+        </div>
+        <span style={{ fontSize: 12.5, color: c.muted }}>«Без имени» — ведут пары на этой или следующей неделе, полное имя не утверждено</span>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {teachers.map((t: any) => (
+          <div key={t.teacher} style={{ background: c.panel2, borderRadius: 12, padding: "10px 12px" }}>
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: 8 }}>
+              <b style={{ fontSize: 14.5 }}>{t.teacher}</b>
+              {t.final
+                ? <span style={{ color: c.green, fontSize: 14 }}>→ {t.final}</span>
+                : <span style={{ color: c.muted, fontSize: 12.5 }}>{t.groups.length ? t.groups.join(", ") : "сейчас пар нет"}{t.dunno ? ` · «не знаю»: ${t.dunno}` : ""}</span>}
+              {t.final && (
+                <button style={{ ...btn, padding: "3px 10px", fontSize: 12, marginLeft: "auto", color: c.red }} disabled={!!busy}
+                  onClick={() => {
+                    if (!window.confirm(`Убрать полное имя у ${t.teacher}? Опрос по нему снова откроется.`)) return;
+                    act("fx" + t.teacher, async () => { await post("/full-names/final", { teacher: t.teacher, full_name: null }); return { message: "Полное имя убрано" }; });
+                  }}>Убрать</button>
+              )}
+            </div>
+            {!t.final && (
+              <>
+                {t.variants.map((v: any) => (
+                  <div key={v.id} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13.5, marginTop: 6, flexWrap: "wrap" }}>
+                    <span>{v.name}</span>
+                    <span style={{ color: c.muted, fontSize: 12.5 }}>{v.votes} {votesWord(v.votes)} · {STATUS_RU[v.status] ?? v.status}{v.source === "msu.tj" ? " · с msu.tj" : ""}</span>
+                    <button style={{ ...btn, padding: "3px 10px", fontSize: 12, marginLeft: "auto" }} disabled={!!busy || v.status !== "open"}
+                      title={v.status !== "open" ? "Сначала разрешите вариант выше" : undefined}
+                      onClick={() => act("ff" + v.id, async () => { await post("/full-names/final", { teacher: t.teacher, full_name: v.name }); return { message: `Утверждено: ${t.teacher} → ${v.name}` }; })}>
+                      Утвердить
+                    </button>
+                  </div>
+                ))}
+                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                  <input placeholder="Вписать самому: Имя Отчество" value={manual[t.teacher] ?? ""}
+                    onChange={e => setManual({ ...manual, [t.teacher]: e.target.value })} style={{ ...input, flex: 1, minWidth: 0 }} />
+                  <button style={btn} disabled={!!busy || !(manual[t.teacher] ?? "").trim()}
+                    onClick={() => act("fw" + t.teacher, async () => {
+                      await post("/full-names/final", { teacher: t.teacher, full_name: manual[t.teacher] });
+                      setManual({ ...manual, [t.teacher]: "" });
+                      return { message: `Утверждено: ${t.teacher} → ${manual[t.teacher]}` };
+                    })}>Утвердить</button>
+                </div>
+              </>
+            )}
+          </div>
+        ))}
+      </div>
+    </Section>
+  );
+}
+
 // ── дашборд ───────────────────────────────────────────────────────────────
 /* eslint-disable @typescript-eslint/no-explicit-any */
 function Dashboard({ token, onLogout }: { token: string; onLogout: () => void }) {
@@ -190,6 +315,7 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
   const [raw, setRaw] = useState<any>(null);
   const [clientPerf, setClientPerf] = useState<Record<string, number>>({});
   const [missing, setMissing] = useState<any[]>([]);
+  const [names, setNames] = useState<any>(null);
   const overrideForm = useRef<HTMLDivElement>(null);
   const realNameInput = useRef<HTMLInputElement>(null);
 
@@ -205,6 +331,7 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
     } catch (e: any) { if (e.message === "unauthorized") onLogout(); }
     // Отдельно и без выхода при ошибке: на старом сервере этого адреса ещё нет
     try { setMissing(await api<any[]>("/missing-teachers")); } catch { setMissing([]); }
+    try { setNames(await api<any>("/full-names")); } catch { setNames(null); }
   }, [api, onLogout]);
 
   useEffect(() => { refresh(); }, [refresh]);
@@ -283,6 +410,8 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
       ? { tone: "red", text: "Последняя проверка msu.tj закончилась ошибкой", sub: last?.message }
       : zero.length > 0
         ? { tone: "yellow", text: `${zero.length} ${zero.length === 1 ? "группа" : "групп(ы)"} без пар на этой неделе`, sub: "Возможно, парсер не разобрал файл — список в разделе «Расписание в базе»" }
+        : names?.pending?.length > 0
+        ? { tone: "yellow", text: `${names.pending.length} ${names.pending.length === 1 ? "вариант имени ждёт" : "вариантов имён ждут"} проверки`, sub: "Раздел «Полные имена преподавателей» ниже" }
         : missingNew.length > 0
         ? { tone: "yellow", text: `${missingNew.length} ${missingNew.length === 1 ? "преподавателя" : "преподавателей"} не видно во вкладке «Педагоги»`, sub: "Список и кнопка «Сделать замену» — в разделе «Нет во вкладке «Педагоги»» ниже" }
         : { tone: "green", text: "Всё в порядке", sub: `msu.tj проверялся ${ago(lastAt)} · ${syncMessage(last?.message)}` };
@@ -425,6 +554,8 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
               ))}
             </div>
           </Section>
+
+          <FullNamesSection data={names} busy={busy} act={act} api={api} />
 
           <Section wide title="Нет во вкладке «Педагоги»" hint={<>Сервер сам находит тех, кто ведёт пары на этой или следующей неделе, но не попадает в список педагогов: в файле msu.tj у них нет инициалов («Шодибеки Сафар») или вместо имени код кафедры. Нажмите <b style={{ color: c.fg }}>«Сделать замену»</b> — поля ниже заполнятся сами, останется вписать «Фамилия И.О.».</>}>
             {missing.length === 0

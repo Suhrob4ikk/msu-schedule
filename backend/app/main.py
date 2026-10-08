@@ -12,7 +12,7 @@ from starlette.responses import Response
 from app.database import engine
 from app.core.response_cache import ResponseCacheMiddleware
 from app.models import Base, CANONICAL_ROOMS
-from app.api.routes import schedule, export, user, admin, dev, app_update
+from app.api.routes import schedule, export, user, admin, dev, app_update, names
 from app.services.scheduler import start_scheduler, stop_scheduler
 
 logging.basicConfig(
@@ -252,6 +252,13 @@ async def lifespan(app: FastAPI):
 
     seed_rooms()
     load_teacher_overrides()
+    try:
+        from app.database import SessionLocal
+        from app.services.full_names import seed as seed_full_names
+        with SessionLocal() as db:
+            seed_full_names(db)
+    except Exception as e:
+        logger.warning(f"Не удалось засеять полные имена: {e}")
 
     start_scheduler()
 
@@ -304,6 +311,7 @@ app.include_router(user.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
 app.include_router(dev.router, prefix="/api")
 app.include_router(app_update.router, prefix="/api")
+app.include_router(names.router, prefix="/api")
 
 
 @app.get("/")

@@ -11,6 +11,7 @@ import type { Teacher } from "@/lib/api";
 import {
   buildSections, listSummary, matchesLabel, searchTeachers, similarTeachers, type ListStatus,
 } from "@/lib/tablo/teachers";
+import { useFullNames } from "@/lib/fullNames";
 import Icon from "../Icon";
 import { Popover, Sheet } from "../Overlay";
 
@@ -25,12 +26,13 @@ function Name({ name, range }: { name: string; range?: [number, number] }) {
   );
 }
 
-function Row({ t, status, selected, active, range, onPick }: {
+function Row({ t, status, selected, active, range, full, onPick }: {
   t: Teacher;
   status: ListStatus | null | undefined;
   selected: boolean;
   active?: boolean;
   range?: [number, number];
+  full?: string;
   onPick: (t: Teacher) => void;
 }) {
   const st = status ?? null;
@@ -44,6 +46,7 @@ function Row({ t, status, selected, active, range, onPick }: {
     >
       <span className="min-w-0">
         <span className="t-trow-name"><Name name={t.name} range={range} /></span>
+        {full && <span className="t-trow-full">{full}</span>}
         {st && (
           <span className={`t-trow-st ${st.kind === "now" ? "t-st-now" : st.kind === "later" ? "t-st-later" : ""}`}>
             {st.kind === "now" && <i aria-hidden="true" />}{st.text}
@@ -77,7 +80,8 @@ export default function TeacherList({
   const [lettersOpen, setLettersOpen] = useState(false);
   const [lettersAnchor, setLettersAnchor] = useState<HTMLElement | null>(null);
 
-  const matches = useMemo(() => searchTeachers(teachers, query), [teachers, query]);
+  const fullNames = useFullNames();
+  const matches = useMemo(() => searchTeachers(teachers, query, fullNames?.names), [teachers, query, fullNames]);
   const sections = useMemo(() => buildSections(teachers), [teachers]);
   const similar = useMemo(
     () => (matches && matches.length === 0 ? similarTeachers(teachers, query) : []),
@@ -177,7 +181,7 @@ export default function TeacherList({
               <span className="sr-only">{matches.length ? matchesLabel(matches.length) : ""}</span>
             </div>
             {matches.map((m, i) => (
-              <Row key={m.teacher.id} t={m.teacher} status={statuses.get(m.teacher.id)} range={m.range}
+              <Row key={m.teacher.id} t={m.teacher} status={statuses.get(m.teacher.id)} range={m.range} full={m.full}
                 selected={m.teacher.id === selectedId} active={panel && i === active} onPick={onPick} />
             ))}
             {matches.length === 0 && (

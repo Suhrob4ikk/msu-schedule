@@ -8,6 +8,7 @@ import "./tablo-rooms.css";
 import "./tablo-changes.css";
 import "./tablo-compare.css";
 import "./tablo-profile.css";
+import "./tablo-names.css";
 import BottomNav from "@/components/BottomNav";
 import ServerResync from "@/components/ServerResync";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";

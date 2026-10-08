@@ -1,0 +1,86 @@
+/* Полные имена преподавателей: кнопка «раскрыть», опрос, напоминание (components/tablo/names) */
+
+.t-fn-toggle {
+  display: inline-grid; place-items: center; vertical-align: middle;
+  width: 34px; height: 34px; margin-left: 6px; border-radius: 10px;
+  background: var(--soft); color: var(--ink);
+}
+.t-fn-toggle svg { transition: transform .2s; }
+.t-fn-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+.t-fn-toggle:hover { filter: brightness(0.97); }
+.t-tname .t-fn-toggle { width: 40px; height: 40px; margin-left: 8px; position: relative; top: -3px; }
+
+/* опрос */
+.t-fn-poll { margin: 12px 0 4px; border-radius: 16px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
+.t-fn-head { display: flex; align-items: center; }
+.t-fn-headbtn {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px;
+  min-height: 52px; padding: 8px 14px; text-align: left; font-size: 15px; font-weight: 600; color: var(--ink);
+}
+.t-fn-headbtn > svg:first-child { flex-shrink: 0; }
+.t-fn-headbtn > span { flex: 1; min-width: 0; }
+.t-fn-headbtn > svg:last-child { color: var(--text-2); flex-shrink: 0; }
+.t-fn-x { flex-shrink: 0; width: 44px; height: 44px; margin-right: 4px; border-radius: 12px; display: grid; place-items: center; color: var(--text-2); }
+.t-fn-x:hover { background: var(--chip); }
+.t-fn-body { padding: 2px 14px 14px; }
+.t-fn-q { margin: 0 0 12px; color: var(--text-2); font-size: 14.5px; line-height: 1.45; }
+.t-fn-q b { color: var(--text); }
+.t-fn-opt {
+  display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 10px 12px; margin-bottom: 8px;
+  border-radius: 12px; box-shadow: inset 0 0 0 1px var(--line); cursor: pointer; font-size: 15.5px;
+}
+.t-fn-opt input { width: 18px; height: 18px; margin: 0; accent-color: var(--fill); flex-shrink: 0; }
+.t-fn-opt[data-on="true"] { background: var(--soft); box-shadow: inset 0 0 0 1.5px var(--fill); }
+.t-fn-own { margin: -2px 0 10px; }
+.t-fn-input {
+  width: 100%; min-height: 46px; padding: 0 12px; border-radius: 12px; font-size: 16px;
+  background: var(--chip); color: var(--text); box-shadow: inset 0 0 0 1px var(--line); outline: none;
+}
+.t-fn-input:focus { box-shadow: inset 0 0 0 1.5px var(--fill); }
+.t-fn-input[data-bad="true"] { box-shadow: inset 0 0 0 1.5px var(--danger); }
+.t-fn-hint { margin: 6px 2px 0; font-size: 13px; color: var(--text-3); line-height: 1.4; }
+.t-fn-hint[data-tone="bad"] { color: var(--danger); }
+.t-fn-hint[data-tone="ok"] { color: var(--free-text); }
+.t-fn-actions { display: flex; align-items: center; gap: 14px; margin-top: 10px; }
+.t-fn-send {
+  min-height: 46px; padding: 0 22px; border-radius: 13px; background: var(--fill); color: var(--on-fill);
+  font-size: 15.5px; font-weight: 700;
+}
+.t-fn-send:disabled { opacity: .45; cursor: default; }
+.t-fn-link { color: var(--ink); font-weight: 600; font-size: 14.5px; padding: 8px 0 0; }
+.t-fn-res { margin-bottom: 10px; }
+.t-fn-res-top { display: flex; justify-content: space-between; gap: 10px; font-size: 15px; margin-bottom: 5px; }
+.t-fn-res-top b { font-weight: 600; }
+.t-fn-res-top > span { color: var(--text-2); flex-shrink: 0; }
+.t-fn-mine { color: var(--ink); font-size: 13px; }
+.t-fn-bar { height: 8px; border-radius: 4px; background: var(--chip); overflow: hidden; }
+.t-fn-bar i { display: block; height: 100%; border-radius: 4px; background: var(--text-3); }
+.t-fn-res[data-mine="true"] .t-fn-bar i { background: var(--fill); }
+.t-fn-note { margin: 10px 0 0; padding: 10px 12px; border-radius: 12px; font-size: 14px; line-height: 1.45; }
+.t-fn-note[data-tone="ok"] { background: var(--free-bg); color: var(--free-text); }
+.t-fn-note[data-tone="wait"] { background: var(--exam-bg); color: var(--exam-text); }
+
+/* маленькая подсказка в карточке пары */
+.t-fn-ask {
+  display: inline-flex; align-self: flex-start; margin-top: 4px; padding: 3px 10px; border-radius: 999px;
+  background: var(--soft); color: var(--ink); font-size: 13px; font-weight: 600;
+}
+
+/* напоминание в «Расписании» */
+.t-fn-remind { display: flex; align-items: center; margin: 4px 0 10px; border-radius: 14px; background: var(--soft); }
+.t-fn-remind-btn {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 6px 12px;
+  text-align: left; color: var(--ink); font-size: 14.5px; font-weight: 600;
+}
+.t-fn-remind-btn > span { flex: 1; min-width: 0; }
+.t-fn-remind-btn > svg { flex-shrink: 0; }
+.t-fn-remind .t-fn-x { color: var(--ink); }
+.t-fn-list { display: flex; flex-direction: column; gap: 4px; }
+.t-fn-list .t-fn-poll { margin: 0 0 8px; }
+.t-trow-full { display: block; font-size: 13px; color: var(--text-2); }
+.t-fn-who { display: block; color: var(--text); font-weight: 700; }
+.t-fn-skip {
+  flex-shrink: 0; min-height: 36px; padding: 0 12px; margin-right: 6px; border-radius: 10px;
+  background: var(--chip); color: var(--text-2); font-size: 13.5px; font-weight: 600;
+}
+.t-fn-skip:hover { color: var(--text); }

@@ -55,3 +55,29 @@ def send_registration_email(name: str, group: str) -> None:
         log.warning("Письмо отправлено через Resend: %s → %s", name, settings.NOTIFY_EMAIL)
     except Exception as e:
         log.error("Ошибка отправки письма через Resend: %s", e)
+
+
+def send_owner_email(subject: str, html: str, text: str) -> bool:
+    """Письмо владельцу через Resend (тот же отправитель, что у писем о регистрации).
+    True — ушло. Без RESEND_API_KEY молча не отправляет."""
+    if not settings.RESEND_API_KEY:
+        log.warning("RESEND_API_KEY не настроен, письмо «%s» не отправлено", subject)
+        return False
+    try:
+        with httpx.Client(timeout=10) as client:
+            resp = client.post(
+                "https://api.resend.com/emails",
+                headers={"Authorization": f"Bearer {settings.RESEND_API_KEY}"},
+                json={
+                    "from": "МГУ Расписание <onboarding@resend.dev>",
+                    "to": [settings.NOTIFY_EMAIL],
+                    "subject": subject,
+                    "html": html,
+                    "text": text,
+                },
+            )
+            resp.raise_for_status()
+        return True
+    except Exception as e:
+        log.error("Ошибка отправки письма через Resend: %s", e)
+        return False

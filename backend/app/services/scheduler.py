@@ -99,6 +99,23 @@ async def _run_app_update_check():
         db.close()
 
 
+async def _run_full_names_digest():
+    """13:00 — письмо владельцу о новых вариантах полных имён на проверке."""
+    import asyncio
+    from app.database import SessionLocal
+    from app.services.full_names import send_digest
+
+    def run():
+        with SessionLocal() as db:
+            return send_digest(db)
+    try:
+        n = await asyncio.to_thread(run)
+        if n:
+            logger.info(f"Письмо о вариантах имён: {n}")
+    except Exception as e:
+        logger.error(f"Письмо о вариантах имён не ушло: {e}", exc_info=True)
+
+
 def start_scheduler():
     # Проверка расписания: тик раз в 5 минут, частота — по таблице выше
     scheduler.add_job(
@@ -130,6 +147,15 @@ def start_scheduler():
         max_instances=1,
         coalesce=True,
         misfire_grace_time=300,
+    )
+
+    # Сводка новых вариантов полных имён — раз в день в 13:00 (решение владельца)
+    scheduler.add_job(
+        _run_full_names_digest,
+        trigger=CronTrigger(hour=13, minute=0, timezone=TZ),
+        id="full_names_digest",
+        replace_existing=True,
+        misfire_grace_time=3600,
     )
 
     scheduler.start()

@@ -579,6 +579,24 @@ const TTL_NOW  = 60_000;        // «идёт сейчас» — устарев�
 const TTL_VERSION = 5 * 60_000;
 
 /** Пути, на обновление которых подписываются страницы (см. onApiUpdate). */
+export interface FullNamesData {
+  /** «Джумаев Э.Х.» → «Джумаев Эраж Хакназарович» — утверждённые владельцем */
+  names: Record<string, string>;
+  /** варианты опроса для тех, у кого имя ещё не утверждено */
+  variants: Record<string, Array<{ id: number; name: string }>>;
+}
+
+export interface NameResults {
+  teacher: string;
+  answered: boolean;
+  dunno: boolean;
+  mine: number | null;
+  /** свой вариант, который ещё не проверил владелец */
+  pending: string | null;
+  final: string | null;
+  variants: Array<{ id: number; name: string; votes?: number }>;
+}
+
 export const paths = {
   groups: (facultyCode?: string) => `/schedule/groups${buildQuery({ faculty_code: facultyCode })}`,
   groupSchedule: (groupId: number, day?: string, weekId?: number) =>
@@ -640,6 +658,28 @@ export const api = {
 
   getIcsUrl: (groupId: number) =>
     `${API_BASE}/export/ics/${groupId}`,
+
+  // Полные имена преподавателей (lib/fullNames.ts): утверждённые и варианты опроса.
+  // Меняются только из панели разработчика — TTL как у расписания.
+  getFullNames: () =>
+    fetchApi<FullNamesData>('/schedule/full-names', TTL_DATA),
+
+  /** Ответ в опросе «полное имя преподавателя». Ошибка — Error с текстом для человека. */
+  voteName: (body: { device_id: string; teacher: string; variant_id?: number; dunno?: boolean; proposal?: string }) =>
+    fetch(`${API_BASE}/names/vote`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }).then(async r => {
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(typeof data?.detail === 'string' ? data.detail : 'Не получилось отправить ответ');
+      return data as NameResults;
+    }),
+
+  /** Свой ответ и голоса других (голоса — только если сам уже ответил). */
+  nameResults: (deviceId: string, teacher: string) =>
+    fetch(`${API_BASE}/names/results?device_id=${encodeURIComponent(deviceId)}&teacher=${encodeURIComponent(teacher)}`)
+      .then(r => (r.ok ? r.json() as Promise<NameResults> : null)),
 
   /** Последняя версия Android-приложения и ссылка на её APK (источник — GitHub Releases). */
   getAppVersion: () =>

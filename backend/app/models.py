@@ -269,6 +269,49 @@ class TeacherOverride(Base):
     __table_args__ = (UniqueConstraint("subject", "code"),)
 
 
+class TeacherFullName(Base):
+    """Утверждённое полное имя преподавателя: «Джумаев Э.Х.» → «Эраж Хакназарович».
+
+    Ключ — имя, как оно стоит в расписании (после замен ФИО), а не id записи
+    Teacher: id меняются при пересборке базы, имя — нет. Утверждает только
+    владелец в панели разработчика (services/full_names.py)."""
+    __tablename__ = "teacher_full_names"
+    teacher = Column(String(200), primary_key=True)   # «Джумаев Э.Х.»
+    full_name = Column(String(120), nullable=False)   # «Эраж Хакназарович» — без фамилии
+    approved_at = Column(DateTime, default=datetime.utcnow)
+
+
+class TeacherNameVariant(Base):
+    """Вариант полного имени в опросе студентов.
+
+    status: open — виден в опросе всем; pending — предложен студентом и ждёт
+    проверки владельцем (другие не видят); rejected — отклонён."""
+    __tablename__ = "teacher_name_variants"
+    id = Column(Integer, primary_key=True)
+    teacher = Column(String(200), nullable=False)
+    full_name = Column(String(120), nullable=False)
+    status = Column(String(10), nullable=False, default="pending")
+    source = Column(String(20), nullable=False, default="student")  # msu.tj / student / admin
+    proposed_by = Column(String(100), nullable=True)   # device_id предложившего
+    created_at = Column(DateTime, default=datetime.utcnow)
+    notified_at = Column(DateTime, nullable=True)       # попал в письмо-сводку владельцу
+
+    __table_args__ = (UniqueConstraint("teacher", "full_name"),)
+
+
+class TeacherNameVote(Base):
+    """Ответ одного устройства про одного преподавателя: вариант или «не знаю»
+    (variant_id = NULL). Ответ можно менять — строка одна на пару."""
+    __tablename__ = "teacher_name_votes"
+    id = Column(Integer, primary_key=True)
+    teacher = Column(String(200), nullable=False)
+    device_id = Column(String(100), nullable=False)
+    variant_id = Column(Integer, ForeignKey("teacher_name_variants.id", ondelete="CASCADE"), nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (UniqueConstraint("teacher", "device_id"),)
+
+
 class SyncLog(Base):
     """Журнал синхронизации."""
     __tablename__ = "sync_logs"

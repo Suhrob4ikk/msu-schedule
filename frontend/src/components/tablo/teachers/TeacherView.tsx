@@ -15,6 +15,8 @@ import {
   dayEndLabel, tBlockA11y, teacherSummary, weekRange, type GroupRef, type TBlock, type TDay,
 } from "@/lib/tablo/teachers";
 import { BREAK_MAX_MIN } from "@/lib/api";
+import type { FullNamesData } from "@/lib/api";
+import TeacherName from "../names/TeacherName";
 import Icon from "../Icon";
 import TableView from "../schedule/TableView";
 import {
@@ -190,9 +192,12 @@ export interface WeekChoice { weekStart: string; label: string }
 
 export default function TeacherView({
   name, days, rel, now, focus, weeks, weekStart, onWeek, wide, viewMode, onViewMode, showViewToggle,
-  selectedKey, onOpen, onBack, onShare, loading, error, onRetry, empty, onShowNext,
+  selectedKey, onOpen, onBack, onShare, loading, error, onRetry, empty, onShowNext, fullNames, poll,
 }: {
   name: string;
+  fullNames: FullNamesData | null;
+  /** опрос «полное имя» — показывает страница, если этот педагог ведёт у группы пользователя */
+  poll?: React.ReactNode;
   days: TDay[] | null;
   rel: "current" | "future" | "past" | null;
   now: Date | null;
@@ -323,7 +328,7 @@ export default function TeacherView({
       )}
       <div className="t-thead">
         <div className="min-w-0">
-          <h1 className="t-tname" ref={nameRef}>{name}</h1>
+          <h1 className="t-tname" ref={nameRef}><TeacherName name={name} data={fullNames} size={22} /></h1>
           {summary && (
             <p className="t-tsum">{summary.strong && <b>{summary.strong}</b>}{summary.rest}</p>
           )}
@@ -345,6 +350,8 @@ export default function TeacherView({
           </div>
         )}
       </div>
+
+      {poll}
 
       {!wide && (
         <div className="flex items-stretch gap-2 mb-1">

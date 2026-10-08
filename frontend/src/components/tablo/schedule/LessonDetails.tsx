@@ -13,6 +13,8 @@ import { skipKey, noteWeeklyKey, noteDatedKey } from "@/lib/studyData";
 import {
   attendanceApplies, dayTitle, isoOf, type Block, type DayData, type Focus,
 } from "@/lib/tablo/schedule";
+import { answerOf, myGroupId, personsOf, useFullNames } from "@/lib/fullNames";
+import TeacherName from "../names/TeacherName";
 import Icon from "../Icon";
 import { Countdown, leftText, TypeBadge, kindTone } from "./parts";
 
@@ -110,6 +112,16 @@ export default function LessonDetails({ block, focus, days, now, onClose, study,
   const pairsText = block.pairs.length > 1 ? `${block.pairs.join(" и ")} пары` : `${block.pairs[0]} пара`;
   const kind = kindTone(l.lesson_type);
 
+  // Полные имена: кнопка «раскрыть» и «Знаете полное имя?» — у своей группы,
+  // пока имя не утверждено и человек ещё не отвечал (lib/fullNames.ts)
+  const fullNames = useFullNames();
+  const [askName, setAskName] = useState(false);
+  useEffect(() => {
+    const ps = personsOf(l.teacher?.name);
+    setAskName(ps.length === 1 && !!fullNames && !fullNames.names[ps[0]]
+      && !!l.group && l.group.id === myGroupId() && !answerOf(ps[0]));
+  }, [l, fullNames]);
+
   // «Дальше» у идущей: следующая пара сегодня.
   const after = live ? days.flatMap(d => d.blocks).find(b => b.date === block.date && b.startAt >= block.endAt) : undefined;
 
@@ -148,11 +160,12 @@ export default function LessonDetails({ block, focus, days, now, onClose, study,
           </span>
         </div>
         {l.teacher ? (
-          <Link href={`/teachers?teacher=${l.teacher.id}`} className="t-drow t-drow-link">
+          <Link href={`/teachers?teacher=${l.teacher.id}${askName ? "&poll=1" : ""}`} className="t-drow t-drow-link">
             <Icon name="user" size={22} />
             <span>
               <span className="t-drow-cap">Преподаватель{live && kind ? ` · ${kind.label}` : ""}</span>
-              <span className="t-drow-val">{l.teacher.name}</span>
+              <span className="t-drow-val"><TeacherName name={l.teacher.name} data={fullNames} /></span>
+              {askName && <span className="t-fn-ask">Знаете полное имя? →</span>}
             </span>
             <Icon name="chevronRight" size={20} className="t-drow-chev" />
           </Link>

@@ -708,6 +708,15 @@ def get_free_rooms(
     return result
 
 
+@router.get("/full-names")
+def get_full_names(db: Session = Depends(get_db)):
+    """Утверждённые полные имена преподавателей и открытые варианты опроса
+    (services/full_names.py). Меняется только из панели разработчика — она
+    сбрасывает кэш готовых ответов."""
+    from app.services.full_names import public_data
+    return public_data(db)
+
+
 @router.get("/bulk-sync")
 def bulk_sync(db: Session = Depends(get_db)):
     """Всё для офлайн-кэша мобилки одним ответом.

@@ -19,6 +19,8 @@ import { ShareList, type ShareAction } from "@/components/tablo/schedule/bits";
 import type { FocusLike } from "@/components/tablo/schedule/parts";
 import TeacherList from "@/components/tablo/teachers/TeacherList";
 import TeacherView, { TeacherDetails, type WeekChoice } from "@/components/tablo/teachers/TeacherView";
+import NamePoll from "@/components/tablo/names/NamePoll";
+import { answerOf, isHidden, myGroupId, useFullNames } from "@/lib/fullNames";
 import { api, DAYS_ORDER, type Lesson, type Teacher } from "@/lib/api";
 import { shareScheduleImage } from "@/lib/shareImage";
 import { useLayout, useNow } from "@/lib/tablo/hooks";
@@ -119,6 +121,22 @@ export default function TeachersPage() {
   const [nextLessons, setNextLessons] = useState<Lesson[] | null | undefined>(undefined);
 
   const selTeacher = teachers.find(t => t.id === selId) ?? null;
+
+  // ─── Полные имена (lib/fullNames.ts) ─────────────────────────────────────
+  const fullNames = useFullNames();
+  const [pollTick, setPollTick] = useState(0);
+  const [pollOpen, setPollOpen] = useState(false);
+  useEffect(() => { setPollOpen(new URLSearchParams(window.location.search).get("poll") === "1"); }, [selId]);
+  const pollFor = useMemo(() => {
+    void pollTick;
+    const name = selTeacher?.name;
+    const mine = myGroupId();
+    if (!name || !fullNames || fullNames.names[name] || !mine || !lessons) return null;
+    // Спрашиваем только тех, у чьей группы он ведёт пары (на открытой неделе)
+    if (!lessons.some(l => l.group?.id === mine)) return null;
+    if (!answerOf(name) && isHidden(name)) return null;
+    return name;
+  }, [selTeacher, fullNames, lessons, pollTick]);
 
   // Подробности пары: какая открыта и у какой ячейки
   const [sel, setSel] = useState<{ key: string; el: HTMLElement | null } | null>(null);
@@ -336,6 +354,11 @@ export default function TeachersPage() {
       onRetry={() => selId && loadTeacher(selId, weekStart ?? undefined)}
       empty={empty}
       onShowNext={() => weekStart && pickWeek(addDays(weekStart, 7))}
+      fullNames={fullNames}
+      poll={pollFor ? (
+        <NamePoll key={pollFor} teacher={pollFor} variants={fullNames?.variants[pollFor] ?? []}
+          startOpen={pollOpen} onHide={() => setPollTick(t => t + 1)} />
+      ) : null}
     />
   ) : null;
 

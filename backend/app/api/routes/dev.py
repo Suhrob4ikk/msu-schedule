@@ -257,6 +257,51 @@ def dev_missing_teachers(db: Session = Depends(get_db)):
     return sorted(out, key=lambda r: (r["override"] is not None, -r["lessons"]))
 
 
+# ── Полные имена преподавателей (services/full_names.py) ─────────────────
+@router.get("/full-names", dependencies=[Depends(require_dev)])
+def dev_full_names(db: Session = Depends(get_db)):
+    from app.services.full_names import admin_overview
+    return admin_overview(db)
+
+
+class FullNameBody(BaseModel):
+    teacher: str
+    full_name: Optional[str] = None   # пусто — убрать утверждённое имя
+
+
+def _names_call(fn):
+    from app.services.full_names import VoteError
+    try:
+        fn()
+    except VoteError as e:
+        raise HTTPException(400, str(e))
+    return {"ok": True}
+
+
+@router.post("/full-names/variants/{variant_id}/approve", dependencies=[Depends(require_dev)])
+def dev_variant_approve(variant_id: int, db: Session = Depends(get_db)):
+    from app.services.full_names import set_variant_status
+    return _names_call(lambda: set_variant_status(db, variant_id, "open"))
+
+
+@router.post("/full-names/variants/{variant_id}/reject", dependencies=[Depends(require_dev)])
+def dev_variant_reject(variant_id: int, db: Session = Depends(get_db)):
+    from app.services.full_names import set_variant_status
+    return _names_call(lambda: set_variant_status(db, variant_id, "rejected"))
+
+
+@router.post("/full-names/variants/{variant_id}/merge/{into_id}", dependencies=[Depends(require_dev)])
+def dev_variant_merge(variant_id: int, into_id: int, db: Session = Depends(get_db)):
+    from app.services.full_names import merge_variant
+    return _names_call(lambda: merge_variant(db, variant_id, into_id))
+
+
+@router.post("/full-names/final", dependencies=[Depends(require_dev)])
+def dev_full_name_final(body: FullNameBody, db: Session = Depends(get_db)):
+    from app.services.full_names import set_final
+    return _names_call(lambda: set_final(db, body.teacher.strip(), (body.full_name or "").strip() or None))
+
+
 # ── Ручные действия ──────────────────────────────────────────────────────
 @router.post("/sync", dependencies=[Depends(require_dev)])
 async def dev_sync():
