@@ -329,7 +329,6 @@ export default function ProfilePage() {
             <h2 className="t-over t-pf-h">Напоминания</h2>
               <section className="t-pf-card t-pf-notes">
                 <PushRow sessionId={deviceId} groupId={groupId} />
-                <p>Напоминания о зачётах и перед парой приходят в приложении для Android.</p>
                 {apk && <a href={apk} className="t-pf-ghost"><Icon name="download" size={18} />Скачать APK</a>}
                 {apk && (
                   <details className="t-pf-why">

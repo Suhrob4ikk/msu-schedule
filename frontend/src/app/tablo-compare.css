@@ -88,7 +88,9 @@
 .t-cm-head span { font-size: 12px; color: var(--text-2); }
 .t-cm-day { font-size: 17px; font-weight: 700; }
 .t-cm-today { color: var(--ink); }
-.t-cm-sq { position: relative; display: flex; align-items: center; justify-content: center; gap: 3px; aspect-ratio: 1; border-radius: 14px; border: 1.5px solid transparent; transition: box-shadow 0.12s; }
+.t-cm-today span { color: var(--ink); }
+.t-cm-pair { align-items: flex-start; }
+.t-cm-sq { position: relative; display: flex; align-items: center; justify-content: center; gap: 3px; aspect-ratio: 1; border-radius: 12px; border: 1.5px solid transparent; transition: box-shadow 0.12s; }
 .t-cm-free, i.t-cm-free { background: var(--free-bg); border-color: color-mix(in oklab, var(--free-text) 30%, transparent); }
 .t-cm-mine, i.t-cm-mine { background: var(--exam-bg); border-color: color-mix(in oklab, var(--exam-text) 35%, transparent); }
 .t-cm-other, i.t-cm-other { background: var(--lec-bg); border-color: color-mix(in oklab, var(--lec-text) 35%, transparent); }

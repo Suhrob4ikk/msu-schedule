@@ -2,7 +2,8 @@
 /**
  * Таблица «дни × пары» для «Сравнения»: от 1024 — вся неделя с названиями,
  * уже — компактная матрица цветных квадратов (так на телефоне удобнее,
- * решение владельца окт 2026); по нажатию на квадрат внизу видно пару.
+ * решение владельца окт 2026): дни сверху, пары слева (как широкая таблица, просьба
+ * владельца 8 окт 2026); по нажатию на квадрат внизу видно пару.
  * В ячейке широкой таблицы по строке на каждую группу:
  * маркер цвета группы, предмет, аудитория; «нет пары» — пустой маркер;
  * где свободны все — ячейка `--soft` «обе свободны».
@@ -78,8 +79,8 @@ export default function CompareGrid({ groups, weekStart, now, activeDays, window
   const days = [0, 1, 2, 3, 4, 5];
 
   if (single) {
-    const rows = activeDays.length ? activeDays : days;
-    const freeCount = rows.reduce((n, d) => n + PAIR_NUMBERS.filter(p => groups.every(g => !g.map.has(slotKey(d, p)))).length, 0);
+    const cols = activeDays.length ? activeDays : days;
+    const freeCount = cols.reduce((n, d) => n + PAIR_NUMBERS.filter(p => groups.every(g => !g.map.has(slotKey(d, p)))).length, 0);
     const state = (d: number, p: string) => {
       const busy = groups.map(g => g.map.has(slotKey(d, p)));
       if (busy.every(b => !b)) return "free";
@@ -90,17 +91,21 @@ export default function CompareGrid({ groups, weekStart, now, activeDays, window
     return (
       <div className="t-cm">
         <p className="t-cm-count"><strong>{freeCount}</strong> {freeCount === 1 ? "общая свободная пара" : "общих свободных пар"}</p>
-        <div className="t-cm-grid" style={{ gridTemplateColumns: `40px repeat(${PAIR_NUMBERS.length}, minmax(0, 1fr))` }}>
+        <div className="t-cm-grid" style={{ gridTemplateColumns: `44px repeat(${cols.length}, minmax(0, 1fr))` }}>
           <span />
-          {PAIR_NUMBERS.map(p => <div key={p} className="t-cm-head"><b>{p}</b><span>{PAIR_TIMES[p][0]}</span></div>)}
-          {rows.map(d => (
-            <Fragment key={d}>
-              <b className={`t-cm-day ${dayHead(d).today ? "t-cm-today" : ""}`}>{DAY_SHORT[d]}</b>
-              {PAIR_NUMBERS.map(p => {
+          {cols.map(d => (
+            <div key={d} className={`t-cm-head ${dayHead(d).today ? "t-cm-today" : ""}`}>
+              <b>{DAY_SHORT[d]}</b><span>{dayHead(d).num}</span>
+            </div>
+          ))}
+          {PAIR_NUMBERS.map(p => (
+            <Fragment key={p}>
+              <div className="t-cm-head t-cm-pair"><b>{p}</b><span>{PAIR_TIMES[p][0]}</span></div>
+              {cols.map(d => {
                 const st = state(d, p);
                 const on = sel?.d === d && sel.p === p;
                 return (
-                  <button key={p} type="button" aria-pressed={on}
+                  <button key={d} type="button" aria-pressed={on}
                     aria-label={`${DAY_SHORT[d]}, ${p} пара: ${word[st]}`}
                     className={`t-cm-sq t-cm-${st} ${isHot(d, p) ? "t-cg-hot" : ""} ${on ? "t-cm-on" : ""} ${pastCell(d, p) && dayHead(d).today ? "t-cg-past" : ""}`}
                     onClick={() => setSel(on ? null : { d, p })}>
