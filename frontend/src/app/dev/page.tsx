@@ -265,7 +265,7 @@ function FullNamesSection({ data, busy, act, api }: {
               <b style={{ fontSize: 14.5 }}>{t.teacher}</b>
               {t.final
                 ? <span style={{ color: c.green, fontSize: 14 }}>→ {t.final}</span>
-                : <span style={{ color: c.muted, fontSize: 12.5 }}>{t.groups.length ? shortGroups(t.groups) : "сейчас пар нет"}{t.dunno ? ` · «не знаю»: ${t.dunno}` : ""}</span>}
+                : <span style={{ color: c.muted, fontSize: 12.5 }}>{t.groups.length ? shortGroups(t.groups) : "сейчас пар нет"}</span>}
               {t.final && (
                 <button style={{ ...btn, padding: "3px 10px", fontSize: 12, marginLeft: "auto", color: c.red }} disabled={!!busy}
                   onClick={() => {

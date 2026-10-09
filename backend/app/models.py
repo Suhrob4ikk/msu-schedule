@@ -300,7 +300,7 @@ class TeacherNameVariant(Base):
 
 
 class TeacherNameVote(Base):
-    """Ответ одного устройства про одного преподавателя: вариант или «не знаю»
+    """Ответ одного устройства про одного преподавателя: вариант (NULL — старый «не знаю», стирается при старте)
     (variant_id = NULL). Ответ можно менять — строка одна на пару."""
     __tablename__ = "teacher_name_votes"
     id = Column(Integer, primary_key=True)

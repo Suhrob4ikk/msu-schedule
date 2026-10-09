@@ -57,13 +57,13 @@ export default function NamesReminder({ teachers, data, floating = false }: {
         </button>
       </div>
       {sheet && (
-        <Sheet title="Полные имена преподавателей" subtitle="Ответьте, про кого знаете — остальных можно пропустить"
+        <Sheet title="Полные имена преподавателей" subtitle="Ответьте, про кого знаете. Не знаете — нажмите ×"
           onClose={() => setSheet(false)}>
           <div className="t-fn-list">
             {ask.length === 0 && <p className="t-fn-q">Готово — спасибо!</p>}
             {ask.map(t => (
-              <NamePoll key={t} teacher={t} variants={data.variants[t] ?? []} closable={false} named startOpen={ask.length === 1}
-                onSkip={() => setAsk(a => a.filter(x => x !== t))} />
+              <NamePoll key={t} teacher={t} variants={data.variants[t] ?? []} named startOpen={ask.length === 1}
+                onHide={() => setAsk(a => a.filter(x => x !== t))} />
             ))}
           </div>
         </Sheet>

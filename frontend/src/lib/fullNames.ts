@@ -15,7 +15,7 @@
 import { useEffect, useState } from "react";
 import { api, onApiUpdate, type FullNamesData } from "./api";
 
-const ANSWERED_KEY = "fn_answered";       // { teacher: "voted" | "dunno" | "pending" }
+const ANSWERED_KEY = "fn_answered";       // { teacher: "voted" | "pending" }
 const HIDDEN_KEY = "fn_hidden";           // { teacher: ISO-дата, до которой не показывать }
 const REMINDER_KEY = "fn_reminder_week";  // понедельник недели, когда напоминание закрыли
 const HIDE_DAYS = 7;
@@ -108,10 +108,12 @@ function writeMap(key: string, m: Record<string, string>): void {
   try { localStorage.setItem(key, JSON.stringify(m)); } catch { /* приватный режим */ }
 }
 
-export type Answer = "voted" | "dunno" | "pending";
+export type Answer = "voted" | "pending";
 
 export function answerOf(teacher: string): Answer | null {
-  return (readMap(ANSWERED_KEY)[teacher] as Answer) ?? null;
+  const a = readMap(ANSWERED_KEY)[teacher];
+  // «dunno» — ответ «Не знаю» до 9 окт 2026; его больше нет, а на сервере он стёрт
+  return a === "voted" || a === "pending" ? a : null;
 }
 export function rememberAnswer(teacher: string, a: Answer | null): void {
   const m = readMap(ANSWERED_KEY);

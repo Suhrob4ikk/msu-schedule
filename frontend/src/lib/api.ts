@@ -589,7 +589,6 @@ export interface FullNamesData {
 export interface NameResults {
   teacher: string;
   answered: boolean;
-  dunno: boolean;
   mine: number | null;
   /** свой вариант, который ещё не проверил владелец */
   pending: string | null;
@@ -665,7 +664,7 @@ export const api = {
     fetchApi<FullNamesData>('/schedule/full-names', TTL_DATA),
 
   /** Ответ в опросе «полное имя преподавателя». Ошибка — Error с текстом для человека. */
-  voteName: (body: { device_id: string; teacher: string; variant_id?: number; dunno?: boolean; proposal?: string }) =>
+  voteName: (body: { device_id: string; teacher: string; variant_id?: number; proposal?: string }) =>
     fetch(`${API_BASE}/names/vote`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

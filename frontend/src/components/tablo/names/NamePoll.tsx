@@ -3,8 +3,10 @@
  * Опрос «Знаете полное имя преподавателя?» (lib/fullNames.ts).
  *
  * Не мешает: свёрнут в одну строку с крестиком, раскрывается по нажатию.
- * Крестик прячет на неделю. После ответа — голоса других (сервер отдаёт их
- * только ответившему). Своё имя проверяется по буквам инициалов сразу при вводе.
+ * Крестик прячет на неделю — только в этом браузере, на сервер ничего не уходит.
+ * Ответа «Не знаю» нет (решение владельца 9 окт 2026: не засорять базу) — не знаешь,
+ * просто сверни или скрой. После ответа — голоса других (сервер отдаёт их только
+ * ответившему). Своё имя проверяется по буквам инициалов сразу при вводе.
  */
 import { useEffect, useState } from "react";
 import { api, type NameResults } from "@/lib/api";
@@ -13,9 +15,9 @@ import {
 } from "@/lib/fullNames";
 import Icon from "../Icon";
 
-type Choice = { kind: "variant"; id: number } | { kind: "own" } | { kind: "dunno" } | null;
+type Choice = { kind: "variant"; id: number } | { kind: "own" } | null;
 
-export default function NamePoll({ teacher, variants, startOpen = false, closable = true, named = false, ownGroup = true, onHide, onAnswered, onSkip }: {
+export default function NamePoll({ teacher, variants, startOpen = false, closable = true, named = false, ownGroup = true, onHide, onAnswered }: {
   teacher: string;
   /** ведёт ли он у группы пользователя — от этого только текст вопроса */
   ownGroup?: boolean;
@@ -26,8 +28,6 @@ export default function NamePoll({ teacher, variants, startOpen = false, closabl
   closable?: boolean;
   onHide?: () => void;
   onAnswered?: () => void;
-  /** кнопка «Не знаю» прямо в строке: ответ «не знаю» — и строку можно убрать */
-  onSkip?: () => void;
 }) {
   const [open, setOpen] = useState(startOpen);
   const [answered, setAnswered] = useState<string | null>(null);
@@ -63,30 +63,14 @@ export default function NamePoll({ teacher, variants, startOpen = false, closabl
       const r = await api.voteName({
         device_id: dev, teacher,
         ...(choice.kind === "variant" ? { variant_id: choice.id } : {}),
-        ...(choice.kind === "dunno" ? { dunno: true } : {}),
         ...(choice.kind === "own" ? { proposal: tidyName(own) } : {}),
       });
-      const a = r.dunno ? "dunno" : r.pending ? "pending" : "voted";
+      const a = r.pending ? "pending" : "voted";
       rememberAnswer(teacher, a);
       setAnswered(a); setRes(r); setEditing(false); setChoice(null); setOwn("");
       onAnswered?.();
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Не получилось отправить ответ");
-    }
-    setBusy(false);
-  };
-
-  const skip = async () => {
-    const dev = myDeviceId();
-    if (!dev) return;
-    setBusy(true);
-    try {
-      await api.voteName({ device_id: dev, teacher, dunno: true });
-      rememberAnswer(teacher, "dunno");
-      onSkip?.();
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "Не получилось");
-      setOpen(true);
     }
     setBusy(false);
   };
@@ -107,11 +91,8 @@ export default function NamePoll({ teacher, variants, startOpen = false, closabl
           </span>
           <Icon name={open ? "chevronUp" : "chevronDown"} size={20} />
         </button>
-        {onSkip && !answered && (
-          <button type="button" className="t-fn-skip" disabled={busy} onClick={skip}>Не знаю</button>
-        )}
         {closable && !answered && (
-          <button type="button" className="t-fn-x" aria-label="Не сейчас" onClick={() => { hideFor(teacher); onHide?.(); }}>
+          <button type="button" className="t-fn-x" aria-label="Скрыть на неделю" title="Скрыть на неделю" onClick={() => { hideFor(teacher); onHide?.(); }}>
             <Icon name="close" size={18} />
           </button>
         )}
@@ -149,10 +130,6 @@ export default function NamePoll({ teacher, variants, startOpen = false, closabl
                 </p>
               </div>
             )}
-            <label className="t-fn-opt" data-on={choice?.kind === "dunno"}>
-              <input type="radio" name={`fn-${teacher}`} checked={choice?.kind === "dunno"} onChange={() => setChoice({ kind: "dunno" })} />
-              Не знаю
-            </label>
           </div>
           {err && <p className="t-fn-hint" data-tone="bad">{err}</p>}
           <div className="t-fn-actions">
@@ -166,9 +143,7 @@ export default function NamePoll({ teacher, variants, startOpen = false, closabl
 
       {open && !showForm && (
         <div className="t-fn-body">
-          {answered === "dunno" ? (
-            <p className="t-fn-note" data-tone="ok">Понятно, спасибо! Больше не будем спрашивать про этого преподавателя.</p>
-          ) : res ? (
+          {res ? (
             <>
               {res.variants.length > 0 && (
                 <p className="t-fn-q">Ответили {total} {plural(total, "человек", "человека", "человек")}. Имя появится у всех, когда его утвердит администратор.</p>

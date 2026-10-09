@@ -4,7 +4,9 @@
 - в расписании имя остаётся «Джумаев Э.Х.», полное «Джумаев Эраж Хакназарович»
   раскрывается кнопкой — если владелец его утвердил (TeacherFullName);
 - пока не утвердил — студентов групп, у которых преподаватель ведёт пары на этой
-  неделе, спрашивают: выбрать вариант, предложить своё или «не знаю»;
+  неделе, спрашивают: выбрать вариант или предложить своё. Ответа «не знаю» нет
+  (решение владельца 9 окт 2026: строка на каждого студента и преподавателя ничего не
+  даёт) — не знаешь, просто скрой опрос в браузере;
 - своё имя обязано начинаться на буквы инициалов (для «Э.Х.» — на «Э» и «Х»),
   окончания не проверяем; другим оно видно только после одобрения владельцем;
 - итог утверждает только владелец (панель разработчика), сам ничего не утверждается;
@@ -212,7 +214,6 @@ def results(db: Session, teacher: str, device_id: str) -> dict:
     return {
         "teacher": teacher,
         "answered": vote is not None,
-        "dunno": bool(vote and vote.variant_id is None),
         "mine": mine,
         "pending": pending,
         "final": full_display(teacher, final.full_name) if final else None,
@@ -222,6 +223,9 @@ def results(db: Session, teacher: str, device_id: str) -> dict:
 
 def vote(db: Session, device_id: str, teacher: str, variant_id: Optional[int] = None,
          dunno: bool = False, proposal: Optional[str] = None) -> dict:
+    if dunno and proposal is None and not variant_id:
+        # «Не знаю» больше не записываем; старая открытая вкладка ещё может прислать
+        return results(db, teacher, device_id)
     reg = db.query(UserRegistration).filter_by(device_id=device_id).first()
     if not reg or not reg.group_id:
         raise VoteError("Сначала выберите группу в Кабинете")
@@ -262,7 +266,7 @@ def vote(db: Session, device_id: str, teacher: str, variant_id: Optional[int] = 
             db.add(var)
             db.flush()
             target_id = var.id
-    elif not dunno:
+    else:
         var = db.get(TeacherNameVariant, variant_id) if variant_id else None
         if not var or var.teacher != teacher or var.status != "open":
             raise VoteError("Такого варианта нет")
@@ -283,12 +287,9 @@ def admin_overview(db: Session) -> dict:
     final = {r.teacher: r.full_name for r in db.query(TeacherFullName).all()}
     variants = db.query(TeacherNameVariant).order_by(TeacherNameVariant.id).all()
     counts: dict[int, int] = {}
-    dunno: dict[str, int] = {}
     for v in db.query(TeacherNameVote).all():
         if v.variant_id:
             counts[v.variant_id] = counts.get(v.variant_id, 0) + 1
-        else:
-            dunno[v.teacher] = dunno.get(v.teacher, 0) + 1
     current = all_current_teachers(db)
 
     by_teacher: dict[str, list] = {}
@@ -328,7 +329,6 @@ def admin_overview(db: Session) -> dict:
             "current": t in current,
             "groups": sorted(current.get(t, [])),
             "variants": [brief(v) for v in by_teacher.get(t, []) if v.status != "rejected"],
-            "dunno": dunno.get(t, 0),
         })
     return {"pending": pending, "teachers": teachers}
 
@@ -372,6 +372,15 @@ def set_final(db: Session, teacher: str, full_name: Optional[str]) -> None:
 
 
 # ── засев и письмо-сводка ─────────────────────────────────────────────────
+def drop_dunno_votes(db: Session) -> int:
+    """Стереть ответы «не знаю» (до 9 окт 2026 они записывались). Идемпотентно."""
+    n = db.query(TeacherNameVote).filter(TeacherNameVote.variant_id.is_(None)).delete()
+    db.commit()
+    if n:
+        logger.info(f"Ответы «не знаю» стёрты: {n}")
+    return n
+
+
 def seed(db: Session) -> None:
     """Имена с msu.tj — один раз, в пустые таблицы."""
     from app.services.full_names_seed import FINAL, VARIANTS

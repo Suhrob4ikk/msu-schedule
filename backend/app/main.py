@@ -255,9 +255,10 @@ async def lifespan(app: FastAPI):
     load_teacher_overrides()
     try:
         from app.database import SessionLocal
-        from app.services.full_names import seed as seed_full_names
+        from app.services.full_names import seed as seed_full_names, drop_dunno_votes
         with SessionLocal() as db:
             seed_full_names(db)
+            drop_dunno_votes(db)
     except Exception as e:
         logger.warning(f"Не удалось засеять полные имена: {e}")
 
