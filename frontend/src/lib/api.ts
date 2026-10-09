@@ -659,9 +659,11 @@ export const api = {
     `${API_BASE}/export/ics/${groupId}`,
 
   // Полные имена преподавателей (lib/fullNames.ts): утверждённые и варианты опроса.
-  // Меняются только из панели разработчика — TTL как у расписания.
+  // Меняются из панели разработчика — владелец ждёт увидеть «Утвердить» сразу, поэтому
+  // минута, а не 10, как у расписания (9 окт 2026). Ответ маленький и лежит в памяти
+  // сервера (кэш готовых ответов), база не трогается.
   getFullNames: () =>
-    fetchApi<FullNamesData>('/schedule/full-names', TTL_DATA),
+    fetchApi<FullNamesData>('/schedule/full-names', 60_000),
 
   /** Ответ в опросе «полное имя преподавателя». Ошибка — Error с текстом для человека. */
   voteName: (body: { device_id: string; teacher: string; variant_id?: number; proposal?: string }) =>
