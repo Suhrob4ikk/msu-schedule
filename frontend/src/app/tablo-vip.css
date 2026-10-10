@@ -14,6 +14,7 @@
   --gold-l: #f7d774;
   --gold-xl: #fff4c7;
   --gold-on: #3d2a00;
+  --gold-metal: linear-gradient(110deg, #8a6212, #d4a017 25%, #f7d774 50%, #d4a017 75%, #8a6212);
   --vip-card-1: #2a2213;
   --vip-card-2: #121009;
   --vip-card-3: #070605;
@@ -77,6 +78,12 @@
     pointer-events: none;
   }
   @keyframes vip-spin { to { --vip-a: 360deg; } }
+
+  /* ── «Металлическое золото»: заливки акцента с переливом ─────── */
+  html.vip.accent-gold :is(.t-focus-live, .t-cell-live, .t-btn-fill, .t-float-mine, .t-dcell-on, .t-chip-sel,
+    .t-count, .t-lg-go, .t-ap-live, .t-sw-on, .t-install-go, .t-cg-chip-on, .t-when-chip-on, .t-cp-ok) {
+    background-image: var(--gold-metal);
+  }
 
   /* ── Приветствие на «Расписании» ─────────────────────────── */
   .vip-greet { font-size: 28px; font-weight: 800; line-height: 1.12; margin: 2px 0 14px; letter-spacing: -0.01em; }

@@ -121,6 +121,24 @@ export function deriveAccent(hex: string, mode: Mode): AccentVars {
   return { fill, ink, ring: shiftL(ink, 0.08), onFill: pickOnFill(fill) };
 }
 
+/**
+ * «Металлическое золото» особых пользователей (lib/special.ts, решение владельца
+ * 10 окт 2026). Формула давала текст золотом на белом оливковым (#846700), поэтому
+ * значения подобраны вручную: текст бронзовый. Заливки ещё и с переливом —
+ * класс `accent-gold` на <html>, градиент в app/tablo-vip.css.
+ */
+export const GOLD_ACCENT = "#C9A227";
+const GOLD_VARS: Record<"light" | "dark", AccentVars> = {
+  light: { fill: "#D4AF37", ink: "#8B5A0B", ring: "#74480A", onFill: "#2E1C00" },
+  dark: { fill: "#D9B44A", ink: "#F2CC6A", ring: "#FFE19A", onFill: "#2E1C00" },
+};
+export const isGold = (hex: string | null | undefined) => hex?.toUpperCase() === GOLD_ACCENT;
+
+/** Свой цвет: золото — ручные значения, остальное — формула. */
+function customVars(hex: string, mode: Mode): AccentVars {
+  return isGold(hex) ? GOLD_VARS[mode === "light" ? "light" : "dark"] : deriveAccent(hex, mode);
+}
+
 export function presetVars(id: AccentPresetId, mode: Mode): AccentVars {
   const t = SPEC_TABLE[id];
   if (t) return mode === "light" ? t.light : t.dark;
@@ -142,7 +160,7 @@ export function accentHex(a: Appearance): string {
 }
 
 export function accentVars(a: Appearance, mode: Mode): AccentVars {
-  if (a.accent.preset === "custom" && a.accent.custom) return deriveAccent(a.accent.custom, mode);
+  if (a.accent.preset === "custom" && a.accent.custom) return customVars(a.accent.custom, mode);
   return presetVars(a.accent.preset === "custom" ? "blue" : a.accent.preset, mode);
 }
 
@@ -265,6 +283,7 @@ export function applyAppearance(a: Appearance): void {
   }
   applyTypes(root, a.types ?? DEFAULT_TYPES, mode);
   root.classList.toggle("compact", a.density === "compact");
+  root.classList.toggle("accent-gold", a.accent.preset === "custom" && isGold(a.accent.custom));
   document.querySelectorAll('meta[name="theme-color"]').forEach(m => {
     m.removeAttribute("media");
     m.setAttribute("content", MODE_BASE[mode].bg);
@@ -306,7 +325,7 @@ export function saveAppearance(a: Appearance): void {
     if (a.accent.preset === "custom" && a.accent.custom) {
       const c = a.accent.custom;
       localStorage.setItem(CUSTOM_VARS_KEY, JSON.stringify({
-        light: deriveAccent(c, "light"), dark: deriveAccent(c, "dark"), black: deriveAccent(c, "black"),
+        light: customVars(c, "light"), dark: customVars(c, "dark"), black: customVars(c, "black"),
       }));
     }
   } catch { /* приватный режим — оформление действует до перезагрузки */ }
@@ -327,5 +346,6 @@ export function appearanceInitScript(): string {
   const shades: Record<string, Record<Mode, ShadePair>> = {};
   for (const x of TYPE_SHADES) shades[x.id] = { light: shadePair(x.id, "light"), dark: shadePair(x.id, "dark"), black: shadePair(x.id, "black") };
   const shadeTable = JSON.stringify(shades);
-  return `(function(){try{var P=${table};var d=document.documentElement,s=localStorage,a=null;try{a=JSON.parse(s.getItem('${APPEARANCE_KEY}')||'null')}catch(e){}var bg,pr;if(a&&a.version===1){bg=a.background;pr=a.accent&&a.accent.preset}else{var t=s.getItem('theme');bg=(t==='light'||t==='dark')?t:'system';pr=s.getItem('accent')==='green'?'emerald':'blue'}var m=(bg==='light'||bg==='dark'||bg==='black')?bg:(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');if(m!=='light')d.classList.add('dark');if(m==='black')d.classList.add('black');var v=null;if(pr==='custom'){try{v=JSON.parse(s.getItem('${CUSTOM_VARS_KEY}')||'null');v=v&&v[m]}catch(e){}}else if(pr&&pr!=='blue'&&P[pr]){v=P[pr][m]}if(v){d.style.setProperty('--fill',v.fill);d.style.setProperty('--ink',v.ink);d.style.setProperty('--ring',v.ring);d.style.setProperty('--on-fill',v.onFill)}var S=${shadeTable},T=a&&a.types;if(T){var D={lecture:'sky',practice:'lilac',exam:'amber'},N={lecture:'lec',practice:'lab',exam:'exam'};for(var k in N){var x=T[k];if(x&&x!==D[k]&&S[x]){var q=S[x][m];d.style.setProperty('--'+N[k]+'-bg',q.bg);d.style.setProperty('--'+N[k]+'-text',q.text)}else if(x&&x.charAt(0)==='#'){var C=JSON.parse(s.getItem('${TYPE_VARS_KEY}')||'{}'),q2=C[k]&&C[k][m];if(q2){d.style.setProperty('--'+N[k]+'-bg',q2.bg);d.style.setProperty('--'+N[k]+'-text',q2.text)}}}}if(a&&a.density==='compact')d.classList.add('compact')}catch(e){}})();`;
+  const gold = JSON.stringify(GOLD_VARS);
+  return `(function(){try{var P=${table};var d=document.documentElement,s=localStorage,a=null;try{a=JSON.parse(s.getItem('${APPEARANCE_KEY}')||'null')}catch(e){}var bg,pr;if(a&&a.version===1){bg=a.background;pr=a.accent&&a.accent.preset}else{var t=s.getItem('theme');bg=(t==='light'||t==='dark')?t:'system';pr=s.getItem('accent')==='green'?'emerald':'blue'}var m=(bg==='light'||bg==='dark'||bg==='black')?bg:(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');if(m!=='light')d.classList.add('dark');if(m==='black')d.classList.add('black');var v=null;if(pr==='custom'&&a&&a.accent&&String(a.accent.custom).toUpperCase()==='${GOLD_ACCENT}'){v=${gold}[m==='light'?'light':'dark'];d.classList.add('accent-gold')}else if(pr==='custom'){try{v=JSON.parse(s.getItem('${CUSTOM_VARS_KEY}')||'null');v=v&&v[m]}catch(e){}}else if(pr&&pr!=='blue'&&P[pr]){v=P[pr][m]}if(v){d.style.setProperty('--fill',v.fill);d.style.setProperty('--ink',v.ink);d.style.setProperty('--ring',v.ring);d.style.setProperty('--on-fill',v.onFill)}var S=${shadeTable},T=a&&a.types;if(T){var D={lecture:'sky',practice:'lilac',exam:'amber'},N={lecture:'lec',practice:'lab',exam:'exam'};for(var k in N){var x=T[k];if(x&&x!==D[k]&&S[x]){var q=S[x][m];d.style.setProperty('--'+N[k]+'-bg',q.bg);d.style.setProperty('--'+N[k]+'-text',q.text)}else if(x&&x.charAt(0)==='#'){var C=JSON.parse(s.getItem('${TYPE_VARS_KEY}')||'{}'),q2=C[k]&&C[k][m];if(q2){d.style.setProperty('--'+N[k]+'-bg',q2.bg);d.style.setProperty('--'+N[k]+'-text',q2.text)}}}}if(a&&a.density==='compact')d.classList.add('compact')}catch(e){}})();`;
 }
