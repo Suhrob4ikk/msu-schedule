@@ -18,16 +18,6 @@
   --vip-card-1: #2a2213;
   --vip-card-2: #121009;
   --vip-card-3: #070605;
-  --vip-paper: #fffdf6;
-  --vip-paper-line: #efe3c2;
-  --vip-paper-ink: #3b2f17;
-  --vip-env-1: #eadbb1;
-  --vip-env-2: #e0cc97;
-  --vip-env-back: #efe3c2;
-  --vip-flap-1: #d9c48b;
-  --vip-flap-2: #cdb574;
-  --vip-night: #0b0a08;
-  --vip-night-text: #e9dfc4;
 }
 
 @layer components {
@@ -56,11 +46,6 @@
 
   .vip-fly { position: absolute; pointer-events: none; z-index: 5; }
   .vip-fly svg { width: 100%; height: 100%; display: block; }
-  .vip-spark {
-    position: absolute; left: 0; top: 0; width: 3px; height: 3px; border-radius: 50%; pointer-events: none;
-    background: var(--gold-l); box-shadow: 0 0 6px 1px color-mix(in srgb, var(--gold-l) 90%, transparent);
-  }
-
   /* ── Золотая рамка у идущей пары ─────────────────────────── */
   html.vip .t-focus-live::after,
   html.vip .t-cell-live::after {
@@ -85,24 +70,32 @@
     background-image: var(--gold-metal);
   }
 
+  /* Карточка «следующая пара» (не идущая): фон — слабый оттенок акцента, и в тёмной
+     теме золото с серым давало коричневый. Тут — как золотая карта: отлив и рамка. */
+  html.vip.accent-gold .t-focus:not(.t-focus-live) {
+    background-image: linear-gradient(115deg, transparent 25%, color-mix(in srgb, var(--gold-xl) 45%, transparent) 50%, transparent 75%);
+    box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--gold) 60%, transparent);
+  }
+  html.dark.vip.accent-gold .t-focus:not(.t-focus-live) {
+    background: radial-gradient(120% 140% at 0% 0%, var(--vip-card-1) 0%, var(--vip-card-2) 55%, var(--vip-card-3) 100%);
+    box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--gold-l) 45%, transparent), 0 10px 26px rgba(0, 0, 0, 0.35);
+  }
+  html.dark.vip.accent-gold .t-focus:not(.t-focus-live)::before {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; mix-blend-mode: screen;
+    background: linear-gradient(115deg, transparent 25%, color-mix(in srgb, var(--gold-l) 16%, transparent) 45%, rgba(255, 255, 255, 0.12) 50%, color-mix(in srgb, var(--gold-l) 16%, transparent) 55%, transparent 75%);
+  }
+  html.vip.accent-gold .t-focus.t-sel:not(.t-focus-live) { box-shadow: inset 0 0 0 2.5px var(--ink); }
+  /* Плашка недели в шапке телефона — тоже на --soft */
+  html.vip.accent-gold .t-phead-pill { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gold) 55%, transparent); }
+  html.dark.vip.accent-gold .t-phead-pill { background: linear-gradient(135deg, var(--vip-card-1), var(--vip-card-2)); }
+
   /* ── Приветствие на «Расписании» ─────────────────────────── */
   .vip-greet { font-size: 28px; font-weight: 800; line-height: 1.12; margin: 2px 0 14px; letter-spacing: -0.01em; }
 
-  /* ── Торжественное открытие ──────────────────────────────── */
-  .vip-intro {
-    position: fixed; inset: 0; z-index: 120; display: grid; place-items: center; text-align: center;
-    padding: 24px; background: var(--vip-night); overflow: hidden;
-  }
-  .vip-intro-in { position: relative; z-index: 2; }
-  .vip-bigstar { width: 72px; height: 72px; margin: 0 auto; color: var(--gold-l); opacity: 0;
+  /* ── Звезда в «Отзыв отправлен» ────────────────────────────── */
+  .vip-bigstar { width: 72px; height: 72px; margin: 0 auto; color: var(--gold-l);
     filter: drop-shadow(0 0 18px color-mix(in srgb, var(--gold-l) 90%, transparent)); }
   .vip-bigstar svg { width: 100%; height: 100%; }
-  .vip-rv-name { font-size: 44px; font-weight: 800; margin-top: 14px; opacity: 0; }
-  .vip-rv-line { color: var(--vip-night-text); font-size: 18px; margin-top: 6px; opacity: 0; }
-  .vip-rv-list { margin: 24px auto 0; display: grid; gap: 10px; text-align: left; width: max-content; }
-  .vip-rv-list div { color: var(--vip-night-text); font-size: 17px; opacity: 0; display: flex; gap: 10px; align-items: center; }
-  .vip-rv-list svg { width: 15px; height: 15px; color: var(--gold-l); flex: none; }
-  .vip-rv-btn { margin-top: 28px; padding: 13px 34px; font-size: 17px; opacity: 0; }
 
   /* ── Кабинет: золотая карта ──────────────────────────────── */
   .vip-me { display: flex; flex-direction: column; gap: 10px; }
@@ -147,28 +140,6 @@
   .vip-secret svg { width: 100%; height: 100%; animation: vip-twinkle 3s ease-in-out infinite; }
   @keyframes vip-twinkle { 0%, 75%, 100% { transform: rotate(0) scale(1); } 83% { transform: rotate(72deg) scale(1.2); } 91% { transform: rotate(144deg) scale(1); } }
 
-  /* ── Письмо ──────────────────────────────────────────────── */
-  .vip-env-box { display: grid; place-items: center; padding: 18px 0 4px; }
-  .vip-env { width: 230px; height: 146px; position: relative; cursor: pointer; border: 0; padding: 0; background: none; display: block; }
-  .vip-env-back { position: absolute; inset: 0; background: var(--vip-env-back); border-radius: 8px; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.13); }
-  .vip-env-front { position: absolute; inset: 0; border-radius: 8px; background: linear-gradient(160deg, var(--vip-env-1), var(--vip-env-2)); clip-path: polygon(0 0, 50% 60%, 100% 0, 100% 100%, 0 100%); }
-  .vip-flap { position: absolute; left: 0; right: 0; top: 0; height: 88px; transform-origin: top; transition: transform 0.5s ease; clip-path: polygon(0 0, 100% 0, 50% 100%); background: linear-gradient(var(--vip-flap-1), var(--vip-flap-2)); }
-  .vip-seal {
-    position: absolute; left: 50%; top: 64px; width: 44px; height: 44px; margin-left: -22px; border-radius: 50%; display: grid; place-items: center;
-    transition: opacity 0.3s, transform 0.3s; color: var(--gold-xl);
-    background: radial-gradient(circle at 35% 30%, var(--gold-l), var(--gold-d) 60%, var(--gold-on));
-    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
-  }
-  .vip-seal svg { width: 20px; height: 20px; }
-  .vip-env-open .vip-flap { transform: rotateX(180deg); }
-  .vip-env-open .vip-seal { opacity: 0; transform: scale(1.6); }
-  .vip-env-hint { text-align: center; color: var(--text-2); font-size: 14px; margin: 10px 0 2px; }
-  .vip-letter { background: var(--vip-paper); border: 1px solid var(--vip-paper-line); border-radius: 16px; padding: 18px 20px 16px; box-shadow: 0 6px 18px color-mix(in srgb, var(--gold-d) 12%, transparent); }
-  .vip-letter-hd { font-size: 12px; font-weight: 700; letter-spacing: 0.14em; color: var(--gold-d); margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
-  .vip-letter-hd svg { width: 12px; height: 12px; }
-  .vip-letter p { margin: 0 0 8px; font-family: var(--font-letter), serif; font-style: italic; font-size: 20px; line-height: 1.3; color: var(--vip-paper-ink); }
-  .vip-letter-sign { text-align: right; font-family: var(--font-letter), serif; font-style: italic; font-size: 20px; color: var(--gold-d); }
-
   /* ── Задания и отзыв ─────────────────────────────────────── */
   .vip-tasks { padding: 16px 18px 18px; }
   .vip-todo { display: grid; gap: 12px; }
@@ -195,7 +166,7 @@
   .vip-send { width: 100%; padding: 14px; font-size: 16px; margin-top: 12px; }
   .vip-err { color: var(--danger); font-size: 14px; margin-top: 8px; text-align: center; }
   .vip-thanks { text-align: center; padding: 24px 0 10px; position: relative; }
-  .vip-thanks .vip-bigstar { opacity: 1; width: 58px; height: 58px; }
+  .vip-thanks .vip-bigstar { width: 58px; height: 58px; }
   .vip-thanks b { display: block; font-size: 22px; font-weight: 800; margin: 12px 0 4px; }
   .vip-thanks span { color: var(--text-2); }
 

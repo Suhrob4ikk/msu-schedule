@@ -16,7 +16,6 @@ import ServerResync from "@/components/ServerResync";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import InstallPrompt from "@/components/InstallPrompt";
 import AppearanceSync from "@/components/AppearanceSync";
-import VipIntro from "@/components/tablo/vip/VipIntro";
 import { appearanceInitScript, MODE_BASE } from "@/lib/appearance";
 import { specialInitScript } from "@/lib/special";
 
@@ -110,7 +109,6 @@ export default function RootLayout({
         <ServiceWorkerRegister />
         <ServerResync />
         <AppearanceSync />
-        <VipIntro />
       </body>
     </html>
   );

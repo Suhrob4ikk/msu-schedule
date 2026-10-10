@@ -1,5 +1,5 @@
 /**
- * Общие части «золотого профиля» (lib/special.ts): звезда и разлёт звёздочек/искр.
+ * Общие части «золотого профиля» (lib/special.ts): звезда и разлёт звёздочек.
  * Анимации — Web Animations API на временных элементах, без React-состояния.
  */
 
@@ -35,24 +35,6 @@ export function burstStars(box: HTMLElement, x: number, y: number, n = 16, dist 
         { transform: `translate(${Math.cos(a) * d}px, ${Math.sin(a) * d}px) rotate(${Math.random() * 180}deg) scale(1)`, opacity: 0 },
       ],
       { duration: 900 + Math.random() * 300, easing: "cubic-bezier(.1,.8,.3,1)", fill: "forwards" },
-    ).onfinish = () => el.remove();
-  }
-}
-
-/** Искры: from — точка старта, to — точка конца; каждой своя пара точек. */
-export function sparks(box: HTMLElement, pairs: [number, number, number, number][], duration: number, easing: string, maxDelay = 0) {
-  if (reducedMotion()) return;
-  for (const [x0, y0, x1, y1] of pairs) {
-    const el = document.createElement("div");
-    el.className = "vip-spark";
-    box.appendChild(el);
-    el.animate(
-      [
-        { transform: `translate(${x0}px, ${y0}px)`, opacity: maxDelay ? 0 : 1 },
-        ...(maxDelay ? [{ opacity: 1, offset: 0.3 }] : []),
-        { transform: `translate(${x1}px, ${y1}px)`, opacity: 0 },
-      ],
-      { duration, delay: Math.random() * maxDelay, easing, fill: "forwards" },
     ).onfinish = () => el.remove();
   }
 }

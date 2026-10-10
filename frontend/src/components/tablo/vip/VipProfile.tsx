@@ -1,8 +1,9 @@
 "use client";
 /**
  * «Золотой профиль» в Кабинете для особых (lib/special.ts): карта вместо шапки
- * профиля (наклон телефона, секрет — звезда), письмо от админа, задания и отзыв.
- * Отзыв открывается, когда всё посмотрено: письмо, секрет, золотая тема.
+ * профиля (наклон телефона, секрет — звезда), задания и отзыв. Отзыв открывается,
+ * когда всё посмотрено: секрет и золотая тема. Письмо «от администрации» и
+ * торжественное открытие показывались один раз и убраны (решение владельца, 10 окт 2026).
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -13,7 +14,7 @@ import { api } from "@/lib/api";
 import { GOLD_ACCENT, VIP_TASKS_KEY, type VipInfo } from "@/lib/special";
 import { Star, burstStars } from "./effects";
 
-type Tasks = { mail?: boolean; secret?: boolean };
+type Tasks = { secret?: boolean };
 
 function readTasks(): Tasks {
   try { return JSON.parse(localStorage.getItem(VIP_TASKS_KEY) ?? "{}") ?? {}; } catch { return {}; }
@@ -153,7 +154,6 @@ function ReviewSheet({ onClose }: { onClose: () => void }) {
 export default function VipProfile({ vip, onEdit }: { vip: VipInfo; onEdit: () => void }) {
   const appearance = useAppearance();
   const [tasks, setTasks] = useState<Tasks>({});
-  const [opening, setOpening] = useState(false);
   const [review, setReview] = useState(false);
   useEffect(() => { setTasks(readTasks()); }, []);
 
@@ -167,13 +167,7 @@ export default function VipProfile({ vip, onEdit }: { vip: VipInfo; onEdit: () =
   }, []);
 
   const gold = appearance?.accent.preset === "custom" && appearance.accent.custom?.toUpperCase() === GOLD_ACCENT;
-  const seen = (tasks.mail ? 1 : 0) + (tasks.secret ? 1 : 0) + (gold ? 1 : 0);
-
-  const openLetter = () => {
-    if (opening) return;
-    setOpening(true);
-    window.setTimeout(() => tick("mail"), 650);
-  };
+  const seen = (tasks.secret ? 1 : 0) + (gold ? 1 : 0);
 
   return (
     <>
@@ -184,40 +178,17 @@ export default function VipProfile({ vip, onEdit }: { vip: VipInfo; onEdit: () =
         </button>
       </section>
 
-      <h2 className="t-over t-pf-h">Письмо от админа</h2>
-      {tasks.mail ? (
-        <div className="vip-letter">
-          <div className="vip-letter-hd"><Star />УВЕДОМЛЕНИЕ ОТ АДМИНИСТРАЦИИ</div>
-          <p>Ваша жалоба на «кругленький» шрифт рассмотрена и удовлетворена. В качестве компенсации выдан золотой профиль.</p>
-          <p>Отзывы о новом дизайне принимаются лично. Обиды больше не принимаются.</p>
-          <div className="vip-letter-sign">— Админ</div>
-        </div>
-      ) : (
-        <div>
-          <div className="vip-env-box">
-            <button type="button" className={`vip-env ${opening ? "vip-env-open" : ""}`} onClick={openLetter} aria-label="Открыть письмо">
-              <span className="vip-env-back" />
-              <span className="vip-env-front" />
-              <span className="vip-flap" />
-              <span className="vip-seal"><Star /></span>
-            </button>
-          </div>
-          <p className="vip-env-hint">Нажмите на печать</p>
-        </div>
-      )}
-
       <h2 className="t-over t-pf-h">Прежде чем оставить отзыв</h2>
       <section className="t-pf-card vip-tasks">
         <div className="vip-todo">
-          <div className={tasks.mail ? "vip-ok" : ""}><i>{tasks.mail && <Icon name="check" size={14} strokeWidth={3} />}</i>Прочитать письмо</div>
           <div className={tasks.secret ? "vip-ok" : ""}><i>{tasks.secret && <Icon name="check" size={14} strokeWidth={3} />}</i>Найти секрет на карте</div>
           <div className={gold ? "vip-ok" : ""}>
             <i>{gold && <Icon name="check" size={14} strokeWidth={3} />}</i>
             <Link href="/profile/appearance">Включить золотую тему</Link>
           </div>
         </div>
-        <button type="button" className="vip-gold-btn vip-review-btn" disabled={seen < 3} onClick={() => setReview(true)}>
-          {seen < 3 ? `Посмотрено ${seen} из 3` : "Оставить отзыв"}
+        <button type="button" className="vip-gold-btn vip-review-btn" disabled={seen < 2} onClick={() => setReview(true)}>
+          {seen < 2 ? `Посмотрено ${seen} из 2` : "Оставить отзыв"}
         </button>
       </section>
 

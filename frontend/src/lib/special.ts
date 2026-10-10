@@ -28,7 +28,7 @@ export interface VipInfo {
 interface Person { devices: string[]; code: string; firstName: string; info: VipInfo }
 
 // Шахзода, ПМиИ 3 курс (регистрация №169): шрифт Roboto Condensed и «золотой профиль» —
-// торжественное открытие, приветствие, золотая рамка у идущей пары, карта, письмо, отзыв.
+// приветствие, золотая рамка у идущей пары, золотая карта, отзыв.
 const PEOPLE: Person[] = [
   {
     devices: ["vo32m1a4y2"],
@@ -98,5 +98,4 @@ export function specialInitScript(): string {
 export { GOLD_ACCENT } from "./appearance";
 
 // Что особый пользователь уже посмотрел. Ключи — только в его браузере.
-export const VIP_INTRO_KEY = "vip_intro_seen_v1";
 export const VIP_TASKS_KEY = "vip_tasks_v1";
