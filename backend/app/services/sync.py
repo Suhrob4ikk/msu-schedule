@@ -25,6 +25,9 @@ import re as _re
 
 logger = logging.getLogger(__name__)
 
+# Сколько дней хранить архив недель (и старые версии файла)
+ARCHIVE_DAYS = 7
+
 
 def get_or_create_faculty(db: Session, code: str) -> Faculty:
     faculty = db.query(Faculty).filter_by(code=code).first()
@@ -239,8 +242,9 @@ def detect_changes(db: Session, week_schedule: WeekSchedule, new_lessons: list[d
 
 
 def cleanup_old_schedules(db: Session, faculty_code: str):
-    """Удаляет архивные версии расписания старше 14 дней."""
-    cutoff = date.today() - timedelta(days=14)
+    """Удаляет архивные версии расписания старше 7 дней (было 14; владелец 10 окт 2026:
+    14 слишком долго). Неделя, начавшаяся больше 7 дней назад, из «Расписания» исчезает."""
+    cutoff = date.today() - timedelta(days=ARCHIVE_DAYS)
     old = (
         db.query(WeekSchedule)
         .filter(
@@ -262,7 +266,7 @@ def cleanup_old_schedules(db: Session, faculty_code: str):
     for ws in old:
         db.delete(ws)
     if old:
-        logger.info(f"[{faculty_code}] Удалено {len(old)} архивных версий старше 14 дней")
+        logger.info(f"[{faculty_code}] Удалено {len(old)} архивных версий старше {ARCHIVE_DAYS} дней")
     db.flush()
 
 
@@ -330,7 +334,7 @@ def save_schedule_to_db(db: Session, parsed: dict,
             new_value=f"Расписание на {week_number}-ю неделю" if week_number else "Опубликовано новое расписание",
         ))
 
-    # Чистим архив старше 14 дней
+    # Чистим архив старше ARCHIVE_DAYS дней
     cleanup_old_schedules(db, faculty_code)
 
     total_lessons = 0
