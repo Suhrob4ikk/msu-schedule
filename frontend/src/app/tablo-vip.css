@@ -25,6 +25,9 @@
   --vip-night-3: #070605;
   /* Переливающийся текст на странице (имя в приветствии) */
   --vip-foil: linear-gradient(100deg, #8a6212, #d4a017 25%, #fff4c7 50%, #d4a017 75%, #8a6212);
+  /* Линия по краю шапки и меню, свечение выбранной вкладки */
+  --vip-edge: linear-gradient(90deg, transparent, #d4a017 50%, transparent);
+  --vip-halo: rgba(212, 160, 23, 0.6);
 }
 
 /* Бриллиант и платина (10–11 окт 2026): те же токены, другие значения. Вне @layer —
@@ -39,9 +42,11 @@ html.vip.accent-diamond {
   --vip-night-1: #1f2738;
   --vip-night-2: #131826;
   --vip-night-3: #0a0d15;
-  --vip-foil: linear-gradient(100deg, #2f4a78, #6f8fc4 25%, #a9c2ee 50%, #6f8fc4 75%, #2f4a78);
+  --vip-foil: linear-gradient(100deg, #2f4a78, #6f8fc4 20%, #b06aa8 38%, #4f9fc7 55%, #6f8fc4 75%, #2f4a78);
+  --vip-edge: linear-gradient(90deg, transparent, #7ec8ff, #ffb3ec, #9fe6ff, transparent);
+  --vip-halo: rgba(150, 190, 255, 0.75);
 }
-html.dark.vip.accent-diamond { --vip-foil: linear-gradient(100deg, #9fb3d9, #dfe8ff 25%, #ffffff 50%, #dfe8ff 75%, #9fb3d9); }
+html.dark.vip.accent-diamond { --vip-foil: linear-gradient(100deg, #9fb3d9, #dfe8ff 20%, #ffffff 35%, #ffd6f5 50%, #c9f3ff 65%, #dfe8ff 80%, #9fb3d9); }
 html.vip.accent-platinum {
   --gold-d: #3a3f48;
   --gold: #8b919c;
@@ -53,8 +58,10 @@ html.vip.accent-platinum {
   --vip-night-2: #1e2025;
   --vip-night-3: #121316;
   --vip-foil: linear-gradient(100deg, #2e3239, #6b717c 25%, #a9afb9 50%, #6b717c 75%, #2e3239);
+  --vip-edge: linear-gradient(90deg, transparent, #8b919c 50%, transparent);
+  --vip-halo: rgba(120, 128, 140, 0.5);
 }
-html.dark.vip.accent-platinum { --vip-foil: linear-gradient(100deg, #9aa1ad, #d9dde3 25%, #ffffff 50%, #d9dde3 75%, #9aa1ad); }
+html.dark.vip.accent-platinum { --vip-edge: linear-gradient(90deg, transparent, #d9dde3 50%, transparent); --vip-halo: rgba(220, 225, 235, 0.55); --vip-foil: linear-gradient(100deg, #9aa1ad, #d9dde3 25%, #ffffff 50%, #d9dde3 75%, #9aa1ad); }
 
 @layer components {
   /* ── Общее ───────────────────────────────────────────────── */
@@ -147,6 +154,96 @@ html.dark.vip.accent-platinum { --vip-foil: linear-gradient(100deg, #9aa1ad, #d9
   /* Кнопка «Ближайшая пара» на «Аудиториях» — тоже на --soft */
   html.vip.accent-metal .t-rm-when { border-color: color-mix(in srgb, var(--gold) 55%, transparent); }
   html.dark.vip.accent-metal .t-rm-when { background: linear-gradient(135deg, var(--vip-night-1), var(--vip-night-2)); }
+
+  /* ══ Уровни: у каждого металла свой характер на всех вкладках (11 окт 2026) ══
+     Золото — тёплая роскошь, платина — строгий хай-тек, бриллиант — вершина.
+     Пылинки, искры и эффекты касания — components/tablo/vip/VipAmbient.tsx. */
+
+  /* Фон страниц */
+  html.vip.accent-gold .t-page {
+    background: radial-gradient(90% 45% at 50% -5%, rgba(212, 160, 23, 0.16), transparent 60%),
+      radial-gradient(70% 35% at 100% 100%, rgba(212, 160, 23, 0.08), transparent 60%), var(--bg);
+    background-attachment: fixed;
+  }
+  html.dark.vip.accent-gold .t-page {
+    background: radial-gradient(90% 45% at 50% -5%, rgba(212, 160, 23, 0.24), transparent 60%),
+      radial-gradient(70% 35% at 100% 100%, rgba(212, 160, 23, 0.11), transparent 60%), #0d0b07;
+    background-attachment: fixed;
+  }
+  html.vip.accent-platinum .t-page {
+    background: repeating-linear-gradient(90deg, rgba(60, 64, 72, 0.035) 0 1px, transparent 1px 3px),
+      linear-gradient(160deg, #f4f5f7, #e6e8ec 60%, #eef0f3);
+    background-attachment: fixed;
+  }
+  html.dark.vip.accent-platinum .t-page {
+    background: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 3px),
+      linear-gradient(160deg, #24262b, #121316 55%, #1b1c20);
+    background-attachment: fixed;
+  }
+  html.vip.accent-diamond .t-page {
+    background: radial-gradient(80% 45% at 50% 0%, rgba(126, 200, 255, 0.16), transparent 60%),
+      radial-gradient(60% 35% at 0% 100%, rgba(255, 179, 236, 0.10), transparent 60%), var(--bg);
+    background-attachment: fixed;
+  }
+  html.dark.vip.accent-diamond .t-page {
+    background: radial-gradient(80% 45% at 50% 0%, rgba(126, 200, 255, 0.16), transparent 60%),
+      radial-gradient(60% 35% at 0% 100%, rgba(255, 179, 236, 0.09), transparent 60%), linear-gradient(170deg, #121a2c, #070a12 70%);
+    background-attachment: fixed;
+  }
+  /* шапка телефона на «Расписании» — полупрозрачная, чтобы фон было видно */
+  html.vip.accent-metal .t-phead { background: color-mix(in srgb, var(--bg) 78%, transparent); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+
+  /* Тонкая линия из металла по краю шапки и нижнего меню */
+  html.vip.accent-metal .t-top { border-image: var(--vip-edge) 1; }
+  html.vip.accent-metal .t-phead { border-bottom: 1px solid transparent; border-image: var(--vip-edge) 1; }
+  html.vip.accent-metal .t-bottom { border-image: var(--vip-edge) 1; }
+  html.vip.accent-metal .t-bottom-on svg { filter: drop-shadow(0 0 6px var(--vip-halo)); }
+
+  /* Аватар в шапке — бегущее кольцо из металла */
+  html.vip.accent-metal .t-avatar { position: relative; background: var(--gold-metal); color: var(--gold-on); }
+  html.vip.accent-metal .t-avatar::before {
+    content: ""; position: absolute; inset: -3px; border-radius: 50%; padding: 2px; pointer-events: none;
+    background: conic-gradient(from var(--vip-a), var(--gold-d), var(--gold), var(--gold-xl), var(--gold), var(--gold-d));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude;
+    animation: vip-spin 3s linear infinite;
+  }
+  html.vip.accent-diamond .t-avatar::before { background: conic-gradient(from var(--vip-a), #7ec8ff, #ffffff, #ffb3ec, #ffffff, #7ec8ff); }
+
+  /* Платина: хромовый блик по шапке и хромированная полоска у пар */
+  html.vip.accent-platinum :is(.t-top, .t-phead)::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0.35;
+    background: var(--gold-glint); background-size: 250% 100%; background-repeat: no-repeat;
+    animation: vip-glint-1 6s ease-in-out infinite;
+  }
+  html.vip.accent-platinum .t-row { position: relative; }
+  html.vip.accent-platinum .t-row::before {
+    content: ""; position: absolute; left: 0; top: 12px; bottom: 12px; width: 2px; border-radius: 2px; pointer-events: none;
+    background: linear-gradient(#5c616b, #f1f3f6, #5c616b);
+  }
+
+  /* Бриллиант: идущая пара переливается радугой, рамка — радужная */
+  html.vip.accent-diamond :is(.t-focus-live, .t-cell-live)::before {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; mix-blend-mode: multiply; opacity: 0.45;
+    background: linear-gradient(115deg, transparent 20%, rgba(255, 140, 215, 0.8) 35%, rgba(130, 210, 255, 0.8) 50%, rgba(255, 235, 130, 0.75) 65%, transparent 80%);
+    background-size: 300% 100%; animation: vip-prism 5s linear infinite;
+  }
+  @keyframes vip-prism { from { background-position: 0% 0; } to { background-position: 300% 0; } }
+  html.vip.accent-diamond :is(.t-focus-live, .t-cell-live)::after {
+    background: conic-gradient(from var(--vip-a), #7ec8ff, #ffffff, #ffb3ec, #fff3a6, #7ec8ff, #ffffff, #ffb3ec, #7ec8ff);
+  }
+
+  /* Слой с пылинками, искрами и эффектами касания (VipAmbient) */
+  .vip-amb { position: fixed; inset: 0; z-index: 45; pointer-events: none; overflow: hidden; }
+  .vip-dust { position: absolute; width: 3px; height: 3px; border-radius: 50%; background: #f7d774; box-shadow: 0 0 6px 1px rgba(247, 215, 116, 0.8); opacity: 0; animation: vip-rise linear infinite; }
+  @keyframes vip-rise { 0% { opacity: 0; transform: translateY(0); } 15% { opacity: 0.8; } 85% { opacity: 0.5; } 100% { opacity: 0; transform: translateY(-40vh); } }
+  .vip-amb .vip-spark { z-index: 1; }
+  .vip-amb .vip-tw { animation: vip-sparkle 3s ease-in-out infinite; }
+  .vip-amb .vip-hit { animation: none; opacity: 1; }
+  .vip-ripple { position: absolute; border-radius: 50%; border: 2px solid rgba(235, 240, 248, 0.85); box-shadow: 0 0 18px rgba(235, 240, 248, 0.5), inset 0 0 12px rgba(235, 240, 248, 0.35); }
+  html:not(.dark) .vip-ripple { border-color: rgba(90, 96, 108, 0.6); box-shadow: 0 0 14px rgba(90, 96, 108, 0.25); }
+  .vip-tapstar { position: absolute; color: #f7d774; }
+  .vip-tapstar svg { width: 100%; height: 100%; display: block; }
 
   /* ── Приветствие на «Расписании» ─────────────────────────── */
   .vip-greet { font-size: 28px; font-weight: 800; line-height: 1.12; margin: 2px 0 14px; letter-spacing: -0.01em; }
@@ -379,5 +476,7 @@ html.dark.vip.accent-platinum { --vip-foil: linear-gradient(100deg, #9aa1ad, #d9
   html.vip .t-focus-live::after, html.vip .t-cell-live::after,
   html.vip.accent-metal :is(.t-focus-live, .t-cell-live, .t-btn-fill, .t-float-mine, .t-dcell-on, .t-chip-sel, .t-count,
     .t-lg-go, .t-ap-live, .t-sw-on, .t-install-go, .t-cg-chip-on, .t-when-chip-on, .t-cp-ok, .t-focus, .t-focus::before),
-  .vip-sp-sh, .vip-sp-go, .vip-sp-title em, .vip-sp-nm, .vip-new, .vip-spark { animation: none !important; }
+  .vip-sp-sh, .vip-sp-go, .vip-sp-title em, .vip-sp-nm, .vip-new, .vip-spark,
+  html.vip .t-avatar::before, html.vip .t-top::before, html.vip .t-phead::before, html.vip .t-focus-live::before, html.vip .t-cell-live::before { animation: none !important; }
+  .vip-amb { display: none; }
 }
