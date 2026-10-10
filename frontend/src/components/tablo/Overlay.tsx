@@ -123,19 +123,25 @@ export function Sheet({ onClose, label, title, children }: {
 }) {
   const mounted = useMounted();
   const ref = useRef<HTMLDivElement>(null);
+  // onClose часто передают стрелкой прямо в разметке — она новая на каждой отрисовке.
+  // Раньше эффект зависел от неё и перезапускался после каждой буквы в поле внутри
+  // шторки, забирая фокус: на телефоне пряталась клавиатура (11 окт 2026). Держим в ref.
+  const closeRef = useRef(onClose);
+  useEffect(() => { closeRef.current = onClose; });
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") closeRef.current(); };
     window.addEventListener("keydown", onKey);
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const back = document.activeElement as HTMLElement | null;
-    ref.current?.focus({ preventScroll: true });
+    // Поле с autoFocus внутри уже получило фокус — не отбираем, иначе клавиатура не откроется
+    if (!ref.current?.contains(document.activeElement)) ref.current?.focus({ preventScroll: true });
     return () => {
       window.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
       back?.focus?.({ preventScroll: true });
     };
-  }, [onClose]);
+  }, []);
 
   if (!mounted) return null;
   return createPortal(

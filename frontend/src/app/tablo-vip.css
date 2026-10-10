@@ -144,6 +144,9 @@ html.dark.vip.accent-platinum { --vip-foil: linear-gradient(100deg, #9aa1ad, #d9
   /* Плашка недели в шапке телефона — тоже на --soft */
   html.vip.accent-metal .t-phead-pill { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gold) 55%, transparent); }
   html.dark.vip.accent-metal .t-phead-pill { background: linear-gradient(135deg, var(--vip-night-1), var(--vip-night-2)); }
+  /* Кнопка «Ближайшая пара» на «Аудиториях» — тоже на --soft */
+  html.vip.accent-metal .t-rm-when { border-color: color-mix(in srgb, var(--gold) 55%, transparent); }
+  html.dark.vip.accent-metal .t-rm-when { background: linear-gradient(135deg, var(--vip-night-1), var(--vip-night-2)); }
 
   /* ── Приветствие на «Расписании» ─────────────────────────── */
   .vip-greet { font-size: 28px; font-weight: 800; line-height: 1.12; margin: 2px 0 14px; letter-spacing: -0.01em; }

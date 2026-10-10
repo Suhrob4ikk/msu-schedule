@@ -81,8 +81,7 @@
 .t-rm-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; padding: 0 2px; }
 .t-rm-head h2 { font-size: 13px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
 .t-rm-head span { font-size: 14px; font-weight: 600; color: var(--text-2); }
-.t-rm-head-free h2 { color: var(--free-text); }
-.t-rm-head-busy h2 { color: var(--danger); }
+.t-rm-head-free h2, .t-rm-head-busy h2 { color: var(--text-2); }
 .t-rm-none { padding: 12px 2px; color: var(--text-2); font-size: 16px; }
 .t-rm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 12px; }
 .t-rm {
@@ -102,9 +101,18 @@
 .t-rm b { font-size: 26px; font-weight: 800; line-height: 1.1; letter-spacing: -0.01em; }
 .t-rm b.t-rm-long { font-size: 17px; line-height: 1.2; text-align: center; }
 .t-rm span { font-size: 15px; font-weight: 500; line-height: 1.2; }
-.t-rm-free { background: var(--free-bg); color: var(--free-text); }
-.t-rm-busy { background: var(--danger-bg); color: var(--danger); }
-.t-rm:hover { box-shadow: inset 0 0 0 1.5px currentColor; }
+/* Плитки — обычные карточки, цвет только в статусе (владелец, 11 окт 2026): сплошные
+   красные и зелёные заливки кричали, а занятых обычно большинство — экран был красным. */
+.t-rm-free, .t-rm-busy { background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
+.t-rm-free b { color: var(--text); }
+.t-rm-free span { color: var(--free-text); font-weight: 600; }
+.t-rm-free::before {
+  content: ""; position: absolute; top: 8px; right: 8px; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--free-text); box-shadow: 0 0 8px color-mix(in oklab, var(--free-text) 70%, transparent);
+}
+.t-rm-busy b { color: color-mix(in oklab, var(--text) 75%, var(--surface)); }
+.t-rm-busy span { color: var(--text-2); }
+.t-rm:hover { box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--text) 35%, transparent); }
 .t-rm-on, .t-rm-on:hover { border-color: var(--ink); box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px color-mix(in oklab, var(--ink) 40%, transparent); }
 .t-rm-dim { opacity: 0.35; }
 .t-rm.t-skel { border: 0; }
