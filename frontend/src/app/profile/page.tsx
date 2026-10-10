@@ -18,6 +18,7 @@ import { appearanceSummary } from "@/components/tablo/profile/AppearanceView";
 import { useAppearance, useVip } from "@/lib/tablo/hooks";
 import VipProfile from "@/components/tablo/vip/VipProfile";
 import VipCodeEntry from "@/components/tablo/vip/VipCodeEntry";
+import { canActivateVip } from "@/lib/special";
 import { api, clearApiCache, rememberGroup, shortGroupName, type Group } from "@/lib/api";
 import { markGroupChosen } from "@/lib/features";
 import { getInstallEvent, isIOS, isStandalone, onInstallChange, runInstall } from "@/lib/install";
@@ -380,7 +381,7 @@ export default function ProfilePage() {
               МГУ Душанбе · Расписание · Данные с msu.tj
               {isOwner && <> · <Link href="/dev">режим разработчика</Link></>}
             </p>
-            {!vip && <VipCodeEntry />}
+            {!vip && canActivateVip(name) && <VipCodeEntry />}
         </div>
       </main>
       {toast && <div className="t-toast" role="status">{toast}</div>}

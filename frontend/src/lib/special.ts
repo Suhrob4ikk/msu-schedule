@@ -73,6 +73,13 @@ export function readVip(): VipInfo | null {
   }
 }
 
+/** Показывать ли «Активировать профиль»: только тем, чьё имя в Кабинете начинается
+ *  как у особого (решение владельца, как ссылка на /dev у «Сухроб»). Не защита — та в коде. */
+export function canActivateVip(name: string): boolean {
+  const n = firstWord(name);
+  return !!n && PEOPLE.some(p => p.firstName === n);
+}
+
 /** Ввели код: подошёл и имя в Кабинете то же — запоминаем и возвращаем true. */
 export function applyVipCode(input: string): boolean {
   const h = codeHash(input);
