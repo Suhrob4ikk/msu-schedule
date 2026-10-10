@@ -251,9 +251,12 @@ export default function SchedulePage() {
   const thisWeek = now ? weeks.find(w => w.week_start === mondayOf(isoOf(now))) : undefined;
   const toThisWeek = useCallback(() => {
     if (!group) return;
-    userPickedWeek.current = false;
-    loadGroup(group);
-  }, [group, loadGroup]);
+    // Неделю называем явно: без этого в субботу после последней пары loadGroup сам
+    // перекидывал на следующую, и кнопка «К этой неделе» казалась мёртвой (10 окт 2026)
+    const mon = mondayOf(isoOf(dushanbeNow()));
+    userPickedWeek.current = weeks.some(w => w.week_start === mon);
+    loadGroup(group, weeks.some(w => w.week_start === mon) ? mon : undefined);
+  }, [group, loadGroup, weeks]);
 
   // ─── Вид ─────────────────────────────────────────────────────────────────
   const [phoneMode, setPhoneMode] = useState<"list" | "pages">("list");
