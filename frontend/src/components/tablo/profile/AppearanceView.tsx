@@ -6,7 +6,7 @@
  * применяется сразу (lib/appearance.ts), ключ `appearance` тот же, что в
  * приложении. Отличие сайта: у типов занятий есть свой цвет («+»).
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Icon from "../Icon";
 import { Popover } from "../Overlay";
 import ColorPicker from "./ColorPicker";
@@ -16,7 +16,7 @@ import {
 } from "@/lib/appearance";
 import { contrast } from "@/lib/color";
 import { useAppearance, useVip } from "@/lib/tablo/hooks";
-import { GOLD_ACCENT } from "@/lib/special";
+import { METALS, METAL_IDS, VIP_NEW_KEY, metalOf } from "@/lib/special";
 
 const BGS: Background[] = ["system", "light", "dark", "black"];
 /** Подписи как в приложении (раздел «Фон»). */
@@ -35,7 +35,8 @@ const PRESET_NAME: Record<AccentPresetId, string> = {
 
 /** «Как в системе · бирюзовый» — подпись строки «Внешний вид» в Кабинете. */
 export function appearanceSummary(a: Appearance): string {
-  const accent = a.accent.preset === "custom" ? "свой цвет" : PRESET_NAME[a.accent.preset].toLowerCase();
+  const metal = metalOf(a);
+  const accent = metal ? METALS[metal].name.toLowerCase() : a.accent.preset === "custom" ? "свой цвет" : PRESET_NAME[a.accent.preset].toLowerCase();
   return `${BG_LABEL[a.background]} · ${accent}`;
 }
 
@@ -101,6 +102,8 @@ function Preview() {
 export default function AppearanceView() {
   const a = useAppearance();
   const vip = useVip();
+  // Зашла во «Внешний вид» — метка «Новое» в Кабинете больше не нужна
+  useEffect(() => { if (vip) try { localStorage.removeItem(VIP_NEW_KEY); } catch { /* приватный режим */ } }, [vip]);
   const [plus, setPlus] = useState<HTMLButtonElement | null>(null);
   const [custom, setCustom] = useState(false);
   // Свой цвет типа занятия: какой тип и у какой точки «+» стоит окно
@@ -109,9 +112,9 @@ export default function AppearanceView() {
   const mode = resolveMode(a.background);
   const types = a.types ?? DEFAULT_TYPES;
   const density: Density = a.density ?? "regular";
-  // Золото — «свой цвет» GOLD_ACCENT, кружок только у особых (lib/special.ts)
-  const goldOn = a.accent.preset === "custom" && a.accent.custom?.toUpperCase() === GOLD_ACCENT;
-  const customOn = a.accent.preset === "custom" && !(vip && goldOn);
+  // Золото, бриллиант, платина — «свой цвет» с условным hex, кружки только у особых (lib/special.ts)
+  const metal = metalOf(a);
+  const customOn = a.accent.preset === "custom" && !(vip && metal);
 
   const save = (next: Partial<Appearance>) => saveAppearance({ ...a, ...next });
   const pick = (id: AccentPresetId) => save({ accent: { ...a.accent, preset: id } });
@@ -136,13 +139,13 @@ export default function AppearanceView() {
                 </button>
               );
             })}
-            {vip && (
-              <button type="button" role="radio" aria-checked={goldOn} aria-label="Золото"
-                className={`t-ap-sw ${goldOn ? "t-ap-sw-on" : ""}`} onClick={() => save({ accent: { preset: "custom", custom: GOLD_ACCENT } })}>
-                <span className="vip-sw-gold">{goldOn && <Icon name="check" size={22} strokeWidth={2.6} />}</span>
-                <em>Золото</em>
+            {vip && METAL_IDS.map(id => (
+              <button key={id} type="button" role="radio" aria-checked={metal === id} aria-label={METALS[id].name}
+                className={`t-ap-sw ${metal === id ? "t-ap-sw-on" : ""}`} onClick={() => save({ accent: { preset: "custom", custom: METALS[id].hex } })}>
+                <span className={`vip-sw-${id}`}>{metal === id && <Icon name="check" size={22} strokeWidth={2.6} />}</span>
+                <em>{METALS[id].name}</em>
               </button>
-            )}
+            ))}
             <button ref={setPlus} type="button" role="radio" aria-checked={customOn} aria-label="Свой цвет"
               className={`t-ap-sw ${customOn ? "t-ap-sw-on" : ""}`} onClick={() => setCustom(o => !o)}>
               <span className="t-ap-plus" style={customOn ? { background: accentHex(a), color: accentVars(a, mode).onFill } : undefined}>
@@ -152,7 +155,7 @@ export default function AppearanceView() {
             </button>
           </div>
           <p className="t-ap-note">{onAccentLine(a, mode)}</p>
-          {vip && <span className="vip-only">Золото — только у вас</span>}
+          {vip && <span className="vip-only">Золото, бриллиант и платина — только у вас</span>}
         </section>
 
         <h2 className="t-over t-av-h">Типы занятий</h2>

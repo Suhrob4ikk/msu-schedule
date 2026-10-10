@@ -122,21 +122,49 @@ export function deriveAccent(hex: string, mode: Mode): AccentVars {
 }
 
 /**
- * «Металлическое золото» особых пользователей (lib/special.ts, решение владельца
- * 10 окт 2026). Формула давала текст золотом на белом оливковым (#846700), поэтому
- * значения подобраны вручную: текст бронзовый. Заливки ещё и с переливом —
- * класс `accent-gold` на <html>, градиент в app/tablo-vip.css.
+ * Металлы особых пользователей (lib/special.ts): золото (10 окт 2026), бриллиант и
+ * платина (11 окт 2026) — решения владельца. Хранятся как «свой цвет» с условным hex.
+ * Формула давала, например, текст золотом на белом оливковым (#846700), поэтому
+ * значения подобраны вручную. Заливки ещё и с переливом — классы `accent-metal` и
+ * `accent-<металл>` на <html>, градиенты и карта — в app/tablo-vip.css.
  */
-export const GOLD_ACCENT = "#C9A227";
-const GOLD_VARS: Record<"light" | "dark", AccentVars> = {
-  light: { fill: "#D4AF37", ink: "#8B5A0B", ring: "#74480A", onFill: "#2E1C00" },
-  dark: { fill: "#D9B44A", ink: "#F2CC6A", ring: "#FFE19A", onFill: "#2E1C00" },
+export type MetalId = "gold" | "diamond" | "platinum";
+export const METALS: Record<MetalId, { hex: string; name: string; vars: Record<"light" | "dark", AccentVars> }> = {
+  gold: {
+    hex: "#C9A227", name: "Золото",
+    vars: {
+      light: { fill: "#D4AF37", ink: "#8B5A0B", ring: "#74480A", onFill: "#2E1C00" },
+      dark: { fill: "#D9B44A", ink: "#F2CC6A", ring: "#FFE19A", onFill: "#2E1C00" },
+    },
+  },
+  diamond: {
+    hex: "#D6E0F2", name: "Бриллиант",
+    vars: {
+      light: { fill: "#C9D6EC", ink: "#3E5A8A", ring: "#2F4A78", onFill: "#1B2333" },
+      dark: { fill: "#D6E0F2", ink: "#C2D4F5", ring: "#E6EEFF", onFill: "#1B2333" },
+    },
+  },
+  platinum: {
+    hex: "#8B919C", name: "Платина",
+    vars: {
+      light: { fill: "#8B919C", ink: "#4A505B", ring: "#3A3F48", onFill: "#14161A" },
+      dark: { fill: "#AEB4BE", ink: "#CDD2DA", ring: "#E8EBF0", onFill: "#14161A" },
+    },
+  },
 };
-export const isGold = (hex: string | null | undefined) => hex?.toUpperCase() === GOLD_ACCENT;
+export const METAL_IDS = Object.keys(METALS) as MetalId[];
+export const GOLD_ACCENT = METALS.gold.hex;
+/** Какой металл выбран (свой цвет с условным hex) или null. */
+export function metalOf(a: Appearance | null | undefined): MetalId | null {
+  if (!a || a.accent.preset !== "custom" || !a.accent.custom) return null;
+  const hex = a.accent.custom.toUpperCase();
+  return METAL_IDS.find(id => METALS[id].hex === hex) ?? null;
+}
 
-/** Свой цвет: золото — ручные значения, остальное — формула. */
+/** Свой цвет: металл — ручные значения, остальное — формула. */
 function customVars(hex: string, mode: Mode): AccentVars {
-  return isGold(hex) ? GOLD_VARS[mode === "light" ? "light" : "dark"] : deriveAccent(hex, mode);
+  const m = METAL_IDS.find(id => METALS[id].hex === hex.toUpperCase());
+  return m ? METALS[m].vars[mode === "light" ? "light" : "dark"] : deriveAccent(hex, mode);
 }
 
 export function presetVars(id: AccentPresetId, mode: Mode): AccentVars {
@@ -283,7 +311,9 @@ export function applyAppearance(a: Appearance): void {
   }
   applyTypes(root, a.types ?? DEFAULT_TYPES, mode);
   root.classList.toggle("compact", a.density === "compact");
-  root.classList.toggle("accent-gold", a.accent.preset === "custom" && isGold(a.accent.custom));
+  const metal = metalOf(a);
+  root.classList.toggle("accent-metal", !!metal);
+  for (const id of METAL_IDS) root.classList.toggle(`accent-${id}`, metal === id);
   document.querySelectorAll('meta[name="theme-color"]').forEach(m => {
     m.removeAttribute("media");
     m.setAttribute("content", MODE_BASE[mode].bg);
@@ -346,6 +376,6 @@ export function appearanceInitScript(): string {
   const shades: Record<string, Record<Mode, ShadePair>> = {};
   for (const x of TYPE_SHADES) shades[x.id] = { light: shadePair(x.id, "light"), dark: shadePair(x.id, "dark"), black: shadePair(x.id, "black") };
   const shadeTable = JSON.stringify(shades);
-  const gold = JSON.stringify(GOLD_VARS);
-  return `(function(){try{var P=${table};var d=document.documentElement,s=localStorage,a=null;try{a=JSON.parse(s.getItem('${APPEARANCE_KEY}')||'null')}catch(e){}var bg,pr;if(a&&a.version===1){bg=a.background;pr=a.accent&&a.accent.preset}else{var t=s.getItem('theme');bg=(t==='light'||t==='dark')?t:'system';pr=s.getItem('accent')==='green'?'emerald':'blue'}var m=(bg==='light'||bg==='dark'||bg==='black')?bg:(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');if(m!=='light')d.classList.add('dark');if(m==='black')d.classList.add('black');var v=null;if(pr==='custom'&&a&&a.accent&&String(a.accent.custom).toUpperCase()==='${GOLD_ACCENT}'){v=${gold}[m==='light'?'light':'dark'];d.classList.add('accent-gold')}else if(pr==='custom'){try{v=JSON.parse(s.getItem('${CUSTOM_VARS_KEY}')||'null');v=v&&v[m]}catch(e){}}else if(pr&&pr!=='blue'&&P[pr]){v=P[pr][m]}if(v){d.style.setProperty('--fill',v.fill);d.style.setProperty('--ink',v.ink);d.style.setProperty('--ring',v.ring);d.style.setProperty('--on-fill',v.onFill)}var S=${shadeTable},T=a&&a.types;if(T){var D={lecture:'sky',practice:'lilac',exam:'amber'},N={lecture:'lec',practice:'lab',exam:'exam'};for(var k in N){var x=T[k];if(x&&x!==D[k]&&S[x]){var q=S[x][m];d.style.setProperty('--'+N[k]+'-bg',q.bg);d.style.setProperty('--'+N[k]+'-text',q.text)}else if(x&&x.charAt(0)==='#'){var C=JSON.parse(s.getItem('${TYPE_VARS_KEY}')||'{}'),q2=C[k]&&C[k][m];if(q2){d.style.setProperty('--'+N[k]+'-bg',q2.bg);d.style.setProperty('--'+N[k]+'-text',q2.text)}}}}if(a&&a.density==='compact')d.classList.add('compact')}catch(e){}})();`;
+  const metals = JSON.stringify(Object.fromEntries(METAL_IDS.map(id => [METALS[id].hex, { id, ...METALS[id].vars }])));
+  return `(function(){try{var P=${table};var d=document.documentElement,s=localStorage,a=null;try{a=JSON.parse(s.getItem('${APPEARANCE_KEY}')||'null')}catch(e){}var bg,pr;if(a&&a.version===1){bg=a.background;pr=a.accent&&a.accent.preset}else{var t=s.getItem('theme');bg=(t==='light'||t==='dark')?t:'system';pr=s.getItem('accent')==='green'?'emerald':'blue'}var m=(bg==='light'||bg==='dark'||bg==='black')?bg:(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');if(m!=='light')d.classList.add('dark');if(m==='black')d.classList.add('black');var v=null;var M=${metals},X=pr==='custom'&&a&&a.accent&&M[String(a.accent.custom).toUpperCase()];if(X){v=X[m==='light'?'light':'dark'];d.classList.add('accent-metal','accent-'+X.id)}else if(pr==='custom'){try{v=JSON.parse(s.getItem('${CUSTOM_VARS_KEY}')||'null');v=v&&v[m]}catch(e){}}else if(pr&&pr!=='blue'&&P[pr]){v=P[pr][m]}if(v){d.style.setProperty('--fill',v.fill);d.style.setProperty('--ink',v.ink);d.style.setProperty('--ring',v.ring);d.style.setProperty('--on-fill',v.onFill)}var S=${shadeTable},T=a&&a.types;if(T){var D={lecture:'sky',practice:'lilac',exam:'amber'},N={lecture:'lec',practice:'lab',exam:'exam'};for(var k in N){var x=T[k];if(x&&x!==D[k]&&S[x]){var q=S[x][m];d.style.setProperty('--'+N[k]+'-bg',q.bg);d.style.setProperty('--'+N[k]+'-text',q.text)}else if(x&&x.charAt(0)==='#'){var C=JSON.parse(s.getItem('${TYPE_VARS_KEY}')||'{}'),q2=C[k]&&C[k][m];if(q2){d.style.setProperty('--'+N[k]+'-bg',q2.bg);d.style.setProperty('--'+N[k]+'-text',q2.text)}}}}if(a&&a.density==='compact')d.classList.add('compact')}catch(e){}})();`;
 }

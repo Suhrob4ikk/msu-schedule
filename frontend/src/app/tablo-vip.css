@@ -19,12 +19,47 @@
   --vip-card-1: #2a2213;
   --vip-card-2: #121009;
   --vip-card-3: #070605;
+  /* Тёмная карточка «следующая пара» и плашка недели (у золота — как карта) */
+  --vip-night-1: #2a2213;
+  --vip-night-2: #121009;
+  --vip-night-3: #070605;
+  /* Переливающийся текст на странице (имя в приветствии) */
+  --vip-foil: linear-gradient(100deg, #8a6212, #d4a017 25%, #fff4c7 50%, #d4a017 75%, #8a6212);
 }
+
+/* Бриллиант и платина (10–11 окт 2026): те же токены, другие значения. Вне @layer —
+   иначе :root выше (он тоже вне слоя) перебил бы их. Классы ставит lib/appearance.ts. */
+html.vip.accent-diamond {
+  --gold-d: #3e5a8a;
+  --gold: #8aa0c8;
+  --gold-l: #c9d8f5;
+  --gold-xl: #ffffff;
+  --gold-on: #1b2333;
+  --gold-metal: linear-gradient(110deg, #9fb0cc, #eef3ff 30%, #ffffff 50%, #dfe7f6 70%, #9fb0cc);
+  --vip-night-1: #1f2738;
+  --vip-night-2: #131826;
+  --vip-night-3: #0a0d15;
+  --vip-foil: linear-gradient(100deg, #2f4a78, #6f8fc4 25%, #a9c2ee 50%, #6f8fc4 75%, #2f4a78);
+}
+html.dark.vip.accent-diamond { --vip-foil: linear-gradient(100deg, #9fb3d9, #dfe8ff 25%, #ffffff 50%, #dfe8ff 75%, #9fb3d9); }
+html.vip.accent-platinum {
+  --gold-d: #3a3f48;
+  --gold: #8b919c;
+  --gold-l: #d9dde3;
+  --gold-xl: #ffffff;
+  --gold-on: #14161a;
+  --gold-metal: linear-gradient(110deg, #5c616b, #b9bec7 30%, #f1f3f6 50%, #b9bec7 70%, #5c616b);
+  --vip-night-1: #33363d;
+  --vip-night-2: #1e2025;
+  --vip-night-3: #121316;
+  --vip-foil: linear-gradient(100deg, #2e3239, #6b717c 25%, #a9afb9 50%, #6b717c 75%, #2e3239);
+}
+html.dark.vip.accent-platinum { --vip-foil: linear-gradient(100deg, #9aa1ad, #d9dde3 25%, #ffffff 50%, #d9dde3 75%, #9aa1ad); }
 
 @layer components {
   /* ── Общее ───────────────────────────────────────────────── */
   .vip-gold-text {
-    background: linear-gradient(100deg, var(--gold-d), var(--gold) 25%, var(--gold-xl) 50%, var(--gold) 75%, var(--gold-d));
+    background: var(--vip-foil);
     background-size: 250% 100%;
     -webkit-background-clip: text;
     background-clip: text;
@@ -66,7 +101,7 @@
   @keyframes vip-spin { to { --vip-a: 360deg; } }
 
   /* ── «Металлическое золото»: заливки акцента с переливом ─────── */
-  html.vip.accent-gold :is(.t-focus-live, .t-cell-live, .t-btn-fill, .t-float-mine, .t-dcell-on, .t-chip-sel,
+  html.vip.accent-metal :is(.t-focus-live, .t-cell-live, .t-btn-fill, .t-float-mine, .t-dcell-on, .t-chip-sel,
     .t-count, .t-lg-go, .t-ap-live, .t-sw-on, .t-install-go, .t-cg-chip-on, .t-when-chip-on, .t-cp-ok) {
     /* верхний слой — полоска света, которая время от времени пробегает по золоту */
     background-image: var(--gold-glint), var(--gold-metal);
@@ -86,35 +121,35 @@
 
   /* Карточка «следующая пара» (не идущая): фон — слабый оттенок акцента, и в тёмной
      теме золото с серым давало коричневый. Тут — как золотая карта: отлив и рамка. */
-  html.vip.accent-gold .t-focus:not(.t-focus-live) {
+  html.vip.accent-metal .t-focus:not(.t-focus-live) {
     background-image: linear-gradient(105deg, transparent 38%, color-mix(in srgb, var(--gold-xl) 85%, transparent) 50%, transparent 62%);
     background-size: 250% 100%;
     background-repeat: no-repeat;
     animation: vip-glint-1 6s ease-in-out infinite;
     box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--gold) 60%, transparent);
   }
-  html.dark.vip.accent-gold .t-focus:not(.t-focus-live) {
+  html.dark.vip.accent-metal .t-focus:not(.t-focus-live) {
     animation: none;
-    background: radial-gradient(120% 140% at 0% 0%, var(--vip-card-1) 0%, var(--vip-card-2) 55%, var(--vip-card-3) 100%);
+    background: radial-gradient(120% 140% at 0% 0%, var(--vip-night-1) 0%, var(--vip-night-2) 55%, var(--vip-night-3) 100%);
     box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--gold-l) 45%, transparent), 0 10px 26px rgba(0, 0, 0, 0.35);
   }
-  html.dark.vip.accent-gold .t-focus:not(.t-focus-live)::before {
+  html.dark.vip.accent-metal .t-focus:not(.t-focus-live)::before {
     content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; mix-blend-mode: screen;
     background: linear-gradient(105deg, transparent 36%, color-mix(in srgb, var(--gold-l) 22%, transparent) 46%, rgba(255, 255, 255, 0.22) 50%, color-mix(in srgb, var(--gold-l) 22%, transparent) 54%, transparent 64%);
     background-size: 250% 100%;
     background-repeat: no-repeat;
     animation: vip-glint-1 6s ease-in-out infinite;
   }
-  html.vip.accent-gold .t-focus.t-sel:not(.t-focus-live) { box-shadow: inset 0 0 0 2.5px var(--ink); }
+  html.vip.accent-metal .t-focus.t-sel:not(.t-focus-live) { box-shadow: inset 0 0 0 2.5px var(--ink); }
   /* Плашка недели в шапке телефона — тоже на --soft */
-  html.vip.accent-gold .t-phead-pill { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gold) 55%, transparent); }
-  html.dark.vip.accent-gold .t-phead-pill { background: linear-gradient(135deg, var(--vip-card-1), var(--vip-card-2)); }
+  html.vip.accent-metal .t-phead-pill { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gold) 55%, transparent); }
+  html.dark.vip.accent-metal .t-phead-pill { background: linear-gradient(135deg, var(--vip-night-1), var(--vip-night-2)); }
 
   /* ── Приветствие на «Расписании» ─────────────────────────── */
   .vip-greet { font-size: 28px; font-weight: 800; line-height: 1.12; margin: 2px 0 14px; letter-spacing: -0.01em; }
 
   /* ── Звезда в «Отзыв отправлен» ────────────────────────────── */
-  .vip-bigstar { width: 72px; height: 72px; margin: 0 auto; color: var(--gold-l);
+  .vip-bigstar { width: 72px; height: 72px; margin: 0 auto; color: var(--gold);
     filter: drop-shadow(0 0 18px color-mix(in srgb, var(--gold-l) 90%, transparent)); }
   .vip-bigstar svg { width: 100%; height: 100%; }
 
@@ -123,7 +158,7 @@
   .vip-card-wrap { perspective: 900px; position: relative; }
   .vip-card {
     width: 100%; max-width: 440px; margin: 0 auto; aspect-ratio: 1.586; border-radius: 18px; position: relative;
-    transition: transform 0.15s ease-out; overflow: hidden; color: var(--gold-l);
+    transition: transform 0.15s ease-out; overflow: hidden; color: var(--vip-card-text, var(--gold-l));
     background: radial-gradient(120% 140% at 0% 0%, var(--vip-card-1) 0%, var(--vip-card-2) 55%, var(--vip-card-3) 100%);
     box-shadow: 0 16px 34px rgba(0, 0, 0, 0.3), inset 0 0 0 1px color-mix(in srgb, var(--gold-l) 35%, transparent);
     animation: vip-float 7s ease-in-out infinite;
@@ -160,7 +195,46 @@
   .vip-chip::after { content: ""; position: absolute; inset: 7px 9px; border: 1px solid color-mix(in srgb, var(--gold-on) 45%, transparent); border-radius: 3px; }
   .vip-card-no { font-size: 13px; letter-spacing: 0.3em; opacity: 0.75; }
   .vip-card-name { font-size: 27px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
-  .vip-card-role { font-family: var(--font-letter), serif; font-style: italic; font-size: 19px; margin-top: -2px; color: var(--gold-xl); }
+  .vip-card-role { font-family: var(--font-letter), serif; font-style: italic; font-size: 19px; margin-top: -2px; color: var(--vip-card-role, var(--gold-xl)); }
+  .vip-card-name.vip-gold-text { background: var(--vip-card-foil, linear-gradient(100deg, #8a6212, #d4a017 25%, #fff4c7 50%, #d4a017 75%, #8a6212)); background-size: 250% 100%; -webkit-background-clip: text; background-clip: text; }
+
+  /* Бриллиантовая карта: светлый металл с гранями и вспышками-искрами */
+  .vip-card-diamond {
+    --vip-card-text: #1b2333; --vip-card-role: #3e5a8a;
+    --vip-card-foil: linear-gradient(100deg, #5b6b86, #1b2333 30%, #8aa0c8 50%, #1b2333 70%, #5b6b86);
+    background: radial-gradient(130% 150% at 0% 0%, #f7f9ff 0%, #dfe6f3 40%, #c3cede 75%, #aab6c9 100%);
+    box-shadow: 0 16px 34px rgba(0, 0, 0, 0.3), inset 0 0 0 1px rgba(255, 255, 255, 0.75);
+  }
+  .vip-card-diamond .vip-card-dots {
+    opacity: 0.55;
+    background:
+      conic-gradient(from 0deg at 30% 40%, transparent, rgba(255, 255, 255, 0.5), rgba(180, 200, 255, 0.22), transparent, rgba(255, 220, 240, 0.3), transparent),
+      linear-gradient(135deg, transparent 48%, rgba(255, 255, 255, 0.65) 50%, transparent 52%),
+      linear-gradient(45deg, transparent 48%, rgba(255, 255, 255, 0.45) 50%, transparent 52%);
+    background-size: 100% 100%, 60px 60px, 60px 60px;
+  }
+  .vip-card-diamond .vip-chip { background: linear-gradient(135deg, #ffffff, #cfd8e6 50%, #9eabbf); }
+  .vip-card-diamond .vip-secret { color: #8aa0c8; filter: drop-shadow(0 0 8px rgba(170, 200, 255, 0.8)); }
+  .vip-spark { position: absolute; z-index: 2; pointer-events: none; opacity: 0; animation: vip-sparkle 2.4s ease-in-out infinite; }
+  .vip-spark::before, .vip-spark::after {
+    content: ""; position: absolute; left: 50%; top: 50%; background: #fff; border-radius: 2px; transform: translate(-50%, -50%);
+    box-shadow: 0 0 6px 2px rgba(255, 255, 255, 0.9), 0 0 12px 4px rgba(170, 200, 255, 0.6);
+  }
+  .vip-spark::before { width: 2px; height: 100%; }
+  .vip-spark::after { width: 100%; height: 2px; }
+  @keyframes vip-sparkle { 0%, 100% { opacity: 0; transform: scale(0.3) rotate(0); } 40% { opacity: 1; transform: scale(1) rotate(45deg); } 60% { opacity: 0.8; transform: scale(0.8) rotate(60deg); } }
+
+  /* Платиновая карта: тёмный шлифованный металл */
+  .vip-card-platinum {
+    --vip-card-text: #e9edf3; --vip-card-role: #e9edf3;
+    --vip-card-foil: linear-gradient(100deg, #9aa1ad, #ffffff 50%, #9aa1ad);
+    background: linear-gradient(135deg, #2b2e35 0%, #4a4f5a 35%, #8b919c 50%, #4a4f5a 65%, #24272d 100%);
+    box-shadow: 0 16px 34px rgba(0, 0, 0, 0.3), inset 0 0 0 1px rgba(220, 230, 240, 0.35);
+  }
+  .vip-card-platinum .vip-card-dots { opacity: 0.18; background: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.5) 0 1px, transparent 1px 3px); }
+  .vip-card-platinum .vip-chip { background: linear-gradient(135deg, #f4f6fa, #aab0bb 50%, #6b717c); }
+  .vip-card-platinum .vip-card-in > * { filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.75)); }
+  .vip-card-platinum .vip-secret { color: #d9dde3; filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.5)); }
   .vip-card-since { font-size: 11px; letter-spacing: 0.12em; opacity: 0.7; margin-top: 6px; text-transform: uppercase; }
   .vip-secret {
     position: absolute; right: 12px; bottom: 10px; width: 56px; height: 56px; padding: 6px; border: 0; background: none; cursor: pointer;
@@ -199,6 +273,82 @@
   .vip-thanks b { display: block; font-size: 22px; font-weight: 800; margin: 12px 0 4px; }
   .vip-thanks span { color: var(--text-2); }
 
+  /* ── Сюрприз «ещё два оформления» (VipSurprise) ────────────── */
+  .vip-sp {
+    position: fixed; inset: 0; z-index: 120; display: flex; flex-direction: column; align-items: center; text-align: center;
+    padding: max(30px, env(safe-area-inset-top)) 18px max(22px, env(safe-area-inset-bottom)); overflow: hidden;
+    background: radial-gradient(120% 80% at 50% 30%, #1a1d26 0%, #07080b 70%); color: #fff;
+  }
+  .vip-sp-t-gold { --sp-metal: linear-gradient(110deg, #8a6212, #d4a017 25%, #f7d774 50%, #d4a017 75%, #8a6212); --sp-on: #2e1c00; }
+  .vip-sp-t-diamond { --sp-metal: linear-gradient(110deg, #9fb0cc, #eef3ff 30%, #ffffff 50%, #dfe7f6 70%, #9fb0cc); --sp-on: #1b2333; }
+  .vip-sp-t-platinum { --sp-metal: linear-gradient(110deg, #5c616b, #b9bec7 30%, #f1f3f6 50%, #b9bec7 70%, #5c616b); --sp-on: #14161a; }
+  .vip-sp-hd { font-size: 11px; font-weight: 700; letter-spacing: 0.18em; color: #b9c3d6; opacity: 0; margin-top: 4vh; }
+  .vip-sp-title { font-size: 26px; font-weight: 800; line-height: 1.15; margin-top: 8px; opacity: 0; }
+  .vip-sp-title em { font-style: normal; background: linear-gradient(100deg, #9fb3d9, #ffffff 50%, #9fb3d9); background-size: 250% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: vip-foil 4s linear infinite; }
+  .vip-sp-deck { position: relative; width: 100%; max-width: 380px; height: 205px; margin-top: 26px; }
+  .vip-sp-card {
+    position: absolute; left: 50%; top: 16px; width: 220px; height: 139px; margin-left: -110px; border-radius: 15px; overflow: hidden;
+    padding: 12px 14px; display: flex; flex-direction: column; justify-content: space-between; text-align: left; border: 0; font: inherit;
+    cursor: pointer; opacity: 0; box-shadow: 0 14px 30px rgba(0, 0, 0, 0.5); transition: transform 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.15), box-shadow 0.3s, filter 0.4s;
+  }
+  /* после вступления места задаёт CSS: своё место у каждой, выбранная — вперёд и крупнее */
+  .vip-sp-ready .vip-sp-card { opacity: 1; filter: brightness(0.6); }
+  .vip-sp-ready .vip-sp-gold { transform: translate(0, 6px) scale(0.86); z-index: 2; }
+  .vip-sp-ready .vip-sp-diamond { transform: translate(78px, -6px) rotate(10deg) scale(0.86); z-index: 1; }
+  .vip-sp-ready .vip-sp-platinum { transform: translate(-78px, -6px) rotate(-10deg) scale(0.86); z-index: 1; }
+  .vip-sp-ready .vip-sp-on { filter: none; z-index: 3; box-shadow: 0 0 0 2.5px #fff, 0 0 26px 4px rgba(200, 215, 255, 0.45), 0 16px 34px rgba(0, 0, 0, 0.55); }
+  .vip-sp-ready .vip-sp-gold.vip-sp-on { transform: translate(0, 6px) scale(1.02); }
+  .vip-sp-ready .vip-sp-diamond.vip-sp-on { transform: translate(78px, -6px) rotate(10deg) scale(1.02); }
+  .vip-sp-ready .vip-sp-platinum.vip-sp-on { transform: translate(-78px, -6px) rotate(-10deg) scale(1.02); }
+  .vip-sp-top { display: flex; justify-content: space-between; font-size: 9px; letter-spacing: 0.18em; font-weight: 700; }
+  .vip-sp-chip { width: 28px; height: 21px; border-radius: 5px; }
+  .vip-sp-who { display: flex; flex-direction: column; }
+  .vip-sp-no { font-size: 10px; letter-spacing: 0.3em; opacity: 0.8; }
+  .vip-sp-nm { font-size: 19px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+  .vip-sp-rl { font-family: var(--font-letter), serif; font-style: italic; font-size: 14px; margin-top: -2px; }
+  .vip-sp-ic { position: absolute; right: 10px; bottom: 8px; width: 30px; height: 30px; }
+  .vip-sp-ic svg { width: 100%; height: 100%; }
+  .vip-sp-sh { position: absolute; inset: 0; mix-blend-mode: screen; pointer-events: none; background: var(--gold-glint); background-size: 250% 100%; background-repeat: no-repeat; animation: vip-glint-1 3.8s ease-in-out infinite; }
+  .vip-sp-gold { background: radial-gradient(120% 140% at 0% 0%, #2a2213, #121009 55%, #070605); color: #f7d774; }
+  .vip-sp-gold .vip-sp-chip { background: linear-gradient(135deg, #fff4c7, #d4a017 50%, #8a6212); }
+  .vip-sp-gold .vip-sp-rl { color: #fff4c7; }
+  .vip-sp-gold .vip-sp-ic { color: #d4a017; }
+  .vip-sp-gold .vip-sp-nm { background: linear-gradient(100deg, #8a6212, #d4a017 25%, #fff4c7 50%, #d4a017 75%, #8a6212); background-size: 250% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: vip-foil 5s linear infinite; }
+  .vip-sp-diamond { background: radial-gradient(130% 150% at 0% 0%, #f7f9ff, #dfe6f3 40%, #c3cede 75%, #aab6c9); color: #1b2333; }
+  .vip-sp-diamond::before { content: ""; position: absolute; inset: 0; opacity: 0.55; pointer-events: none;
+    background: conic-gradient(from 0deg at 30% 40%, transparent, rgba(255, 255, 255, 0.5), rgba(180, 200, 255, 0.22), transparent, rgba(255, 220, 240, 0.3), transparent),
+      linear-gradient(135deg, transparent 48%, rgba(255, 255, 255, 0.65) 50%, transparent 52%), linear-gradient(45deg, transparent 48%, rgba(255, 255, 255, 0.45) 50%, transparent 52%);
+    background-size: 100% 100%, 46px 46px, 46px 46px; }
+  .vip-sp-diamond .vip-sp-chip { background: linear-gradient(135deg, #ffffff, #cfd8e6 50%, #9eabbf); }
+  .vip-sp-diamond .vip-sp-rl { color: #3e5a8a; }
+  .vip-sp-diamond .vip-sp-ic { color: #8aa0c8; }
+  .vip-sp-platinum { background: linear-gradient(135deg, #2b2e35, #4a4f5a 35%, #8b919c 50%, #4a4f5a 65%, #24272d); color: #e9edf3; }
+  .vip-sp-platinum::before { content: ""; position: absolute; inset: 0; opacity: 0.18; pointer-events: none; background: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.5) 0 1px, transparent 1px 3px); }
+  .vip-sp-platinum .vip-sp-chip { background: linear-gradient(135deg, #f4f6fa, #aab0bb 50%, #6b717c); }
+  .vip-sp-platinum .vip-sp-ic { color: #d9dde3; }
+  .vip-sp-platinum > * { filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.7)); }
+  .vip-sp-flash { position: absolute; inset: -40px; z-index: 4; pointer-events: none; opacity: 0; background: radial-gradient(circle at 50% 45%, rgba(255, 255, 255, 0.55), transparent 55%); }
+  .vip-sp-burst { z-index: 6; opacity: 1; animation: none; }
+  .vip-sp-labels { display: flex; justify-content: space-between; width: 100%; max-width: 330px; margin-top: 4px; }
+  .vip-sp-lab { flex: 1; font-size: 14px; font-weight: 700; color: #8d93a1; opacity: 0; transition: color 0.3s; }
+  .vip-sp-lab small { display: block; font-weight: 500; font-size: 12px; color: #6c7280; margin-top: 1px; }
+  .vip-sp-lab-on { color: #fff; }
+  .vip-sp-hint { font-size: 15px; color: #a3a9b6; margin-top: 18px; opacity: 0; }
+  .vip-sp-acts { width: 100%; max-width: 420px; margin-top: auto; display: flex; flex-direction: column; gap: 6px; opacity: 0; }
+  .vip-sp-go {
+    font: inherit; font-weight: 800; font-size: 17px; border: 0; border-radius: 999px; padding: 15px; cursor: pointer; color: var(--sp-on);
+    background-image: var(--gold-glint), var(--sp-metal); background-size: 250% 100%, 100% 100%; background-repeat: no-repeat;
+    animation: vip-glint 4s ease-in-out infinite; box-shadow: 0 6px 22px rgba(170, 190, 230, 0.3);
+  }
+  .vip-sp-later { font: inherit; font-weight: 600; font-size: 15px; border: 0; background: none; color: #9aa1ad; padding: 10px; cursor: pointer; }
+  .vip-sp-toast { z-index: 121; }
+  /* «Новое» на «Внешнем виде» в Кабинете */
+  .vip-new {
+    font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--gold-on); border-radius: 999px; padding: 3px 9px; margin-left: auto;
+    background: linear-gradient(110deg, var(--gold-d), var(--gold-xl) 50%, var(--gold-d)); background-size: 250% 100%; animation: vip-new 2.6s ease-in-out infinite;
+  }
+  @keyframes vip-new { 0%, 100% { background-position: 0 0; } 50% { background-position: 100% 0; } }
+
   /* ── Активация профиля по коду (Кабинет, внизу) ────────────── */
   .t-pf-activate { display: block; margin: 6px auto 0; font: inherit; font-size: 14px; color: var(--text-3); background: none; border: 0; cursor: pointer; opacity: 0.8; }
   .t-pf-activate:hover { opacity: 1; text-decoration: underline; }
@@ -211,14 +361,20 @@
   .t-pf-code-go { width: 100%; margin-top: 12px; }
 
   /* ── «Внешний вид»: золотой кружок ───────────────────────── */
-  .vip-sw-gold { background: conic-gradient(from 200deg, var(--gold-d), var(--gold-l), var(--gold-xl), var(--gold), var(--gold-d)) !important;
-    box-shadow: 0 0 10px color-mix(in srgb, var(--gold) 60%, transparent); color: var(--gold-on) !important; }
+  /* Кружки — свои цвета, не токены: токены меняются вместе с выбранным металлом */
+  .vip-sw-gold { background: conic-gradient(from 200deg, #8a6212, #f7d774, #fff4c7, #d4a017, #8a6212) !important;
+    box-shadow: 0 0 10px rgba(212, 160, 23, 0.6); color: #3d2a00 !important; }
+  .vip-sw-diamond { background: conic-gradient(from 200deg, #9fb0cc, #ffffff, #dfe8ff, #f6d9ff, #bcd4ff, #9fb0cc) !important;
+    box-shadow: 0 0 10px rgba(170, 200, 255, 0.7); color: #1b2333 !important; }
+  .vip-sw-platinum { background: conic-gradient(from 200deg, #4a4f5a, #b9bec7, #f1f3f6, #8b919c, #4a4f5a) !important;
+    box-shadow: 0 0 10px rgba(200, 205, 215, 0.6); color: #14161a !important; }
   .vip-only { display: inline-block; margin-top: 10px; font-size: 12px; font-weight: 700; color: var(--gold-d); background: var(--gold-xl); border-radius: 999px; padding: 3px 10px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .vip-gold-text, .vip-card, .vip-card::before, .vip-card::after, .vip-secret svg,
   html.vip .t-focus-live::after, html.vip .t-cell-live::after,
-  html.vip.accent-gold :is(.t-focus-live, .t-cell-live, .t-btn-fill, .t-float-mine, .t-dcell-on, .t-chip-sel, .t-count,
-    .t-lg-go, .t-ap-live, .t-sw-on, .t-install-go, .t-cg-chip-on, .t-when-chip-on, .t-cp-ok, .t-focus, .t-focus::before) { animation: none !important; }
+  html.vip.accent-metal :is(.t-focus-live, .t-cell-live, .t-btn-fill, .t-float-mine, .t-dcell-on, .t-chip-sel, .t-count,
+    .t-lg-go, .t-ap-live, .t-sw-on, .t-install-go, .t-cg-chip-on, .t-when-chip-on, .t-cp-ok, .t-focus, .t-focus::before),
+  .vip-sp-sh, .vip-sp-go, .vip-sp-title em, .vip-sp-nm, .vip-new, .vip-spark { animation: none !important; }
 }

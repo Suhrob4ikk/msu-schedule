@@ -1,17 +1,18 @@
 "use client";
 /**
  * «Золотой профиль» в Кабинете для особых (lib/special.ts): карта вместо шапки
- * профиля (наклон телефона, секрет — звезда), задания и отзыв. Отзыв открывается,
- * когда всё посмотрено: секрет и золотая тема. Письмо «от администрации» и
+ * профиля (наклон телефона, секрет — звезда), задания и отзыв. Карта — из того же
+ * металла, что выбран во «Внешнем виде» (золото, бриллиант, платина; иначе золото).
+ * Отзыв открывается, когда всё посмотрено: секрет и особая тема. Письмо «от администрации» и
  * торжественное открытие показывались один раз и убраны (решение владельца, 10 окт 2026).
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Icon from "@/components/tablo/Icon";
 import { Sheet } from "@/components/tablo/Overlay";
 import { useAppearance } from "@/lib/tablo/hooks";
 import { api } from "@/lib/api";
-import { GOLD_ACCENT, VIP_TASKS_KEY, type VipInfo } from "@/lib/special";
+import { VIP_TASKS_KEY, metalOf, type MetalId, type VipInfo } from "@/lib/special";
 import { Star, burstStars } from "./effects";
 
 type Tasks = { secret?: boolean };
@@ -20,8 +21,28 @@ function readTasks(): Tasks {
   try { return JSON.parse(localStorage.getItem(VIP_TASKS_KEY) ?? "{}") ?? {}; } catch { return {}; }
 }
 
-/** Золотая карта: «№ 001 · Шахзода · Подружка админа». */
-function VipCard({ vip, onSecret }: { vip: VipInfo; onSecret: () => void }) {
+/** Бриллиант на карте того же металла — вместо звезды. */
+function Gem() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M6 3h12l4 6-10 12L2 9z" fill="currentColor" opacity=".35" />
+      <path d="M6 3h12l4 6-10 12L2 9zM2 9h20M9 3l3 6 3-6M12 21 9 9M12 21l3-12" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** Искры на бриллиантовой карте: места и ритм случайные, считаются один раз. */
+function Sparks() {
+  const list = useMemo(() => Array.from({ length: 7 }, () => {
+    const size = 10 + Math.random() * 10;
+    return { left: `${8 + Math.random() * 80}%`, top: `${10 + Math.random() * 70}%`, width: size, height: size,
+      animationDelay: `${Math.random() * 2.4}s`, animationDuration: `${1.8 + Math.random() * 1.6}s` };
+  }), []);
+  return <>{list.map((st, i) => <span key={i} className="vip-spark" style={st} />)}</>;
+}
+
+/** Карта: «№ 001 · Шахзода · Подружка админа». */
+function VipCard({ vip, metal, onSecret }: { vip: VipInfo; metal: MetalId; onSecret: () => void }) {
   const card = useRef<HTMLDivElement>(null);
   const wrap = useRef<HTMLDivElement>(null);
 
@@ -68,8 +89,9 @@ function VipCard({ vip, onSecret }: { vip: VipInfo; onSecret: () => void }) {
 
   return (
     <div className="vip-card-wrap" ref={wrap}>
-      <div className="vip-card" ref={card}>
+      <div className={`vip-card vip-card-${metal}`} ref={card}>
         <div className="vip-card-dots" />
+        {metal === "diamond" && <Sparks />}
         <div className="vip-card-in">
           <div className="vip-card-top">
             <span className="vip-card-brand">МГУ · РАСПИСАНИЕ</span>
@@ -82,7 +104,7 @@ function VipCard({ vip, onSecret }: { vip: VipInfo; onSecret: () => void }) {
             <div className="vip-card-since">С нами с {vip.since}</div>
           </div>
         </div>
-        <button type="button" className="vip-secret" aria-label="Звезда" onClick={secret}><Star /></button>
+        <button type="button" className="vip-secret" aria-label={metal === "diamond" ? "Бриллиант" : "Звезда"} onClick={secret}>{metal === "diamond" ? <Gem /> : <Star />}</button>
       </div>
     </div>
   );
@@ -166,13 +188,13 @@ export default function VipProfile({ vip, onEdit }: { vip: VipInfo; onEdit: () =
     });
   }, []);
 
-  const gold = appearance?.accent.preset === "custom" && appearance.accent.custom?.toUpperCase() === GOLD_ACCENT;
-  const seen = (tasks.secret ? 1 : 0) + (gold ? 1 : 0);
+  const metal = metalOf(appearance);
+  const seen = (tasks.secret ? 1 : 0) + (metal ? 1 : 0);
 
   return (
     <>
       <section className="vip-me">
-        <VipCard vip={vip} onSecret={() => tick("secret")} />
+        <VipCard vip={vip} metal={metal ?? "gold"} onSecret={() => tick("secret")} />
         <button type="button" className="t-pf-link" onClick={onEdit}>
           Изменить имя или группу<Icon name="chevronRight" size={20} />
         </button>
@@ -182,9 +204,9 @@ export default function VipProfile({ vip, onEdit }: { vip: VipInfo; onEdit: () =
       <section className="t-pf-card vip-tasks">
         <div className="vip-todo">
           <div className={tasks.secret ? "vip-ok" : ""}><i>{tasks.secret && <Icon name="check" size={14} strokeWidth={3} />}</i>Найти секрет на карте</div>
-          <div className={gold ? "vip-ok" : ""}>
-            <i>{gold && <Icon name="check" size={14} strokeWidth={3} />}</i>
-            <Link href="/profile/appearance">Включить золотую тему</Link>
+          <div className={metal ? "vip-ok" : ""}>
+            <i>{metal && <Icon name="check" size={14} strokeWidth={3} />}</i>
+            <Link href="/profile/appearance">Выбрать золото, бриллиант или платину</Link>
           </div>
         </div>
         <button type="button" className="vip-gold-btn vip-review-btn" disabled={seen < 2} onClick={() => setReview(true)}>

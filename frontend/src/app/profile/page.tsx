@@ -18,7 +18,7 @@ import { appearanceSummary } from "@/components/tablo/profile/AppearanceView";
 import { useAppearance, useVip } from "@/lib/tablo/hooks";
 import VipProfile from "@/components/tablo/vip/VipProfile";
 import VipCodeEntry from "@/components/tablo/vip/VipCodeEntry";
-import { canActivateVip } from "@/lib/special";
+import { VIP_NEW_KEY, canActivateVip } from "@/lib/special";
 import { api, clearApiCache, rememberGroup, shortGroupName, type Group } from "@/lib/api";
 import { markGroupChosen } from "@/lib/features";
 import { getInstallEvent, isIOS, isStandalone, onInstallChange, runInstall } from "@/lib/install";
@@ -113,6 +113,9 @@ export default function ProfilePage() {
   const router = useRouter();
   const appearance = useAppearance();
   const vip = useVip();
+  // Метка «Новое» на «Внешнем виде»: после сюрприза с новыми металлами, пока туда не зашла
+  const [newMetals, setNewMetals] = useState(false);
+  useEffect(() => { try { setNewMetals(localStorage.getItem(VIP_NEW_KEY) === "1"); } catch { /* приватный режим */ } }, []);
   const [groups, setGroups] = useState<Group[]>([]);
   const [groupsError, setGroupsError] = useState(false);
   const [hydrated, setHydrated] = useState(false);
@@ -276,6 +279,7 @@ export default function ProfilePage() {
               <Link href="/profile/appearance">
                 <span className="t-pf-ic"><Icon name="palette" size={22} /></span>
                 <b>Внешний вид</b>
+                {vip && newMetals && <span className="vip-new">Новое</span>}
                 {appearance && <em className="t-pf-sum">{appearanceSummary(appearance)}</em>}
                 <Icon name="chevronRight" size={20} />
               </Link>
