@@ -15,6 +15,7 @@
   --gold-xl: #fff4c7;
   --gold-on: #3d2a00;
   --gold-metal: linear-gradient(110deg, #8a6212, #d4a017 25%, #f7d774 50%, #d4a017 75%, #8a6212);
+  --gold-glint: linear-gradient(105deg, transparent 42%, rgba(255, 255, 255, 0.35) 47%, rgba(255, 255, 255, 0.8) 50%, rgba(255, 255, 255, 0.35) 53%, transparent 58%);
   --vip-card-1: #2a2213;
   --vip-card-2: #121009;
   --vip-card-3: #070605;
@@ -67,22 +68,42 @@
   /* ── «Металлическое золото»: заливки акцента с переливом ─────── */
   html.vip.accent-gold :is(.t-focus-live, .t-cell-live, .t-btn-fill, .t-float-mine, .t-dcell-on, .t-chip-sel,
     .t-count, .t-lg-go, .t-ap-live, .t-sw-on, .t-install-go, .t-cg-chip-on, .t-when-chip-on, .t-cp-ok) {
-    background-image: var(--gold-metal);
+    /* верхний слой — полоска света, которая время от времени пробегает по золоту */
+    background-image: var(--gold-glint), var(--gold-metal);
+    background-size: 250% 100%, 100% 100%;
+    background-repeat: no-repeat;
+    animation: vip-glint 5s ease-in-out infinite;
+  }
+  /* Блик: слой в 2,5 раза шире элемента; 100% — полоска за левым краем, 0% — за правым */
+  @keyframes vip-glint {
+    0%, 55% { background-position: 100% 0, 0 0; }
+    85%, 100% { background-position: 0% 0, 0 0; }
+  }
+  @keyframes vip-glint-1 {
+    0%, 55% { background-position: 100% 0; }
+    85%, 100% { background-position: 0% 0; }
   }
 
   /* Карточка «следующая пара» (не идущая): фон — слабый оттенок акцента, и в тёмной
      теме золото с серым давало коричневый. Тут — как золотая карта: отлив и рамка. */
   html.vip.accent-gold .t-focus:not(.t-focus-live) {
-    background-image: linear-gradient(115deg, transparent 25%, color-mix(in srgb, var(--gold-xl) 45%, transparent) 50%, transparent 75%);
+    background-image: linear-gradient(105deg, transparent 38%, color-mix(in srgb, var(--gold-xl) 85%, transparent) 50%, transparent 62%);
+    background-size: 250% 100%;
+    background-repeat: no-repeat;
+    animation: vip-glint-1 6s ease-in-out infinite;
     box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--gold) 60%, transparent);
   }
   html.dark.vip.accent-gold .t-focus:not(.t-focus-live) {
+    animation: none;
     background: radial-gradient(120% 140% at 0% 0%, var(--vip-card-1) 0%, var(--vip-card-2) 55%, var(--vip-card-3) 100%);
     box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--gold-l) 45%, transparent), 0 10px 26px rgba(0, 0, 0, 0.35);
   }
   html.dark.vip.accent-gold .t-focus:not(.t-focus-live)::before {
     content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; mix-blend-mode: screen;
-    background: linear-gradient(115deg, transparent 25%, color-mix(in srgb, var(--gold-l) 16%, transparent) 45%, rgba(255, 255, 255, 0.12) 50%, color-mix(in srgb, var(--gold-l) 16%, transparent) 55%, transparent 75%);
+    background: linear-gradient(105deg, transparent 36%, color-mix(in srgb, var(--gold-l) 22%, transparent) 46%, rgba(255, 255, 255, 0.22) 50%, color-mix(in srgb, var(--gold-l) 22%, transparent) 54%, transparent 64%);
+    background-size: 250% 100%;
+    background-repeat: no-repeat;
+    animation: vip-glint-1 6s ease-in-out infinite;
   }
   html.vip.accent-gold .t-focus.t-sel:not(.t-focus-live) { box-shadow: inset 0 0 0 2.5px var(--ink); }
   /* Плашка недели в шапке телефона — тоже на --soft */
@@ -122,6 +143,14 @@
     animation: vip-sheen 7s ease-in-out infinite;
   }
   .vip-card.vip-held::before { animation: none; }
+  /* Бегущий блик по карте — отдельно от отлива, который следует за наклоном */
+  .vip-card::after {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; mix-blend-mode: screen;
+    background: linear-gradient(105deg, transparent 38%, color-mix(in srgb, var(--gold-xl) 30%, transparent) 46%, rgba(255, 255, 255, 0.35) 50%, color-mix(in srgb, var(--gold-xl) 30%, transparent) 54%, transparent 62%);
+    background-size: 250% 100%;
+    background-repeat: no-repeat;
+    animation: vip-glint-1 4.5s ease-in-out infinite;
+  }
   @keyframes vip-sheen { 0%, 100% { background-position: 0 0, 10% 0; } 50% { background-position: 0 0, 90% 0; } }
   .vip-card-dots { position: absolute; inset: 0; opacity: 0.12; background-image: radial-gradient(circle, var(--gold-l) 1px, transparent 1.2px); background-size: 14px 14px; }
   .vip-card-in { position: absolute; inset: 0; padding: 18px 20px; display: flex; flex-direction: column; justify-content: space-between; }
@@ -188,6 +217,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .vip-gold-text, .vip-card, .vip-card::before, .vip-secret svg,
-  html.vip .t-focus-live::after, html.vip .t-cell-live::after { animation: none !important; }
+  .vip-gold-text, .vip-card, .vip-card::before, .vip-card::after, .vip-secret svg,
+  html.vip .t-focus-live::after, html.vip .t-cell-live::after,
+  html.vip.accent-gold :is(.t-focus-live, .t-cell-live, .t-btn-fill, .t-float-mine, .t-dcell-on, .t-chip-sel, .t-count,
+    .t-lg-go, .t-ap-live, .t-sw-on, .t-install-go, .t-cg-chip-on, .t-when-chip-on, .t-cp-ok, .t-focus, .t-focus::before) { animation: none !important; }
 }
