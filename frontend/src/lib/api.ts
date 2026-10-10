@@ -700,6 +700,24 @@ export const api = {
   // Регистрация пользователя — сохраняем имя + группу на сервере.
   // silent — тихая перерегистрация после деплоя (см. components/ServerResync.tsx),
   // без письма владельцу о «новом пользователе».
+  /** Отзыв о дизайне (кнопка у особых устройств, lib/special.ts). Ошибка — текст для экрана. */
+  sendFeedback: async (deviceId: string, rating: number, text: string): Promise<void> => {
+    let res: Response;
+    try {
+      res = await fetch(`${API_BASE}/user/feedback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ device_id: deviceId, rating, text }),
+      });
+    } catch {
+      throw new Error('Нет связи с сервером');
+    }
+    if (!res.ok) {
+      const detail = await res.json().then(j => j?.detail).catch(() => null);
+      throw new Error(typeof detail === 'string' ? detail : 'Не получилось отправить');
+    }
+  },
+
   registerUser: (deviceId: string, name: string, groupId: number, silent = false) =>
     fetch(`${API_BASE}/user/register?device_id=${encodeURIComponent(deviceId)}&name=${encodeURIComponent(name)}&group_id=${groupId}${silent ? '&silent=true' : ''}`, {
       method: 'POST',

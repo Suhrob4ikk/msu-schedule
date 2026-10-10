@@ -15,7 +15,9 @@ import Header from "@/components/Header";
 import Icon from "@/components/tablo/Icon";
 import Login from "@/components/tablo/profile/Login";
 import { appearanceSummary } from "@/components/tablo/profile/AppearanceView";
-import { useAppearance } from "@/lib/tablo/hooks";
+import { useAppearance, useVip } from "@/lib/tablo/hooks";
+import VipProfile from "@/components/tablo/vip/VipProfile";
+import VipCodeEntry from "@/components/tablo/vip/VipCodeEntry";
 import { api, clearApiCache, rememberGroup, shortGroupName, type Group } from "@/lib/api";
 import { markGroupChosen } from "@/lib/features";
 import { getInstallEvent, isIOS, isStandalone, onInstallChange, runInstall } from "@/lib/install";
@@ -109,6 +111,7 @@ const DEVELOPER_TELEGRAM = "https://t.me/davlatov3007";
 export default function ProfilePage() {
   const router = useRouter();
   const appearance = useAppearance();
+  const vip = useVip();
   const [groups, setGroups] = useState<Group[]>([]);
   const [groupsError, setGroupsError] = useState(false);
   const [hydrated, setHydrated] = useState(false);
@@ -252,6 +255,7 @@ export default function ProfilePage() {
       <Header />
       <main className="t-main t-pf-main">
         <div className="t-pf">
+            {vip ? <VipProfile vip={vip} onEdit={() => setIsEditing(true)} /> : (
             <section className="t-pf-card t-pf-me">
               <div className="t-pf-who">
                 <span className="t-avatar t-avatar-lg" aria-hidden="true">{letter || <Icon name="user" size={26} />}</span>
@@ -264,6 +268,7 @@ export default function ProfilePage() {
                 Изменить имя или группу<Icon name="chevronRight" size={20} />
               </button>
             </section>
+            )}
 
             <h2 className="t-over t-pf-h">Оформление</h2>
             <nav className="t-pf-card t-pf-nav" aria-label="Оформление">
@@ -375,6 +380,7 @@ export default function ProfilePage() {
               МГУ Душанбе · Расписание · Данные с msu.tj
               {isOwner && <> · <Link href="/dev">режим разработчика</Link></>}
             </p>
+            {!vip && <VipCodeEntry />}
         </div>
       </main>
       {toast && <div className="t-toast" role="status">{toast}</div>}

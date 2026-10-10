@@ -32,7 +32,8 @@ import { DayBar, NotPublished, ShareList, type ShareAction } from "@/components/
 import { api, onApiUpdate, shortGroupName, DAYS_ORDER, type Group, type Lesson, type WeekInfo } from "@/lib/api";
 import { shareScheduleImage } from "@/lib/shareImage";
 import { useSwipe } from "@/lib/useSwipe";
-import { useLayout, useNow } from "@/lib/tablo/hooks";
+import { useLayout, useNow, useVip } from "@/lib/tablo/hooks";
+import VipGreeting from "@/components/tablo/vip/VipGreeting";
 import {
   addDays, buildWeek, computeFocus, dayTitle, diffDays, doneTodayAt, dushanbeNow, headerTitle, isoOf, rangeLabel,
   weekIsOver, weekRel, weekStatsLine, type Block,
@@ -75,6 +76,7 @@ export default function SchedulePage() {
   const router = useRouter();
   const layout = useLayout();
   const now = useNow(30_000);
+  const vip = useVip();
   const wideScreen = layout === "wide" || layout === "xwide";
 
   // ─── Данные ──────────────────────────────────────────────────────────────
@@ -575,6 +577,7 @@ export default function SchedulePage() {
 
       <main className={`t-main ${layout ? `t-main-${layout}` : ""}`}>
         <CourseCheckBanner />
+        {vip && now && !foreign && <VipGreeting name={vip.name} now={now} />}
 
         {/* Панель инструментов — от 640 px */}
         {layout && layout !== "phone" && (

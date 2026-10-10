@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { APPEARANCE_KEY, parseAppearance, DEFAULT_APPEARANCE, type Appearance } from "../appearance";
 import { api, getNetStatus, onNetStatus, type Group, type NetStatus } from "../api";
 import { dushanbeNow } from "./schedule";
+import { readVip, type VipInfo } from "../special";
 
 const noop = () => () => {};
 
@@ -92,6 +93,12 @@ export function useNetStatus(): NetStatus | null {
 /** true после монтирования. */
 export function useMounted(): boolean {
   return useSyncExternalStore(noop, () => true, () => false);
+}
+
+/** Особый пользователь (lib/special.ts) или null; до монтирования — null. */
+export function useVip(): VipInfo | null {
+  const mounted = useMounted();
+  return useMemo(() => (mounted ? readVip() : null), [mounted]);
 }
 
 export interface Me {

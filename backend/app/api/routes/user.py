@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 import json
 
 from app.database import get_db
-from app.models import Group, UserSubscription, UserRegistration
+from app.models import Feedback, Group, UserSubscription, UserRegistration
 from app.core.config import settings
 
 router = APIRouter(prefix="/user", tags=["user"])
@@ -243,4 +243,67 @@ def push_unsubscribe(session_id: str, db: Session = Depends(get_db)):
         sub.push_endpoint = None
         sub.push_keys = None
         db.commit()
+    return {"ok": True}
+
+
+# ─── Отзывы о дизайне (10 окт 2026) ─────────────────────────────────────────
+# Кнопку видят только особые устройства сайта (frontend/src/lib/special.ts).
+# Лимиты: 10 отзывов в сутки с устройства и 60 в час всего — подменой адреса
+# не обойти, а владельцу не прилетит гора писем.
+
+FEEDBACK_PER_DEVICE_DAY = 10
+FEEDBACK_PER_HOUR = 60
+_feedback_times: list = []
+
+
+class FeedbackBody(BaseModel):
+    device_id: str
+    rating: int
+    text: str = ""
+
+
+def _send_feedback_email(name: str, group_label: str, rating: int, text: str) -> None:
+    from html import escape
+    from app.services.email import send_owner_email
+    stars = "★" * rating + "☆" * (5 - rating)
+    body = text.strip() or "(без текста)"
+    send_owner_email(
+        f"Отзыв о дизайне: {stars} — {name}",
+        f"<p><b>{escape(name)}</b> · {escape(group_label)}</p>"
+        f"<p style=\"font-size:22px;color:#b8860b;margin:8px 0\">{stars}</p>"
+        f"<p style=\"white-space:pre-wrap\">{escape(body)}</p>",
+        f"{name} · {group_label}\n{stars}\n\n{body}",
+    )
+
+
+@router.post("/feedback")
+def send_feedback(body: FeedbackBody, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    """Отзыв о дизайне: оценка 1–5 и текст. Только от зарегистрированного устройства."""
+    import time
+    from datetime import datetime, timedelta
+
+    if not 1 <= body.rating <= 5:
+        raise HTTPException(400, "Оценка — от 1 до 5")
+    if len(body.device_id) > 100:
+        raise HTTPException(400, "Слишком длинный device_id")
+    text = body.text.strip()[:2000]
+
+    reg = db.query(UserRegistration).filter_by(device_id=body.device_id).first()
+    if not reg:
+        raise HTTPException(403, "Сначала выберите группу в Кабинете")
+
+    day_ago = datetime.utcnow() - timedelta(days=1)
+    recent = db.query(Feedback).filter(Feedback.device_id == body.device_id, Feedback.created_at >= day_ago).count()
+    now = time.time()
+    _feedback_times[:] = [t for t in _feedback_times if now - t < 3600]
+    if recent >= FEEDBACK_PER_DEVICE_DAY or len(_feedback_times) >= FEEDBACK_PER_HOUR:
+        raise HTTPException(429, "Слишком много отзывов — попробуйте завтра")
+    _feedback_times.append(now)
+
+    group = db.get(Group, reg.group_id) if reg.group_id else None
+    group_label = f"{group.year} курс · {group.name}" if group else ""
+    db.add(Feedback(device_id=body.device_id, name=reg.name[:200], group_label=group_label[:200],
+                    rating=body.rating, text=text))
+    db.commit()
+    background_tasks.add_task(_send_feedback_email, reg.name, group_label, body.rating, text)
     return {"ok": True}

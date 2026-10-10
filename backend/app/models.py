@@ -338,3 +338,19 @@ class ExamNotificationLog(Base):
     __table_args__ = (
         UniqueConstraint("session_id", "notification_type", "exam_date", "subject"),
     )
+
+
+class Feedback(Base):
+    """Отзыв о дизайне: оценка 1–5 звёзд и текст (10 окт 2026).
+
+    Кнопку «Оставить отзыв» видят только устройства из frontend/src/lib/special.ts,
+    но принимаем от любого зарегистрированного: так проще и не нужен второй список
+    на сервере. Каждый отзыв приходит владельцу письмом и виден в панели /dev."""
+    __tablename__ = "feedback"
+    id = Column(Integer, primary_key=True)
+    device_id = Column(String(100), nullable=False, index=True)
+    name = Column(String(200), nullable=False)
+    group_label = Column(String(200), nullable=True)
+    rating = Column(Integer, nullable=False)
+    text = Column(Text, nullable=False, default="")
+    created_at = Column(DateTime, default=datetime.utcnow)

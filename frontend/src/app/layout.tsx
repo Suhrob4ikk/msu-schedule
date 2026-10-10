@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Onest } from "next/font/google";
+import { Cormorant_Garamond, Onest, Roboto_Condensed } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import "./tablo.css";
@@ -9,13 +9,16 @@ import "./tablo-changes.css";
 import "./tablo-compare.css";
 import "./tablo-profile.css";
 import "./tablo-names.css";
+import "./tablo-vip.css";
 import BottomNav from "@/components/BottomNav";
 import GlobalNamesReminder from "@/components/tablo/names/GlobalNamesReminder";
 import ServerResync from "@/components/ServerResync";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import InstallPrompt from "@/components/InstallPrompt";
 import AppearanceSync from "@/components/AppearanceSync";
+import VipIntro from "@/components/tablo/vip/VipIntro";
 import { appearanceInitScript, MODE_BASE } from "@/lib/appearance";
+import { specialInitScript } from "@/lib/special";
 
 // Раньше здесь был <link rel="preconnect"> на домен Render: бэкенд жил на
 // другом домене, и без preconnect браузер начинал DNS + TLS только в момент
@@ -30,6 +33,26 @@ const onest = Onest({
   subsets: ["latin", "cyrillic"],
   variable: "--font-onest",
   display: "swap",
+});
+
+// Узкий шрифт для отдельных пользователей (lib/special.ts). preload: false —
+// остальным файлы шрифта не качаются: браузер берёт их, только когда класс
+// `font-condensed` на <html> включает этот шрифт.
+const robotoCondensed = Roboto_Condensed({
+  subsets: ["latin", "cyrillic"],
+  variable: "--font-condensed",
+  display: "swap",
+  preload: false,
+});
+
+// Курсив письма «от администрации» в «золотом профиле» — тоже только у особых.
+const letterFont = Cormorant_Garamond({
+  subsets: ["latin", "cyrillic"],
+  weight: ["500", "600"],
+  style: ["italic"],
+  variable: "--font-letter",
+  display: "swap",
+  preload: false,
 });
 
 export const metadata: Metadata = {
@@ -73,8 +96,13 @@ export default function RootLayout({
           strategy="beforeInteractive"
           dangerouslySetInnerHTML={{ __html: appearanceInitScript() }}
         />
+        <Script
+          id="special-init"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: specialInitScript() }}
+        />
       </head>
-      <body className={`${onest.variable} min-h-full flex flex-col antialiased`}>
+      <body className={`${onest.variable} ${robotoCondensed.variable} ${letterFont.variable} min-h-full flex flex-col antialiased`}>
         {children}
         <GlobalNamesReminder />
         <BottomNav />
@@ -82,6 +110,7 @@ export default function RootLayout({
         <ServiceWorkerRegister />
         <ServerResync />
         <AppearanceSync />
+        <VipIntro />
       </body>
     </html>
   );

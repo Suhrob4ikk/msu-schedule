@@ -15,7 +15,8 @@ import {
   resolveMode, saveAppearance, type AccentPresetId, type Appearance, type Background, type Density, type ShadeValue, type TypeShades,
 } from "@/lib/appearance";
 import { contrast } from "@/lib/color";
-import { useAppearance } from "@/lib/tablo/hooks";
+import { useAppearance, useVip } from "@/lib/tablo/hooks";
+import { GOLD_ACCENT } from "@/lib/special";
 
 const BGS: Background[] = ["system", "light", "dark", "black"];
 /** Подписи как в приложении (раздел «Фон»). */
@@ -99,6 +100,7 @@ function Preview() {
 
 export default function AppearanceView() {
   const a = useAppearance();
+  const vip = useVip();
   const [plus, setPlus] = useState<HTMLButtonElement | null>(null);
   const [custom, setCustom] = useState(false);
   // Свой цвет типа занятия: какой тип и у какой точки «+» стоит окно
@@ -107,7 +109,9 @@ export default function AppearanceView() {
   const mode = resolveMode(a.background);
   const types = a.types ?? DEFAULT_TYPES;
   const density: Density = a.density ?? "regular";
-  const customOn = a.accent.preset === "custom";
+  // Золото — «свой цвет» GOLD_ACCENT, кружок только у особых (lib/special.ts)
+  const goldOn = a.accent.preset === "custom" && a.accent.custom?.toUpperCase() === GOLD_ACCENT;
+  const customOn = a.accent.preset === "custom" && !(vip && goldOn);
 
   const save = (next: Partial<Appearance>) => saveAppearance({ ...a, ...next });
   const pick = (id: AccentPresetId) => save({ accent: { ...a.accent, preset: id } });
@@ -132,6 +136,13 @@ export default function AppearanceView() {
                 </button>
               );
             })}
+            {vip && (
+              <button type="button" role="radio" aria-checked={goldOn} aria-label="Золото"
+                className={`t-ap-sw ${goldOn ? "t-ap-sw-on" : ""}`} onClick={() => save({ accent: { preset: "custom", custom: GOLD_ACCENT } })}>
+                <span className="vip-sw-gold">{goldOn && <Icon name="check" size={22} strokeWidth={2.6} />}</span>
+                <em>Золото</em>
+              </button>
+            )}
             <button ref={setPlus} type="button" role="radio" aria-checked={customOn} aria-label="Свой цвет"
               className={`t-ap-sw ${customOn ? "t-ap-sw-on" : ""}`} onClick={() => setCustom(o => !o)}>
               <span className="t-ap-plus" style={customOn ? { background: accentHex(a), color: accentVars(a, mode).onFill } : undefined}>
@@ -141,6 +152,7 @@ export default function AppearanceView() {
             </button>
           </div>
           <p className="t-ap-note">{onAccentLine(a, mode)}</p>
+          {vip && <span className="vip-only">Золото — только у вас</span>}
         </section>
 
         <h2 className="t-over t-av-h">Типы занятий</h2>

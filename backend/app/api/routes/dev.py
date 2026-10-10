@@ -29,7 +29,7 @@ from app.core.config import settings
 from app.database import get_db
 from app.models import (
     Group, Lesson, Teacher, Room, WeekSchedule, SyncLog,
-    UserRegistration, UserSubscription, TeacherOverride,
+    UserRegistration, UserSubscription, TeacherOverride, Feedback,
 )
 
 logger = logging.getLogger(__name__)
@@ -461,6 +461,17 @@ def dev_users(db: Session = Depends(get_db)):
         ),
         "vapid_configured": bool(settings.VAPID_PUBLIC_KEY and settings.VAPID_PRIVATE_KEY),
     }
+
+
+@router.get("/feedback", dependencies=[Depends(require_dev)])
+def dev_feedback(db: Session = Depends(get_db)):
+    """Последние отзывы о дизайне (кнопка «Оставить отзыв» у особых устройств)."""
+    rows = db.query(Feedback).order_by(Feedback.created_at.desc()).limit(50).all()
+    return [
+        {"id": f.id, "name": f.name, "group": f.group_label, "rating": f.rating,
+         "text": f.text, "created_at": f.created_at.isoformat() if f.created_at else None}
+        for f in rows
+    ]
 
 
 @router.post("/test-push", dependencies=[Depends(require_dev)])

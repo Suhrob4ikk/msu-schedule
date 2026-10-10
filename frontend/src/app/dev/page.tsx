@@ -322,6 +322,7 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
   const [clientPerf, setClientPerf] = useState<Record<string, number>>({});
   const [missing, setMissing] = useState<any[]>([]);
   const [names, setNames] = useState<any>(null);
+  const [feedback, setFeedback] = useState<any[]>([]);
   const overrideForm = useRef<HTMLDivElement>(null);
   const realNameInput = useRef<HTMLInputElement>(null);
 
@@ -338,6 +339,7 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
     // Отдельно и без выхода при ошибке: на старом сервере этого адреса ещё нет
     try { setMissing(await api<any[]>("/missing-teachers")); } catch { setMissing([]); }
     try { setNames(await api<any>("/full-names")); } catch { setNames(null); }
+    try { setFeedback(await api<any[]>("/feedback")); } catch { setFeedback([]); }
   }, [api, onLogout]);
 
   useEffect(() => { refresh(); }, [refresh]);
@@ -497,6 +499,24 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
                 })}
               </div>
             )}
+          </Section>
+
+          <Section title="Отзывы о дизайне" hint="Кнопка «Оставить отзыв» есть только в «золотом профиле» (frontend/src/lib/special.ts). Каждый отзыв ещё и приходит вам на почту.">
+            {feedback.length === 0
+              ? <div style={{ fontSize: 13, color: c.muted }}>Пока отзывов нет</div>
+              : <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {feedback.map((f: any) => (
+                    <div key={f.id} style={{ background: c.panel2, borderRadius: 10, padding: "10px 12px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 13 }}>
+                        <b>{f.name}</b>
+                        <span style={{ color: c.muted }}>{fmtTime(parseUtc(f.created_at))}</span>
+                      </div>
+                      <div style={{ color: c.yellow, fontSize: 17, letterSpacing: 2, margin: "2px 0" }}>{"★".repeat(f.rating)}{"☆".repeat(5 - f.rating)}</div>
+                      {f.text && <div style={{ fontSize: 13.5, lineHeight: 1.45, whiteSpace: "pre-wrap" }}>{f.text}</div>}
+                      {f.group && <div style={{ fontSize: 12, color: c.faint, marginTop: 4 }}>{f.group}</div>}
+                    </div>
+                  ))}
+                </div>}
           </Section>
 
           <Section title="Уведомления" hint={<>Сколько устройств получают push. Тестовый push уходит <b style={{ color: c.fg }}>только на ваши устройства</b> — те, где в Кабинете имя «Сухроб» или «Suhrob».</>}>
