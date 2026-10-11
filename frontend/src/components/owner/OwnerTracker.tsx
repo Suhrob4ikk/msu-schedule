@@ -69,14 +69,16 @@ export function useOwnerProgress() {
     try { device = localStorage.getItem("msu_device_id_v2") ?? ""; } catch { /* приватный режим */ }
     if (device && !shared) {
       first ??= fetchVipProgress(device, OWNER_PERSON, false);
-      first.then(s => { if (s) { shared ??= s; setSt(shared); } });
+      // не ответил (сервер просыпался, нет сети) — следующее открытие спросит снова
+      first.then(s => { if (s) { shared ??= s; setSt(shared); } else first = null; });
     }
     const onUpd = (e: Event) => { shared = (e as CustomEvent<VipProgressState>).detail; setSt(shared); };
     window.addEventListener("owner-progress", onUpd);
     return () => window.removeEventListener("owner-progress", onUpd);
   }, []);
   const today = todayIso(dushanbeNow());
-  return useMemo(() => (st ? computeOwner(st, today) : null), [st, today]);
+  // st появляется только в браузере, после монтирования, — localStorage здесь читать можно
+  return useMemo(() => (st ? computeOwner(st, today, readSet(OWNER_TABS_KEY).size) : null), [st, today]);
 }
 
 export default function OwnerTracker() {

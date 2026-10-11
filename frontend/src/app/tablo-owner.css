@@ -167,7 +167,17 @@ html.owner body, html.owner .t-page { background: transparent; }
   .ow-exam span { font-size: 13px; color: var(--text-2); }
 
   /* ── Теоремы ─────────────────────────────────────────────── */
-  .ow-thm { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  /* Раздел «Теоремы» свёрнут (как «Достижения» у «золотого»); overflow виден — карточка теоремы всплывает поверх */
+  .ow-fold { overflow: visible; }
+  .ow-fold-h { display: flex; align-items: center; gap: 12px; width: 100%; padding: 16px 16px 16px 18px; border: 0; background: none; font: inherit; color: var(--text); text-align: left; cursor: pointer; }
+  .ow-fold-h b { font-size: 17px; font-weight: 700; }
+  .ow-fold-h em { margin-left: auto; font-style: normal; font-size: 14px; color: var(--text-2); }
+  .ow-fold-h svg { flex: none; color: var(--text-2); transition: transform 0.25s; }
+  .ow-fold-open .ow-fold-h svg { transform: rotate(180deg); }
+  .ow-fold-ic { width: 12px; height: 12px; flex: none; background: var(--ow-ink); }
+  html.dark .ow-fold-ic { background: var(--ow-cyan-l); }
+  .ow-fold .ow-thm { padding: 0 12px 14px; animation: ow-unfold 0.3s ease both; }
+  .ow-thm { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .ow-th { position: relative; min-height: 92px; display: flex; flex-direction: column; gap: 4px; padding: 12px; border: 0; font: inherit; text-align: left; cursor: pointer; }
   .ow-th-k { font-size: 11px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-2); }
   .ow-th b { font-size: 15.5px; font-weight: 800; line-height: 1.15; padding-right: 14px; }
@@ -182,12 +192,44 @@ html.owner body, html.owner .t-page { background: transparent; }
   .ow-qed { display: inline-block; width: 11px; height: 11px; background: var(--ow-ink); }
   html.dark .ow-qed { background: var(--ow-cyan-l); }
   .ow-th .ow-qed { position: absolute; right: 11px; top: 11px; }
-  .ow-th-sheet { padding: 4px 4px 8px; }
-  .ow-th-name { font-size: 24px; font-weight: 800; margin: 6px 0 10px; }
-  .ow-th-sheet p { margin: 0; font-size: 16px; line-height: 1.45; color: var(--text-2); }
-  .ow-th-sheet p i { font-family: var(--font-math), "Times New Roman", serif; color: var(--text); }
-  .ow-th-when { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 14.5px; font-weight: 700; color: var(--ow-ink); }
+  /* Карточка теоремы поверх сетки: вырастает из нажатой плитки, вокруг затемнение */
+  .ow-th-scrim { position: fixed; inset: 0; z-index: 60; background: rgba(3, 4, 14, 0.45); animation: ow-fade-in 0.25s ease both; }
+  @keyframes ow-fade-in { from { opacity: 0; } }
+  .ow-th-pop {
+    position: absolute; left: 4px; right: 4px; z-index: 61; display: flex; flex-direction: column; gap: 10px; padding: 16px 18px 18px; border-radius: 20px; cursor: pointer;
+    color: var(--text); background: #fff; box-shadow: inset 0 0 0 2px rgba(31, 86, 214, 0.5), 6px 6px 0 rgba(31, 86, 214, 0.18), 0 18px 40px rgba(20, 30, 80, 0.25);
+    animation: ow-pop 0.42s cubic-bezier(0.2, 1.25, 0.4, 1) both;
+  }
+  html.dark .ow-th-pop { background: radial-gradient(circle at 90% 0%, rgba(138, 92, 255, 0.4), transparent 50%), linear-gradient(160deg, #121a4d, #070a22); box-shadow: inset 0 0 0 1.5px rgba(140, 160, 255, 0.5), 0 20px 50px rgba(0, 0, 0, 0.55); }
+  .ow-th-pop-ok { box-shadow: inset 0 0 0 2.5px var(--ow-ink), 6px 6px 0 rgba(31, 86, 214, 0.22), 0 18px 40px rgba(20, 30, 80, 0.25); }
+  html.dark .ow-th-pop-ok { box-shadow: inset 0 0 0 1.5px rgba(127, 224, 255, 0.85), 0 0 34px rgba(0, 194, 255, 0.35), 0 20px 50px rgba(0, 0, 0, 0.55); }
+  @keyframes ow-pop { from { opacity: 0; transform: scale(0.55); } }
+  .ow-th-pop-name { font-size: 23px; font-weight: 800; line-height: 1.15; }
+  .ow-th-pop-ok .ow-th-k { color: var(--ow-ink); }
+  html.dark .ow-th-pop-ok .ow-th-k { color: var(--ow-cyan-l); }
+  @keyframes ow-unfold { from { opacity: 0; transform: translateY(6px); } }
+  .ow-th-st { font-size: 15.5px; line-height: 1.45; color: var(--text-2); }
+  .ow-th-st i { font-family: var(--font-math), "Times New Roman", serif; color: var(--text); }
+  .ow-th-when { display: flex; align-items: center; gap: 9px; font-size: 15px; font-weight: 700; color: var(--ow-ink); }
   html.dark .ow-th-when { color: var(--ow-cyan-l); }
+  /* ∎ «впечатывается» штампом */
+  .ow-qed-stamp { flex: none; }
+  .ow-qed-stamp { width: 15px; height: 15px; animation: ow-stamp 0.5s cubic-bezier(0.2, 1.6, 0.4, 1) 0.25s both; }
+  @keyframes ow-stamp { from { opacity: 0; transform: scale(2.6) rotate(-25deg); } }
+  .ow-th-prog { display: flex; flex-direction: column; gap: 2px; }
+  .ow-th-num { font-size: 15px; font-weight: 700; color: var(--text-2); }
+  .ow-th-num b { font-size: 30px; font-weight: 900; color: var(--ow-ink); }
+  html.dark .ow-th-num b { color: var(--ow-cyan-l); }
+  .ow-th-num em { font-style: normal; }
+  .ow-th-prog small { margin-top: 4px; font-size: 13.5px; color: var(--text-2); }
+  .ow-bar-fill { margin: 6px 0 0; }
+  .ow-bar-fill i { animation: ow-fill 0.8s cubic-bezier(0.2, 0.9, 0.3, 1) 0.2s both; }
+  @keyframes ow-fill { from { width: 0; } }
+  /* Полоска прогресса на свёрнутой плитке */
+  .ow-th-mini { display: block; height: 4px; margin-top: 6px; border-radius: 3px; overflow: hidden; background: color-mix(in srgb, var(--ow-ink) 16%, transparent); }
+  .ow-th-mini i { display: block; height: 100%; border-radius: 3px; background: var(--ow-ink); }
+  html.dark .ow-th-mini { background: rgba(127, 224, 255, 0.15); }
+  html.dark .ow-th-mini i { background: linear-gradient(90deg, #00c2ff, #8a5cff); }
 
   /* ── Баннер «Доказано ∎» / «Новый уровень» (OwnerToast) ────── */
   .ow-toast {
@@ -210,6 +252,6 @@ html.owner body, html.owner .t-page { background: transparent; }
 @property --ow-h { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
 
 @media (prefers-reduced-motion: reduce) {
-  .ow-formula, .ow-hello span, .ow-card-holo, .ow-toast, .ow-toast-out, html.owner .t-avatar::before { animation: none !important; }
+  .ow-formula, .ow-hello span, .ow-card-holo, .ow-toast, .ow-toast-out, .ow-th-pop, .ow-th-scrim, .ow-fold .ow-thm, .ow-qed-stamp, .ow-bar-fill i, html.owner .t-avatar::before { animation: none !important; }
   .ow-flip { transition: none; }
 }

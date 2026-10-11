@@ -12,10 +12,10 @@ import { Popover } from "../Overlay";
 import ColorPicker from "./ColorPicker";
 import {
   ACCENT_PRESETS, DEFAULT_TYPES, TYPE_SHADES, accentHex, isCustomShade, accentVars, presetVars, resetAppearance,
-  resolveMode, saveAppearance, type AccentPresetId, type Appearance, type Background, type Density, type ShadeValue, type TypeShades,
+  resolveMode, saveAppearance, type AccentPresetId, type Appearance, type Background, type Density, type FontChoice, type ShadeValue, type TypeShades,
 } from "@/lib/appearance";
 import { contrast } from "@/lib/color";
-import { useAppearance, useVip } from "@/lib/tablo/hooks";
+import { useAppearance, useOwner, useVip } from "@/lib/tablo/hooks";
 import { METALS, METAL_IDS, VIP_NEW_KEY, VIP_SEASON_KEY, metalOf, readVipSeason, type VipSeason } from "@/lib/special";
 
 const BGS: Background[] = ["system", "light", "dark", "black"];
@@ -102,6 +102,7 @@ function Preview() {
 export default function AppearanceView() {
   const a = useAppearance();
   const vip = useVip();
+  const owner = useOwner();
   // Зашла во «Внешний вид» — метка «Новое» в Кабинете больше не нужна
   useEffect(() => { if (vip) try { localStorage.removeItem(VIP_NEW_KEY); } catch { /* приватный режим */ } }, [vip]);
   // Сезонные эффекты особых (снег, лепестки, листья — VipAmbient): авто по месяцу или выкл
@@ -120,6 +121,9 @@ export default function AppearanceView() {
   const mode = resolveMode(a.background);
   const types = a.types ?? DEFAULT_TYPES;
   const density: Density = a.density ?? "regular";
+  const font: FontChoice = a.font ?? "regular";
+  // у «золотого профиля» и владельца узкий шрифт включён всегда — выбор не показываем
+  const forcedFont = !!vip || owner;
   // Золото, бриллиант, платина — «свой цвет» с условным hex, кружки только у особых (lib/special.ts)
   const metal = metalOf(a);
   const customOn = a.accent.preset === "custom" && !(vip && metal);
@@ -241,6 +245,25 @@ export default function AppearanceView() {
             ))}
           </div>
         </section>
+
+        {!forcedFont && (
+          <>
+            <h2 className="t-over t-av-h">Шрифт</h2>
+            <section className="t-av-card">
+              <div className="t-ap-dens" role="radiogroup" aria-label="Шрифт">
+                {(["regular", "condensed"] as const).map(f => (
+                  <button key={f} type="button" role="radio" aria-checked={font === f}
+                    className={`t-ap-denbtn ${font === f ? "t-ap-denbtn-on" : ""}`} onClick={() => save({ font: f })}>
+                    <span className={`t-ap-denpic t-ap-fontpic ${f === "condensed" ? "t-ap-fontpic-c" : ""}`} aria-hidden="true">
+                      <b>Аа</b><small>Численные методы</small>
+                    </span>
+                    <span>{f === "regular" ? "Обычный" : "Узкий"}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          </>
+        )}
 
         <button type="button" className="t-ap-reset" onClick={() => resetAppearance()}>Сбросить оформление</button>
       </div>

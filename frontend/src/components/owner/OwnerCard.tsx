@@ -5,10 +5,13 @@
  * (на 1-м — всё множество целиком, на каждом следующем — глубже, к «долине морских коньков»),
  * имя, кольцо уровня. Нажатие переворачивает: на обороте серия и ряд Фибоначчи.
  * OwnerSections — семестр, моя неделя, ближайший зачёт и теоремы (lib/ownerProgress.ts).
+ * Теоремы — в свёрнутом разделе (как «Достижения» у «золотого профиля»): строка «Теоремы ·
+ * доказано N из 10», по нажатию сетка плиток. Нажатие на плитку — поверх сетки из неё
+ * вырастает карточка (соседи остаются на месте, вокруг затемнение): формулировка, сколько
+ * уже сделано, у доказанной — дата и штамп ∎. Владелец: «поверх других, а не раздвигать».
  */
 import { useEffect, useRef, useState } from "react";
 import Icon from "@/components/tablo/Icon";
-import { Sheet } from "@/components/tablo/Overlay";
 import { api, type Lesson } from "@/lib/api";
 import { dushanbeNow } from "@/lib/tablo/schedule";
 import { todayIso } from "@/lib/vipProgress";
@@ -145,7 +148,7 @@ export function OwnerSections({ groupId }: { groupId: number | null }) {
   const [now, setNow] = useState<Date | null>(null);
   const [week, setWeek] = useState<Lesson[] | null>(null);
   const [exam, setExam] = useState<{ l: Lesson; days: number } | null>(null);
-  const [open, setOpen] = useState<Theorem | null>(null);
+  const [foldOpen, setFoldOpen] = useState(false);
 
   useEffect(() => { setNow(dushanbeNow()); }, []);
 
@@ -209,29 +212,81 @@ export function OwnerSections({ groupId }: { groupId: number | null }) {
         </div>
       )}
 
-      <h2 className="t-over t-pf-h">Теоремы{pg ? ` · доказано ${pg.proved} из ${pg.theorems.length}` : ""}</h2>
       {pg && (
-        <div className="ow-thm">
-          {pg.theorems.map(t => (
-            <button key={t.id} type="button" className={`ow-glass ow-th ${t.got ? "ow-th-ok" : ""} ${t.secret && !t.got ? "ow-th-sec" : ""}`} onClick={() => setOpen(t)}>
-              {t.got && <span className="ow-qed" aria-hidden="true" />}
-              <span className="ow-th-k">{t.got ? "Доказано" : t.secret ? "Секрет" : "Не доказано"}</span>
-              <b>{t.name}</b>
-              <small>{t.got ? theoremWhen(t) : t.short}</small>
-            </button>
-          ))}
-        </div>
-      )}
-      {open && (
-        <Sheet onClose={() => setOpen(null)} label={open.name}>
-          <div className="ow-th-sheet">
-            <div className="ow-th-k">{open.got ? "Доказано" : open.secret ? "Секретная теорема" : "Ещё не доказано"}</div>
-            <div className="ow-th-name">{open.name}</div>
-            <p>{open.statement ? <><i>Формулировка.</i> {open.statement}</> : "Условие не раскрывается. Доказательство найдётся само — может быть, случайно."}</p>
-            {open.got && <div className="ow-th-when"><span className="ow-qed" aria-hidden="true" />Доказано {theoremWhen(open)}</div>}
-          </div>
-        </Sheet>
+        <section className={`t-pf-card ow-fold ${foldOpen ? "ow-fold-open" : ""}`}>
+          <button type="button" className="ow-fold-h" aria-expanded={foldOpen} onClick={() => setFoldOpen(o => !o)}>
+            <span className="ow-fold-ic" aria-hidden="true" />
+            <b>Теоремы</b>
+            <em>доказано {pg.proved} из {pg.theorems.length}</em>
+            <Icon name="chevronDown" size={20} />
+          </button>
+          {foldOpen && <TheoremGrid theorems={pg.theorems} />}
+        </section>
       )}
     </>
+  );
+}
+
+const pct = (cur: number, goal: number) => `${Math.min(100, (cur / Math.max(goal, 1)) * 100)}%`;
+
+interface Anchor { t: Theorem; top: number; height: number; cx: number }
+
+/** Сетка плиток и карточка, всплывающая поверх неё из нажатой плитки. */
+function TheoremGrid({ theorems }: { theorems: Theorem[] }) {
+  const [open, setOpen] = useState<Anchor | null>(null);
+  const pop = useRef<HTMLDivElement>(null);
+  const close = () => setOpen(null);
+
+  // карточка целиком на экране; Escape закрывает
+  useEffect(() => {
+    if (!open) return;
+    pop.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(null); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
+
+  const show = (t: Theorem, el: HTMLElement) => setOpen({ t, top: el.offsetTop, height: el.offsetHeight, cx: el.offsetLeft + el.offsetWidth / 2 });
+  const t = open?.t;
+  const p = t && !t.got ? t.progress : undefined;
+
+  return (
+    <div className="ow-thm">
+      {theorems.map(th => {
+        const tp = th.got ? undefined : th.progress;
+        return (
+          <button key={th.id} type="button" onClick={e => show(th, e.currentTarget)}
+            className={`ow-glass ow-th ${th.got ? "ow-th-ok" : ""} ${th.secret && !th.got ? "ow-th-sec" : ""}`}>
+            {th.got && <span className="ow-qed" aria-hidden="true" />}
+            <span className="ow-th-k">{th.got ? "Доказано" : th.secret ? "Секрет" : "Не доказано"}</span>
+            <b>{th.name}</b>
+            <small>{th.got ? theoremWhen(th) : tp ? `${tp.cur} из ${tp.goal}` : th.short}</small>
+            {tp && <span className="ow-th-mini" aria-hidden="true"><i style={{ width: pct(tp.cur, tp.goal) }} /></span>}
+          </button>
+        );
+      })}
+      {open && t && (
+        <>
+          <div className="ow-th-scrim" onClick={close} aria-hidden="true" />
+          <div ref={pop} role="dialog" aria-label={t.name} onClick={close}
+            className={`ow-th-pop ${t.got ? "ow-th-pop-ok" : ""}`}
+            style={{ top: open.top - 8, minHeight: open.height + 16, transformOrigin: `${open.cx}px ${open.height / 2 + 8}px` }}>
+            <span className="ow-th-k">{t.got ? "Доказано" : t.secret ? "Секретная теорема" : "Ещё не доказано"}</span>
+            <b className="ow-th-pop-name">{t.name}</b>
+            <span className="ow-th-st">
+              {t.statement ? <><i>Формулировка.</i> {t.statement}</> : "Условие не раскрывается. Доказательство найдётся само — может быть, случайно."}
+            </span>
+            {t.got && <span className="ow-th-when"><span className="ow-qed ow-qed-stamp" aria-hidden="true" />Доказано {theoremWhen(t)}</span>}
+            {p && (
+              <span className="ow-th-prog">
+                <span className="ow-th-num"><b>{p.cur}</b> из {p.goal} <em>{p.unit}</em></span>
+                <span className="ow-bar ow-bar-fill"><i style={{ width: pct(p.cur, p.goal) }} /></span>
+                {p.note && <small>{p.note}</small>}
+              </span>
+            )}
+          </div>
+        </>
+      )}
+    </div>
   );
 }

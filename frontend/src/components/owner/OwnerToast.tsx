@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation";
 import { useOwner } from "@/lib/tablo/hooks";
 import { dushanbeNow } from "@/lib/tablo/schedule";
 import { todayIso, type VipProgressState } from "@/lib/vipProgress";
-import { OWNER_SEEN_KEY, computeOwner } from "@/lib/ownerProgress";
+import { OWNER_SEEN_KEY, OWNER_TABS_KEY, computeOwner } from "@/lib/ownerProgress";
 
 interface Item { id: string; kind: "thm" | "lvl"; title: string; text: string; badge: string }
 interface Seen { thm: string[]; level: number }
@@ -28,7 +28,9 @@ export default function OwnerToast() {
       const st = (e as CustomEvent<VipProgressState>).detail;
       if (!st) return;
       const today = todayIso(dushanbeNow());
-      const pg = computeOwner(st, today);
+      let tabs = 0;
+      try { tabs = JSON.parse(localStorage.getItem(OWNER_TABS_KEY) ?? "[]").length; } catch { /* приватный режим */ }
+      const pg = computeOwner(st, today, tabs);
       const got = pg.theorems.filter(t => t.got);
       let seen: Seen | null = null;
       try { seen = JSON.parse(localStorage.getItem(OWNER_SEEN_KEY) ?? "null"); } catch { /* приватный режим */ }

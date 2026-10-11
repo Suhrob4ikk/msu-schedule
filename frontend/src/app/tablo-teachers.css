@@ -91,16 +91,6 @@
 }
 .t-tlist:not(.t-tlist-panel) .t-tlist-sum { padding-left: 4px; }
 .t-tlist-sum .t-kbd { margin-right: 0; }
-.t-az {
-  flex-shrink: 0;
-  min-height: 44px;
-  padding: 0 16px;
-  border-radius: 999px;
-  background: var(--soft);
-  color: var(--ink);
-  font-size: 15px;
-  font-weight: 700;
-}
 .t-tsec {
   padding: 14px 22px 6px;
   font-size: 13px;
@@ -179,9 +169,55 @@
   color: var(--ink);
 }
 .t-rail button:hover { background: var(--soft); }
-.t-letters { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
-.t-letter { height: 52px; border-radius: 14px; background: var(--chip); font-size: 18px; font-weight: 700; }
-.t-letter:hover { background: var(--soft); color: var(--ink); }
+/* Полоса букв на узком экране — у правого края, как в контактах телефона (11 окт 2026) */
+.t-tlist:not(.t-tlist-panel) .t-tlist-body { padding-right: 18px; }
+.t-rail-m {
+  position: fixed;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 2px;
+  border-radius: 14px 0 0 14px;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: background-color 0.15s;
+}
+.t-rail-m-on { background: color-mix(in srgb, var(--surface) 85%, transparent); box-shadow: -2px 0 12px rgba(0, 0, 0, 0.12); }
+.t-rail-m button {
+  width: 22px;
+  height: clamp(13px, 2.3vh, 20px);
+  display: grid;
+  place-items: center;
+  font-size: clamp(10px, 1.6vh, 12.5px);
+  font-weight: 800;
+  line-height: 1;
+  color: var(--ink);
+  border-radius: 6px;
+}
+.t-rail-m .t-rail-m-cur { background: var(--fill); color: var(--on-fill); }
+.t-rail-bubble {
+  position: fixed;
+  right: 54px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 31;
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 38px;
+  font-weight: 800;
+  background: var(--fill);
+  color: var(--on-fill);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+}
 
 /* Неделя педагога */
 .t-tview { display: flex; flex-direction: column; gap: 14px; }

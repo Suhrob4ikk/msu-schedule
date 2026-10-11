@@ -8,6 +8,7 @@
  */
 import { useEffect } from "react";
 import { OWNER_KEY } from "@/lib/owner";
+import { readAppearance } from "@/lib/appearance";
 
 const API = process.env.NEXT_PUBLIC_API_URL!;
 
@@ -23,9 +24,10 @@ export default function OwnerSync() {
         try { localStorage.setItem(OWNER_KEY, j.owner ? "1" : "0"); } catch { /* приватный режим */ }
         const html = document.documentElement;
         html.classList.toggle("owner", j.owner);
-        // узкий шрифт — как у «золотого профиля»; у него класс свой, его не снимаем
+        // узкий шрифт — как у «золотого профиля»; снимаем, только если его не держат «золотой
+        // профиль» или собственный выбор во «Внешнем виде»
         if (j.owner) html.classList.add("font-condensed");
-        else if (!html.classList.contains("vip")) html.classList.remove("font-condensed");
+        else if (!html.classList.contains("vip") && readAppearance().font !== "condensed") html.classList.remove("font-condensed");
         window.dispatchEvent(new Event("owner-change"));
       })
       .catch(() => { /* нет сети — остаётся то, что было */ });

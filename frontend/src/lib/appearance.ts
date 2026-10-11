@@ -23,6 +23,8 @@ export interface AccentVars { fill: string; ink: string; ring: string; onFill: s
 
 export type ShadeId = "sky" | "lilac" | "amber" | "mint";
 export type Density = "regular" | "compact";
+/** Шрифт сайта: обычный Onest или узкий Roboto Condensed (выбор для всех с 11 окт 2026). */
+export type FontChoice = "regular" | "condensed";
 /** Готовый оттенок или свой цвет в виде #RRGGBB. */
 export type ShadeValue = ShadeId | `#${string}`;
 export interface TypeShades { lecture: ShadeValue; practice: ShadeValue; exam: ShadeValue }
@@ -35,6 +37,7 @@ export interface Appearance {
   /** Оттенки бейджей «Лекция», «Практика», «Экзамен · Зачёт» (те же ключи, что в приложении). */
   types?: TypeShades;
   density?: Density;
+  font?: FontChoice;
   [extra: string]: unknown;
 }
 
@@ -52,6 +55,7 @@ export const DEFAULT_APPEARANCE: Appearance = {
   background: "system",
   types: DEFAULT_TYPES,
   density: "regular",
+  font: "regular",
 };
 
 /** Фон каждой темы: для полосы браузера (theme-color) и для расчёта акцента. */
@@ -267,7 +271,8 @@ export function parseAppearance(raw: string | null): Appearance | null {
     exam: shade(t.exam, DEFAULT_TYPES.exam),
   };
   const density: Density = o.density === "compact" ? "compact" : "regular";
-  return { ...o, version: 1, accent: { preset, custom }, background, types, density };
+  const font: FontChoice = o.font === "condensed" ? "condensed" : "regular";
+  return { ...o, version: 1, accent: { preset, custom }, background, types, density, font };
 }
 
 /** До «Табло»: `theme` (light/dark/system) и `accent` (blue/green). */
@@ -311,6 +316,9 @@ export function applyAppearance(a: Appearance): void {
   }
   applyTypes(root, a.types ?? DEFAULT_TYPES, mode);
   root.classList.toggle("compact", a.density === "compact");
+  // узкий шрифт; у «золотого профиля» и владельца он включён всегда — его не снимаем
+  if (a.font === "condensed") root.classList.add("font-condensed");
+  else if (!root.classList.contains("vip") && !root.classList.contains("owner")) root.classList.remove("font-condensed");
   const metal = metalOf(a);
   root.classList.toggle("accent-metal", !!metal);
   for (const id of METAL_IDS) root.classList.toggle(`accent-${id}`, metal === id);
@@ -377,5 +385,5 @@ export function appearanceInitScript(): string {
   for (const x of TYPE_SHADES) shades[x.id] = { light: shadePair(x.id, "light"), dark: shadePair(x.id, "dark"), black: shadePair(x.id, "black") };
   const shadeTable = JSON.stringify(shades);
   const metals = JSON.stringify(Object.fromEntries(METAL_IDS.map(id => [METALS[id].hex, { id, ...METALS[id].vars }])));
-  return `(function(){try{var P=${table};var d=document.documentElement,s=localStorage,a=null;try{a=JSON.parse(s.getItem('${APPEARANCE_KEY}')||'null')}catch(e){}var bg,pr;if(a&&a.version===1){bg=a.background;pr=a.accent&&a.accent.preset}else{var t=s.getItem('theme');bg=(t==='light'||t==='dark')?t:'system';pr=s.getItem('accent')==='green'?'emerald':'blue'}var m=(bg==='light'||bg==='dark'||bg==='black')?bg:(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');if(m!=='light')d.classList.add('dark');if(m==='black')d.classList.add('black');var v=null;var M=${metals},X=pr==='custom'&&a&&a.accent&&M[String(a.accent.custom).toUpperCase()];if(X){v=X[m==='light'?'light':'dark'];d.classList.add('accent-metal','accent-'+X.id)}else if(pr==='custom'){try{v=JSON.parse(s.getItem('${CUSTOM_VARS_KEY}')||'null');v=v&&v[m]}catch(e){}}else if(pr&&pr!=='blue'&&P[pr]){v=P[pr][m]}if(v){d.style.setProperty('--fill',v.fill);d.style.setProperty('--ink',v.ink);d.style.setProperty('--ring',v.ring);d.style.setProperty('--on-fill',v.onFill)}var S=${shadeTable},T=a&&a.types;if(T){var D={lecture:'sky',practice:'lilac',exam:'amber'},N={lecture:'lec',practice:'lab',exam:'exam'};for(var k in N){var x=T[k];if(x&&x!==D[k]&&S[x]){var q=S[x][m];d.style.setProperty('--'+N[k]+'-bg',q.bg);d.style.setProperty('--'+N[k]+'-text',q.text)}else if(x&&x.charAt(0)==='#'){var C=JSON.parse(s.getItem('${TYPE_VARS_KEY}')||'{}'),q2=C[k]&&C[k][m];if(q2){d.style.setProperty('--'+N[k]+'-bg',q2.bg);d.style.setProperty('--'+N[k]+'-text',q2.text)}}}}if(a&&a.density==='compact')d.classList.add('compact')}catch(e){}})();`;
+  return `(function(){try{var P=${table};var d=document.documentElement,s=localStorage,a=null;try{a=JSON.parse(s.getItem('${APPEARANCE_KEY}')||'null')}catch(e){}var bg,pr;if(a&&a.version===1){bg=a.background;pr=a.accent&&a.accent.preset}else{var t=s.getItem('theme');bg=(t==='light'||t==='dark')?t:'system';pr=s.getItem('accent')==='green'?'emerald':'blue'}var m=(bg==='light'||bg==='dark'||bg==='black')?bg:(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');if(m!=='light')d.classList.add('dark');if(m==='black')d.classList.add('black');var v=null;var M=${metals},X=pr==='custom'&&a&&a.accent&&M[String(a.accent.custom).toUpperCase()];if(X){v=X[m==='light'?'light':'dark'];d.classList.add('accent-metal','accent-'+X.id)}else if(pr==='custom'){try{v=JSON.parse(s.getItem('${CUSTOM_VARS_KEY}')||'null');v=v&&v[m]}catch(e){}}else if(pr&&pr!=='blue'&&P[pr]){v=P[pr][m]}if(v){d.style.setProperty('--fill',v.fill);d.style.setProperty('--ink',v.ink);d.style.setProperty('--ring',v.ring);d.style.setProperty('--on-fill',v.onFill)}var S=${shadeTable},T=a&&a.types;if(T){var D={lecture:'sky',practice:'lilac',exam:'amber'},N={lecture:'lec',practice:'lab',exam:'exam'};for(var k in N){var x=T[k];if(x&&x!==D[k]&&S[x]){var q=S[x][m];d.style.setProperty('--'+N[k]+'-bg',q.bg);d.style.setProperty('--'+N[k]+'-text',q.text)}else if(x&&x.charAt(0)==='#'){var C=JSON.parse(s.getItem('${TYPE_VARS_KEY}')||'{}'),q2=C[k]&&C[k][m];if(q2){d.style.setProperty('--'+N[k]+'-bg',q2.bg);d.style.setProperty('--'+N[k]+'-text',q2.text)}}}}if(a&&a.density==='compact')d.classList.add('compact');if(a&&a.font==='condensed')d.classList.add('font-condensed')}catch(e){}})();`;
 }

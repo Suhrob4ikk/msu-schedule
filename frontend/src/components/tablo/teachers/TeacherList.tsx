@@ -1,9 +1,11 @@
 "use client";
 /**
  * Список педагогов «Табло»: поиск «Фамилия» (с начала любого слова, ё = е,
- * таджикские буквы), «N педагогов · сегодня понедельник», «А–Я», «Недавние»,
+ * таджикские буквы), «N педагогов · сегодня понедельник», «Недавние»,
  * секции по буквам и статус под ФИО («Сейчас · ауд. 702 · до 11:15»).
- * На широком экране — панель слева со своей прокруткой и полосой букв.
+ * Полоса букв справа: на широком экране — в панели, на узком — у края экрана, как в
+ * контактах телефона: ведёшь пальцем — список прыгает к букве, рядом крупно буква
+ * (владелец, 11 окт 2026; раньше на узком была кнопка «А–Я» со шторкой).
  * Клавиши: «/» — в поиск, ↑ ↓ — по найденным, Enter — открыть.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -13,7 +15,6 @@ import {
 } from "@/lib/tablo/teachers";
 import { useFullNames } from "@/lib/fullNames";
 import Icon from "../Icon";
-import { Popover, Sheet } from "../Overlay";
 
 function Name({ name, range }: { name: string; range?: [number, number] }) {
   if (!range) return <>{name}</>;
@@ -77,8 +78,7 @@ export default function TeacherList({
   const [active, setActive] = useState(0);
   const input = useRef<HTMLInputElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
-  const [lettersOpen, setLettersOpen] = useState(false);
-  const [lettersAnchor, setLettersAnchor] = useState<HTMLElement | null>(null);
+  const [dragLetter, setDragLetter] = useState<string | null>(null);
 
   const fullNames = useFullNames();
   const matches = useMemo(() => searchTeachers(teachers, query, fullNames?.names), [teachers, query, fullNames]);
@@ -116,26 +116,32 @@ export default function TeacherList({
     else if (e.key === "Escape") { e.preventDefault(); setQuery(""); }
   };
 
-  const goLetter = (letter: string) => {
-    setLettersOpen(false);
+  const goLetter = (letter: string, smooth = true) => {
     const el = document.getElementById(`tl-${letter}`);
     if (!el) return;
+    const behavior: ScrollBehavior = smooth ? "smooth" : "auto";
     if (panel && scroller.current) {
-      scroller.current.scrollTo({ top: el.offsetTop - 8, behavior: "smooth" });
+      scroller.current.scrollTo({ top: el.offsetTop - 8, behavior });
     } else {
+      // под шапкой прилипает поиск — буква должна встать под ним, а не спрятаться
       const head = document.querySelector<HTMLElement>(".t-top")?.getBoundingClientRect().height ?? 0;
-      window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - head - 8, behavior: "smooth" });
+      const search = document.querySelector<HTMLElement>(".t-tsearch-wrap")?.getBoundingClientRect().height ?? 0;
+      window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - head - search - 4, behavior });
     }
   };
 
   const letters = sections.map(s => s.letter);
-  const letterGrid = (
-    <div className="t-letters" role="list">
-      {letters.map(l => (
-        <button key={l} type="button" className="t-letter" onClick={() => goLetter(l)} aria-label={`Буква ${l}`}>{l}</button>
-      ))}
-    </div>
-  );
+
+  // Полоса букв на узком экране: палец ведут по полосе — буква по высоте, список прыгает сразу
+  const railPick = (e: React.PointerEvent<HTMLElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    const i = Math.min(letters.length - 1, Math.max(0, Math.floor(((e.clientY - r.top) / r.height) * letters.length)));
+    const l = letters[i];
+    if (!l || l === dragLetter) return;
+    setDragLetter(l);
+    goLetter(l, false);
+    try { navigator.vibrate?.(8); } catch { /* нет вибрации */ }
+  };
 
   return (
     <div className={panel ? "t-tlist t-tlist-panel" : "t-tlist"}>
@@ -204,10 +210,6 @@ export default function TeacherList({
           <>
             <div className="t-tlist-sum">
               <span>{now ? listSummary(teachers.length, now) : ""}</span>
-              {!panel && (
-                <button type="button" className="t-az" onClick={e => { setLettersAnchor(e.currentTarget); setLettersOpen(o => !o); }}
-                  aria-expanded={lettersOpen}>А–Я</button>
-              )}
             </div>
             {recent.length > 0 && (
               <section aria-label="Недавние">
@@ -229,25 +231,26 @@ export default function TeacherList({
         )}
       </div>
 
-      {/* Полоса букв справа — только на широкой панели */}
+      {/* Полоса букв справа: на широкой панели — внутри неё, на узком — у края экрана */}
       {panel && !matches && letters.length > 0 && (
         <nav className="t-rail" aria-label="Буквы">
           {letters.map(l => <button key={l} type="button" onClick={() => goLetter(l)} aria-label={`Буква ${l}`}>{l}</button>)}
         </nav>
       )}
-
-      {lettersOpen && (panel ? (
-        <Popover anchor={lettersAnchor} onClose={() => setLettersOpen(false)} width={340} align="end" label="Перейти к букве">
-          <div className="t-panel p-3">
-            <p className="text-[18px] font-extrabold px-1 pb-2">Перейти к букве</p>
-            {letterGrid}
-          </div>
-        </Popover>
-      ) : (
-        <Sheet onClose={() => setLettersOpen(false)} label="Перейти к букве" title="Перейти к букве">
-          <div className="p-4">{letterGrid}</div>
-        </Sheet>
-      ))}
+      {!panel && !matches && letters.length > 1 && teachers.length > 0 && (
+        <>
+          <nav className={`t-rail-m ${dragLetter ? "t-rail-m-on" : ""}`} aria-label="Буквы"
+            onPointerDown={e => { try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* палец уже отпущен */ } railPick(e); }}
+            onPointerMove={e => { if (dragLetter) railPick(e); }}
+            onPointerUp={() => setDragLetter(null)} onPointerCancel={() => setDragLetter(null)}>
+            {letters.map(l => (
+              <button key={l} type="button" tabIndex={0} className={dragLetter === l ? "t-rail-m-cur" : ""}
+                onClick={() => goLetter(l)} aria-label={`Буква ${l}`}>{l}</button>
+            ))}
+          </nav>
+          {dragLetter && <div className="t-rail-bubble" aria-hidden="true">{dragLetter}</div>}
+        </>
+      )}
     </div>
   );
 }

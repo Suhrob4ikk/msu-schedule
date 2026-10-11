@@ -157,6 +157,11 @@
 .t-ap-denpic i { display: flex; align-items: center; gap: 10px; }
 .t-ap-denpic b { width: 20px; height: 5px; border-radius: 3px; background: var(--text); }
 .t-ap-denpic u { flex: 1; height: 5px; border-radius: 3px; background: var(--text-3); }
+/* Шрифт: образец «Аа» каждым шрифтом */
+.t-ap-fontpic { align-items: center; gap: 4px; padding: 0 10px; font-family: var(--font-onest), sans-serif; color: var(--text); }
+.t-ap-fontpic-c { justify-content: center; padding-top: 0; font-family: var(--font-condensed), var(--font-onest), sans-serif; }
+.t-ap-fontpic b { width: auto; height: auto; background: none; font-size: 34px; font-weight: 800; line-height: 1.05; }
+.t-ap-fontpic small { font-size: 13px; color: var(--text-2); white-space: nowrap; }
 .t-ap-reset { align-self: center; margin-top: 18px; min-height: 48px; color: var(--ink); font-size: 18px; font-weight: 600; }
 .t-ap-reset:hover { text-decoration: underline; }
 

@@ -43,6 +43,8 @@ export interface Theorem {
   short: string;         // коротко на плитке
   got: string | null;    // когда доказано: YYYY-MM-DD или YYYY-MM-DDTHH:MM
   secret?: boolean;
+  /** Сколько уже сделано — у теорем «N раз» (владелец: «хочу видеть, сколько уже зашёл»). */
+  progress?: { cur: number; goal: number; unit: string; note?: string };
 }
 
 const PRIMES = new Set([2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31]);
@@ -69,21 +71,46 @@ function perfectWeek(st: VipProgressState, today: string): string | null {
   return null;
 }
 
-export function buildTheorems(st: VipProgressState, today: string, streakReached21: string | null, total: number): Theorem[] {
+/** Эта неделя для «Аксиомы постоянства»: сколько учебных дней (пн–сб, кроме дней без пар) уже
+ *  с заходом, сколько всего; был ли пропуск в прошедший день — тогда неделя уже не засчитается. */
+function weekProgress(st: VipProgressState, today: string): { cur: number; goal: number; missed: boolean } {
+  const visited = new Set(st.days), off = new Set(st.offdays);
+  const mon = addDays(today, -((toDate(today).getDay() + 6) % 7));
+  let cur = 0, goal = 0, missed = false;
+  for (let i = 0; i < 6; i++) {
+    const d = addDays(mon, i);
+    if (off.has(d)) continue;
+    goal++;
+    if (visited.has(d)) cur++;
+    else if (d < today) missed = true;
+  }
+  return { cur, goal, missed };
+}
+
+const plural = (n: number, one: string, few: string, many: string) =>
+  n % 10 === 1 && n % 100 !== 11 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? few : many;
+
+export function buildTheorems(st: VipProgressState, today: string, streak: number, streakReached21: string | null, total: number, tabs: number): Theorem[] {
   const ev = st.events;
   const primeDays = st.days.filter(d => PRIMES.has(Number(d.slice(8, 10))));
   const start = st.first_day ?? st.days[0] ?? null;
   const zero = ev.zero ?? null;
+  const wk = weekProgress(st, today);
   return [
     { id: "early", name: "Лемма о раннем подъёме", statement: "Открыть расписание до 7:30.", short: "до 7:30", got: ev.early ?? null },
-    { id: "explorer", name: "Теорема о полноте", statement: "Заглянуть во все вкладки сайта.", short: "все вкладки", got: ev.explorer ?? null },
-    { id: "week", name: "Аксиома постоянства", statement: "Неделя без единого пропуска: каждый учебный день — хотя бы один заход.", short: "неделя без пропусков", got: perfectWeek(st, today) },
+    { id: "explorer", name: "Теорема о полноте", statement: "Заглянуть во все вкладки сайта: Расписание, Педагоги, Аудитории, Изменения и Кабинет.", short: "все вкладки", got: ev.explorer ?? null,
+      progress: { cur: Math.min(tabs, 5), goal: 5, unit: plural(5, "вкладки", "вкладок", "вкладок") } },
+    { id: "week", name: "Аксиома постоянства", statement: "Неделя без единого пропуска: каждый учебный день — хотя бы один заход.", short: "неделя без пропусков", got: perfectWeek(st, today),
+      progress: { cur: wk.cur, goal: wk.goal, unit: "дней на этой неделе", note: wk.missed ? "На этой неделе был пропуск — заново с понедельника" : undefined } },
     { id: "pi", name: "Число π", statement: "Открыть сайт ровно в 15:14 — это 3,14.", short: "в 15:14", got: ev.pi ?? null },
     { id: "palindrome", name: "Палиндром", statement: "Зайти в 12:21 или 21:12 — время читается одинаково с обеих сторон.", short: "в 12:21 или 21:12", got: ev.palindrome ?? null },
-    { id: "primes", name: "Простые дни", statement: "Заходить пять дней с простым числом: 2, 3, 5, 7, 11, 13…", short: "5 простых дат", got: primeDays.length >= 5 ? primeDays[4] : null },
+    { id: "primes", name: "Простые дни", statement: "Заходить пять дней с простым числом: 2, 3, 5, 7, 11, 13…", short: "5 простых дат", got: primeDays.length >= 5 ? primeDays[4] : null,
+      progress: { cur: Math.min(primeDays.length, 5), goal: 5, unit: "простых дат" } },
     { id: "owl", name: "Теорема о полуночи", statement: "Заглянуть в расписание после 23:00.", short: "после 23:00", got: ev.owl ?? null },
-    { id: "fib", name: "Ряд Фибоначчи", statement: "Серия дошла до 21 учебного дня подряд.", short: "серия 21 день", got: streakReached21 },
-    { id: "hundred", name: "Бесконечный ряд", statement: "100 дней с первого входа.", short: "100 дней с нами", got: start && total >= 100 ? addDays(start, 99) : null },
+    { id: "fib", name: "Ряд Фибоначчи", statement: "Серия дошла до 21 учебного дня подряд.", short: "серия 21 день", got: streakReached21,
+      progress: { cur: Math.min(streak, 21), goal: 21, unit: "дня подряд" } },
+    { id: "hundred", name: "Бесконечный ряд", statement: "100 дней с первого входа.", short: "100 дней с нами", got: start && total >= 100 ? addDays(start, 99) : null,
+      progress: { cur: Math.min(total, 100), goal: 100, unit: "дней с нами" } },
     zero
       ? { id: "zero", name: "Нулевая точка", statement: "Открыть сайт ровно в полночь, в 0:00.", short: "в 0:00", got: zero, secret: true }
       : { id: "zero", name: "? ? ?", statement: null, short: "условие скрыто", got: null, secret: true },
@@ -98,9 +125,10 @@ export interface OwnerProgress {
   theorems: Theorem[]; proved: number; level: LevelInfo;
 }
 
-export function computeOwner(st: VipProgressState, today: string): OwnerProgress {
+/** tabs — сколько вкладок уже открывал (localStorage, OWNER_TABS_KEY), для «Теоремы о полноте». */
+export function computeOwner(st: VipProgressState, today: string, tabs = 0): OwnerProgress {
   const s = computeStreak(st, today, FIB);
-  const theorems = buildTheorems(st, today, s.reached[21] ?? null, s.total);
+  const theorems = buildTheorems(st, today, s.streak, s.reached[21] ?? null, s.total, tabs);
   const proved = theorems.filter(t => t.got).length;
   // очки: учебные дни (воскресенье не считается), когда заходили, и 3 за теорему
   const studyDays = st.days.filter(d => toDate(d).getDay() !== 0).length;
