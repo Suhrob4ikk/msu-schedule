@@ -324,6 +324,8 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
   const [names, setNames] = useState<any>(null);
   const [feedback, setFeedback] = useState<any[]>([]);
   const [owners, setOwners] = useState<any[]>([]);
+  const [userList, setUserList] = useState<any[]>([]);
+  const [userQ, setUserQ] = useState("");
   const [myDevice, setMyDevice] = useState("");
   const [ownerLabel, setOwnerLabel] = useState("");
   useEffect(() => {
@@ -348,6 +350,7 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
     try { setNames(await api<any>("/full-names")); } catch { setNames(null); }
     try { setFeedback(await api<any[]>("/feedback")); } catch { setFeedback([]); }
     try { setOwners(await api<any[]>("/owner-devices")); } catch { setOwners([]); }
+    try { setUserList(await api<any[]>("/users/list")); } catch { setUserList([]); }
   }, [api, onLogout]);
 
   useEffect(() => { refresh(); }, [refresh]);
@@ -507,6 +510,29 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
                 })}
               </div>
             )}
+            {/* Поиск и удаление — для тестовых регистраций («Шахзода Тест» и т. п.) */}
+            <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 6 }}>
+              <input value={userQ} onChange={e => setUserQ(e.target.value)} placeholder="Найти по имени, например «тест»" style={input} />
+              {userQ.trim() && (() => {
+                const q = userQ.trim().toLowerCase().replace(/ё/g, "е");
+                const found = userList.filter((u: any) => String(u.name).toLowerCase().replace(/ё/g, "е").includes(q));
+                if (found.length === 0) return <div style={{ fontSize: 13, color: c.muted }}>Никого не нашлось</div>;
+                return found.slice(0, 30).map((u: any) => (
+                  <div key={u.id} style={{ display: "flex", alignItems: "center", gap: 10, background: c.panel2, borderRadius: 10, padding: "8px 12px", fontSize: 13 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <b>{u.name}</b>{u.app_version && <span style={{ color: c.muted }}> · приложение {u.app_version}</span>}
+                      <div style={{ color: c.faint, fontSize: 12 }}>{u.group ?? "без группы"} · с {fmtTime(parseUtc(u.registered_at))}</div>
+                    </div>
+                    <button style={btn} disabled={!!busy} onClick={() => {
+                      if (!window.confirm(`Удалить «${u.name}» из пользователей?
+
+Если этот браузер или телефон снова откроет сайт с тем же именем, он зарегистрируется заново — поменяйте там имя.`)) return;
+                      act("user" + u.id, () => api(`/users/${u.id}`, { method: "DELETE" }));
+                    }}>{busy === "user" + u.id ? "Удаляем…" : "Удалить"}</button>
+                  </div>
+                ));
+              })()}
+            </div>
           </Section>
 
           <Section title="Мои устройства" hint={<>На этих устройствах сайт включает <b style={{ color: c.fg }}>ваше оформление</b>. Привязать можно только отсюда, с паролем — по имени или коду это не включить. Права админа это не даёт: панель всё равно спрашивает пароль. Новый телефон — откройте на нём панель и нажмите кнопку.</>}>

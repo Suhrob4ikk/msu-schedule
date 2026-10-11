@@ -23,7 +23,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.config import settings
 from app.database import get_db
@@ -461,6 +461,36 @@ def dev_users(db: Session = Depends(get_db)):
         ),
         "vapid_configured": bool(settings.VAPID_PUBLIC_KEY and settings.VAPID_PRIVATE_KEY),
     }
+
+
+@router.get("/users/list", dependencies=[Depends(require_dev)])
+def dev_users_list(db: Session = Depends(get_db)):
+    """Все регистрации — для поиска и удаления тестовых (11 окт 2026)."""
+    rows = (db.query(UserRegistration).options(joinedload(UserRegistration.group))
+            .order_by(UserRegistration.registered_at.desc()).limit(1000).all())
+    return [{
+        "id": r.id, "name": r.name, "app_version": r.app_version,
+        "group": f"{r.group.year} курс · {r.group.name}" if r.group else None,
+        "registered_at": r.registered_at.isoformat() if r.registered_at else None,
+    } for r in rows]
+
+
+@router.delete("/users/{reg_id}", dependencies=[Depends(require_dev)])
+def dev_users_delete(reg_id: int, db: Session = Depends(get_db)):
+    """Удалить регистрацию вместе с web-push подпиской этого устройства. Если тот же
+    браузер или телефон снова откроет сайт, он тихо зарегистрируется заново —
+    поэтому сначала поменяйте там имя или очистите данные."""
+    from app.api.routes.user import _saved_reg, _saved_token
+    reg = db.get(UserRegistration, reg_id)
+    if not reg:
+        raise HTTPException(404, "Пользователь не найден")
+    db.query(UserSubscription).filter_by(session_id=reg.device_id).delete()
+    _saved_reg.pop(reg.device_id, None)
+    _saved_token.pop(reg.device_id, None)
+    name = reg.name
+    db.delete(reg)
+    db.commit()
+    return {"ok": True, "message": f"Пользователь «{name}» удалён"}
 
 
 class OwnerDeviceIn(BaseModel):

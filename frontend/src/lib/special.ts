@@ -117,6 +117,7 @@ export const VIP_VISIT_KEY = "vip_visit_day";        // день последн�
 export const VIP_FLAGS_KEY = "vip_flags_sent";       // события, уже отправленные на сервер
 export const VIP_TABS_KEY = "vip_tabs_seen";         // вкладки, где побывала («Исследователь»)
 export const VIP_METALS_KEY = "vip_metals_tried";    // примеренные металлы («Коллекционер»)
+export const VIP_MEDALS_SEEN_KEY = "vip_medals_seen"; // медали, о которых уже был баннер «Новое достижение»
 // Сезонные эффекты: auto | winter | spring | autumn | off (выбор во «Внешнем виде»)
 export const VIP_SEASON_KEY = "vip_season";
 // Праздничный показ в день рождения — один раз в году: ключ + год
