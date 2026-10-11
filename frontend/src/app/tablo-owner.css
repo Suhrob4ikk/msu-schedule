@@ -1,0 +1,144 @@
+/* «Космос + математика» — оформление владельца (11 окт 2026). Включается только классом
+   `owner` на <html>: его ставит OwnerSync на устройствах, привязанных в /dev по паролю.
+   Космический фон, звёзды и падающие звёзды — в тёмной теме; блоки владельца (пульт,
+   поиск, карта) хороши в обеих. */
+
+:root {
+  --ow-cyan: #00c2ff;
+  --ow-cyan-l: #7fe0ff;
+  --ow-violet: #8a5cff;
+  --ow-violet-l: #c9b6ff;
+  --ow-grad: linear-gradient(90deg, #7fe0ff, #c9b6ff);
+  --ow-edge: linear-gradient(90deg, transparent, #00c2ff, #8a5cff, transparent);
+}
+
+/* Фон рисует сам <html>: страница и body прозрачные, слой звёзд (z-index: -1)
+   ложится между фоном и содержимым — карточки закрывают звёзды, а не наоборот. */
+html.owner { background: var(--bg); }
+html.owner.dark {
+  background: radial-gradient(60% 40% at 82% 12%, rgba(120, 80, 255, 0.28), transparent 70%),
+    radial-gradient(50% 35% at 8% 85%, rgba(0, 190, 255, 0.18), transparent 70%), #03040b;
+  background-attachment: fixed;
+}
+html.owner body, html.owner .t-page { background: transparent; }
+
+/* Фокус в поиске — свечение всей плашки, а не прямоугольная рамка вокруг поля внутри
+   неё. Вне слоя: общее правило фокуса в tablo.css тоже вне слоя. */
+.t-page .ow-search input:focus-visible { outline: none; }
+html .ow-search:focus-within { box-shadow: inset 0 0 0 1.5px var(--ow-cyan), 0 0 16px rgba(0, 194, 255, 0.25); }
+
+@layer components {
+  /* ── Фон и рамки ─────────────────────────────────────────── */
+  html.owner .t-top, html.owner .t-bottom { border-image: var(--ow-edge) 1; }
+  html.owner .t-phead { border-bottom: 1px solid transparent; border-image: var(--ow-edge) 1; }
+  html.owner.dark .t-phead { background: color-mix(in srgb, #03040b 70%, transparent); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+  html.owner .t-bottom-on { color: #0a84c2; }
+  html.owner.dark .t-bottom-on { color: var(--ow-cyan-l); }
+  html.owner .t-bottom-on svg { filter: drop-shadow(0 0 6px rgba(0, 194, 255, 0.7)); }
+  html.owner .t-avatar { position: relative; background: radial-gradient(circle at 35% 30%, #7fe0ff, #3a4bff 60%, #120b3a); color: #fff; }
+  html.owner .t-avatar::before {
+    content: ""; position: absolute; inset: -3px; border-radius: 50%; padding: 2px; pointer-events: none;
+    background: conic-gradient(from var(--vip-a, 0deg), #00c2ff, #8a5cff, #7fe0ff, #00c2ff);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude;
+    animation: vip-spin 3s linear infinite;
+  }
+
+  /* Идущая пара — тёмно-синяя «туманность» с голубой рамкой; следующая — стекло */
+  html.owner.dark .t-focus-live, html.owner.dark .t-cell-live {
+    background: radial-gradient(circle at 85% 18%, rgba(138, 92, 255, 0.45), transparent 45%), radial-gradient(120% 140% at 0% 0%, #1b2a6b, #0b0f2e 60%);
+    color: #e8ecff; box-shadow: inset 0 0 0 1.5px rgba(0, 194, 255, 0.55), 0 0 24px rgba(0, 194, 255, 0.22);
+  }
+  html.owner.dark .t-focus-live .t-pill, html.owner.dark .t-cell-live .t-pill { background: rgba(0, 194, 255, 0.2); color: var(--ow-cyan-l); }
+  html.owner.dark .t-focus:not(.t-focus-live) { background: rgba(14, 18, 40, 0.7); box-shadow: inset 0 0 0 1px rgba(140, 160, 255, 0.25); }
+
+  /* ── Слой: звёзды, формулы, падающие звёзды (OwnerAmbient) ── */
+  .ow-amb { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+  .ow-layer { position: absolute; inset: -40px; transition: transform 0.25s ease-out; }
+  .ow-st { position: absolute; border-radius: 50%; background: #fff; display: none; }
+  html.dark .ow-st { display: block; }
+  .ow-st-big { box-shadow: 0 0 6px #fff; }
+  .ow-formula {
+    position: absolute; white-space: nowrap; font-family: var(--font-math), var(--font-math-sym), "Cambria Math", "Times New Roman", serif; font-style: italic; font-weight: 500; font-variant-numeric: lining-nums;
+    color: rgba(60, 70, 140, 0.11); animation: ow-float linear infinite;
+  }
+  html.dark .ow-formula { color: rgba(160, 180, 255, 0.17); text-shadow: 0 0 12px rgba(127, 224, 255, 0.22); }
+  .ow-formula sup, .ow-formula sub { font-size: 0.62em; line-height: 0; }
+  /* Пределы у ∫ и ∑ — столбиком (∞ сверху, 0 снизу), а не вразбивку */
+  .ow-lim { display: inline-flex; flex-direction: column; vertical-align: middle; margin: 0 0.12em 0 0.04em; font-size: 0.55em; line-height: 0.95; text-align: left; }
+  .ow-lim sup, .ow-lim sub { font-size: 1em; line-height: inherit; vertical-align: baseline; }
+  /* lim, det — прямым шрифтом, как принято в математическом наборе */
+  .ow-up { font-style: normal; }
+  @keyframes ow-float { from { transform: translateX(30px); } to { transform: translateX(-30px); } }
+  .ow-shoot { position: absolute; width: 120px; height: 2px; border-radius: 2px; background: linear-gradient(90deg, rgba(255, 255, 255, 0), #fff); opacity: 0; }
+
+  /* ── Главная: приветствие, пульт, быстрые действия, поиск (OwnerHome) ── */
+  .ow-home { margin: 2px 0 14px; max-width: 720px; position: relative; z-index: 1; }
+  .ow-glass { background: color-mix(in srgb, var(--surface) 70%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); box-shadow: inset 0 0 0 1px rgba(120, 150, 255, 0.22); border-radius: 16px; color: var(--text); }
+  html.dark .ow-glass { background: rgba(14, 18, 40, 0.62); box-shadow: inset 0 0 0 1px rgba(140, 160, 255, 0.2); }
+  .ow-top { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .ow-hello { flex: 1; font-size: 28px; font-weight: 800; line-height: 1.12; }
+  .ow-hello span { background: linear-gradient(90deg, #00a6e0, #7a5cff, #00a6e0); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: ow-flow 5s linear infinite; }
+  html.dark .ow-hello span { background-image: linear-gradient(90deg, #7fe0ff, #c9b6ff, #7fe0ff); }
+  @keyframes ow-flow { to { background-position: 200% 0; } }
+  .ow-phi {
+    width: 46px; height: 46px; border-radius: 50%; flex: none; display: grid; place-items: center; cursor: pointer; border: 0;
+    font-family: var(--font-math), "Times New Roman", serif; font-style: italic; font-size: 25px; font-weight: 500; color: #fff;
+    background: radial-gradient(circle at 35% 30%, #7fe0ff, #3a4bff 60%, #120b3a); box-shadow: 0 0 18px rgba(0, 194, 255, 0.55);
+  }
+  .ow-phi:active { transform: scale(0.92); }
+  .ow-pulse { position: relative; overflow: hidden; display: flex; align-items: center; gap: 9px; width: 100%; padding: 11px 14px; font: inherit; font-size: 14px; font-weight: 700; text-align: left; cursor: pointer; margin-bottom: 10px; }
+  .ow-pulse > span, .ow-pulse > b, .ow-pulse > i { position: relative; }
+  .ow-pulse em { font-style: normal; opacity: 0.5; margin: 0 2px; }
+  .ow-pulse > b { margin-left: auto; opacity: 0.6; transition: transform 0.25s; }
+  .ow-pulse-open > b { transform: rotate(180deg); }
+  .ow-wave { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; opacity: 0.4; }
+  .ow-wave path { fill: none; stroke: var(--ow-cyan); stroke-width: 1.5; }
+  .ow-dot { width: 9px; height: 9px; border-radius: 50%; background: #22c98a; box-shadow: 0 0 8px #22c98a; flex: none; animation: ow-blink 2s ease-in-out infinite; }
+  .ow-dot-bad { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
+  @keyframes ow-blink { 50% { opacity: 0.45; } }
+  .ow-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; max-height: 0; overflow: hidden; transition: max-height 0.35s ease, margin 0.35s ease; }
+  .ow-actions-open { max-height: 140px; margin-bottom: 10px; }
+  .ow-act { padding: 12px 10px; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; border: 0; text-align: center; }
+  .ow-act:disabled { opacity: 0.6; }
+  .ow-search { display: flex; align-items: center; gap: 9px; padding: 12px 14px; margin-bottom: 10px; color: var(--text-2); }
+  .ow-search input { flex: 1; min-width: 0; border: 0; background: none; outline: none; font: inherit; font-size: 15px; color: var(--text); }
+  .ow-results { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+  .ow-res { display: flex; align-items: center; gap: 10px; padding: 11px 14px; text-decoration: none; }
+  .ow-res b { display: block; font-size: 15px; } .ow-res small { display: block; font-size: 12.5px; color: var(--text-2); }
+  .ow-res em { margin-left: auto; font-style: normal; font-size: 10.5px; font-weight: 800; letter-spacing: 0.06em; color: var(--text-2); }
+  .ow-none { margin: 0 0 10px 4px; font-size: 14px; color: var(--text-2); }
+  .ow-spiral-box { position: fixed; inset: 0; z-index: 110; pointer-events: none; }
+  .ow-spiral { position: absolute; left: 0; top: 0; width: 4px; height: 4px; border-radius: 50%; background: #ffe07a; box-shadow: 0 0 8px #ffe07a; }
+
+  /* ── Карта «№ 000 · Админ» (OwnerCard) ─────────────────── */
+  .ow-me { display: flex; flex-direction: column; gap: 10px; }
+  .ow-card {
+    position: relative; width: 100%; max-width: 440px; margin: 0 auto; aspect-ratio: 1.586; border-radius: 18px; overflow: hidden;
+    padding: 16px 18px; display: flex; flex-direction: column; justify-content: space-between; color: #fff; transition: transform 0.15s ease-out;
+    background: #060818; box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(160, 190, 255, 0.35);
+  }
+  .ow-card canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .ow-card-shade { position: absolute; inset: 0; background: linear-gradient(100deg, rgba(3, 4, 22, 0.78) 0%, rgba(3, 4, 22, 0.45) 45%, rgba(3, 4, 22, 0.1) 75%); }
+  .ow-card-holo { position: absolute; inset: 0; mix-blend-mode: overlay; animation: ow-holo 8s linear infinite;
+    background: conic-gradient(from var(--ow-h, 0deg) at 50% 50%, rgba(255, 122, 217, 0.35), rgba(127, 224, 255, 0.35), rgba(183, 255, 122, 0.25), rgba(255, 224, 122, 0.3), rgba(255, 122, 217, 0.35)); }
+  @keyframes ow-holo { to { --ow-h: 360deg; } }
+  .ow-card-glint { position: absolute; inset: 0; mix-blend-mode: screen; background: linear-gradient(105deg, transparent 40%, rgba(255, 255, 255, 0.45) 50%, transparent 60%); background-size: 250% 100%; background-repeat: no-repeat; animation: vip-glint-1 4.5s ease-in-out infinite; }
+  .ow-card > div { position: relative; z-index: 1; text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6); }
+  .ow-card-top { display: flex; justify-content: space-between; font-size: 11px; letter-spacing: 0.18em; font-weight: 800; }
+  .ow-card-eq { font-family: var(--font-math), "Times New Roman", serif; font-style: italic; font-size: 16px; font-variant-numeric: lining-nums; opacity: 0.9; }
+  .ow-card-eq sup { font-size: 0.65em; }
+  .ow-card-name { font-size: 27px; font-weight: 900; letter-spacing: 0.06em; text-transform: uppercase; text-shadow: none; filter: drop-shadow(0 1px 6px rgba(0, 0, 0, 0.6));
+    background: linear-gradient(90deg, #fff, #bff3ff, #e4d9ff, #fff); background-size: 300% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: ow-flow 5s linear infinite; }
+  .ow-card-role { font-size: 12.5px; letter-spacing: 0.2em; font-weight: 800; }
+  .ow-stats { display: flex; gap: 8px; }
+  .ow-stats div { flex: 1; padding: 10px; text-align: center; }
+  .ow-stats b { display: block; font-size: 22px; font-weight: 900; }
+  .ow-stats span { display: block; font-size: 12.5px; font-weight: 700; white-space: nowrap; color: var(--text-2); }
+}
+
+@property --ow-h { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ow-formula, .ow-hello span, .ow-dot, .ow-card-holo, .ow-card-glint, .ow-card-name, html.owner .t-avatar::before { animation: none !important; }
+}

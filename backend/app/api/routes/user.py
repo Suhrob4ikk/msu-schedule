@@ -353,3 +353,37 @@ def is_owner_device(device_id: str, db: Session = Depends(get_db)):
     if _owner_ids is None:
         _owner_ids = {d for (d,) in db.query(OwnerDevice.device_id).all()}
     return {"owner": device_id in _owner_ids}
+
+
+_pulse_cache: dict = {}
+
+
+@router.get("/owner-pulse")
+def owner_pulse(device_id: str, db: Session = Depends(get_db)):
+    """Пульт на главной у владельца: пользователи, новые за сегодня, последняя проверка
+    msu.tj. Только привязанным устройствам (номер устройства не угадать); остальным — 404."""
+    global _owner_ids
+    from datetime import datetime, time, timedelta
+    from zoneinfo import ZoneInfo
+    from app.models import OwnerDevice, SyncLog
+    if _owner_ids is None:
+        _owner_ids = {d for (d,) in db.query(OwnerDevice.device_id).all()}
+    if device_id not in _owner_ids:
+        raise HTTPException(404, "Не найдено")
+    import time as _t
+    if _pulse_cache.get("at", 0) > _t.time() - 60:   # минута — база не просыпается на каждое открытие
+        return _pulse_cache["data"]
+    tz = ZoneInfo("Asia/Dushanbe")
+    start = datetime.combine(datetime.now(tz=tz).date(), time.min, tzinfo=tz).astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
+    last = db.query(SyncLog).order_by(SyncLog.started_at.desc()).first()
+    data = {
+        "users": db.query(UserRegistration).count(),
+        "today": db.query(UserRegistration).filter(UserRegistration.registered_at >= start).count(),
+        "app": db.query(UserRegistration).filter(UserRegistration.app_version.isnot(None)).count(),
+        "last_sync": {
+            "at": last.started_at.isoformat() if last and last.started_at else None,
+            "status": last.status if last else None,
+        },
+    }
+    _pulse_cache.update(at=_t.time(), data=data)
+    return data

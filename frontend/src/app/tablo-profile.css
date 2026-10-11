@@ -47,6 +47,9 @@
 .t-pf-nav b { flex: 1; font-size: 19px; font-weight: 600; }
 .t-pf-nav em { font-style: normal; font-size: 16px; color: var(--text-2); }
 .t-pf-nav b { min-width: 0; }
+/* «Внешний вид» не переносится на две строки — сжимается сводка справа (многоточие) */
+.t-pf-nav > a:has(.t-pf-sum) b { flex: 1 0 auto; }
+.t-pf-nav > a > svg, .t-pf-nav > a > .t-pf-ic { flex: none; }
 .t-pf-nav em.t-pf-sum { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 55%; }
 .t-pf-nav > a > svg:last-child, .t-pf-nav > button > svg:last-child { color: var(--text-2); }
 .t-pf-ic { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 14px; background: var(--chip); flex-shrink: 0; }

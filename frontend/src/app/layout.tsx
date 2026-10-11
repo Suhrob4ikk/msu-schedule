@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Cormorant_Garamond, Onest, Roboto_Condensed } from "next/font/google";
+import { Cormorant_Garamond, Onest, Roboto_Condensed, STIX_Two_Math, STIX_Two_Text } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import "./tablo.css";
@@ -10,6 +10,7 @@ import "./tablo-compare.css";
 import "./tablo-profile.css";
 import "./tablo-names.css";
 import "./tablo-vip.css";
+import "./tablo-owner.css";
 import BottomNav from "@/components/BottomNav";
 import GlobalNamesReminder from "@/components/tablo/names/GlobalNamesReminder";
 import ServerResync from "@/components/ServerResync";
@@ -21,6 +22,7 @@ import VipAmbient from "@/components/tablo/vip/VipAmbient";
 import VipTracker from "@/components/tablo/vip/VipTracker";
 import VipBirthday from "@/components/tablo/vip/VipBirthday";
 import OwnerSync from "@/components/OwnerSync";
+import OwnerAmbient from "@/components/owner/OwnerAmbient";
 import { ownerInitScript } from "@/lib/owner";
 import { appearanceInitScript, MODE_BASE } from "@/lib/appearance";
 import { specialInitScript } from "@/lib/special";
@@ -58,6 +60,24 @@ const letterFont = Cormorant_Garamond({
   variable: "--font-letter",
   display: "swap",
   preload: false,
+});
+
+// Формулы в оформлении владельца (tablo-owner.css): STIX Two — шрифт научных статей.
+// Текстовый — буквы, цифры и греческий; математический — ∫ ∑ √ ∞ ∇, которых в текстовом
+// нет. Оба не предзагружаются (у математического нет наборов — и опции нет):
+// файлы качаются, только когда на странице есть формулы.
+const mathText = STIX_Two_Text({
+  subsets: ["latin", "greek"],
+  weight: ["500"],
+  style: ["italic", "normal"],
+  variable: "--font-math",
+  display: "swap",
+  preload: false,
+});
+const mathSym = STIX_Two_Math({
+  weight: "400",
+  variable: "--font-math-sym",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -112,7 +132,7 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: ownerInitScript() }}
         />
       </head>
-      <body className={`${onest.variable} ${robotoCondensed.variable} ${letterFont.variable} min-h-full flex flex-col antialiased`}>
+      <body className={`${onest.variable} ${robotoCondensed.variable} ${letterFont.variable} ${mathText.variable} ${mathSym.variable} min-h-full flex flex-col antialiased`}>
         {children}
         <GlobalNamesReminder />
         <BottomNav />
@@ -125,6 +145,7 @@ export default function RootLayout({
         <VipTracker />
         <VipBirthday />
         <OwnerSync />
+        <OwnerAmbient />
       </body>
     </html>
   );

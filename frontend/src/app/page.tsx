@@ -32,8 +32,9 @@ import { DayBar, NotPublished, ShareList, type ShareAction } from "@/components/
 import { api, onApiUpdate, shortGroupName, DAYS_ORDER, type Group, type Lesson, type WeekInfo } from "@/lib/api";
 import { shareScheduleImage } from "@/lib/shareImage";
 import { useSwipe } from "@/lib/useSwipe";
-import { useLayout, useNow, useVip } from "@/lib/tablo/hooks";
+import { useLayout, useMe, useNow, useOwner, useVip } from "@/lib/tablo/hooks";
 import VipGreeting from "@/components/tablo/vip/VipGreeting";
+import OwnerHome from "@/components/owner/OwnerHome";
 import {
   addDays, buildWeek, computeFocus, dayTitle, diffDays, doneTodayAt, dushanbeNow, headerTitle, isoOf, rangeLabel,
   weekIsOver, weekRel, weekStatsLine, type Block,
@@ -77,6 +78,8 @@ export default function SchedulePage() {
   const layout = useLayout();
   const now = useNow(30_000);
   const vip = useVip();
+  const owner = useOwner();
+  const me = useMe();
   const wideScreen = layout === "wide" || layout === "xwide";
 
   // ─── Данные ──────────────────────────────────────────────────────────────
@@ -578,6 +581,8 @@ export default function SchedulePage() {
       <main className={`t-main ${layout ? `t-main-${layout}` : ""}`}>
         <CourseCheckBanner />
         {vip && now && !foreign && <VipGreeting vip={vip} now={now} />}
+        {/* Устройства владельца (привязка в /dev): пульт и поиск по всему — и на чужой группе */}
+        {owner && !vip && now && me && <OwnerHome name={me.name.trim().split(/\s+/)[0] || "админ"} now={now} />}
 
         {/* Панель инструментов — от 640 px */}
         {layout && layout !== "phone" && (

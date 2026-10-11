@@ -15,7 +15,8 @@ import Header from "@/components/Header";
 import Icon from "@/components/tablo/Icon";
 import Login from "@/components/tablo/profile/Login";
 import { appearanceSummary } from "@/components/tablo/profile/AppearanceView";
-import { useAppearance, useVip } from "@/lib/tablo/hooks";
+import { useAppearance, useOwner, useVip } from "@/lib/tablo/hooks";
+import OwnerCard from "@/components/owner/OwnerCard";
 import VipProfile, { VipProgressSections } from "@/components/tablo/vip/VipProfile";
 import VipCodeEntry from "@/components/tablo/vip/VipCodeEntry";
 import { VIP_NEW_KEY, canActivateVip } from "@/lib/special";
@@ -113,6 +114,7 @@ export default function ProfilePage() {
   const router = useRouter();
   const appearance = useAppearance();
   const vip = useVip();
+  const owner = useOwner();
   // Метка «Новое» на «Внешнем виде»: после сюрприза с новыми металлами, пока туда не зашла
   const [newMetals, setNewMetals] = useState(false);
   useEffect(() => { try { setNewMetals(localStorage.getItem(VIP_NEW_KEY) === "1"); } catch { /* приватный режим */ } }, []);
@@ -246,7 +248,9 @@ export default function ProfilePage() {
       <Header />
       <main className="t-main t-pf-main">
         <div className="t-pf">
-            {vip ? <VipProfile vip={vip} onEdit={() => setIsEditing(true)} /> : (
+            {vip ? <VipProfile vip={vip} onEdit={() => setIsEditing(true)} /> : owner ? (
+              <OwnerCard name={name.trim().split(/\s+/)[0] || "Админ"} group={group ? `${shortGroupName(group.name)} ${group.year}` : null} onEdit={() => setIsEditing(true)} />
+            ) : (
             <section className="t-pf-card t-pf-me">
               <div className="t-pf-who">
                 <span className="t-avatar t-avatar-lg" aria-hidden="true">{letter || <Icon name="user" size={26} />}</span>

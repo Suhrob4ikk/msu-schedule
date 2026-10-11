@@ -95,6 +95,15 @@ export function useMounted(): boolean {
   return useSyncExternalStore(noop, () => true, () => false);
 }
 
+/** Устройство владельца (класс `owner` на <html>, ставит OwnerSync); до монтирования — false. */
+export function useOwner(): boolean {
+  return useSyncExternalStore(
+    cb => { window.addEventListener("owner-change", cb); return () => window.removeEventListener("owner-change", cb); },
+    () => document.documentElement.classList.contains("owner"),
+    () => false,
+  );
+}
+
 /** Особый пользователь (lib/special.ts) или null; до монтирования — null. */
 export function useVip(): VipInfo | null {
   const mounted = useMounted();
