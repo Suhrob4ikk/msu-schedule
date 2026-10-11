@@ -71,7 +71,7 @@ const letterFont = Cormorant_Garamond({
 // файлы качаются, только когда на странице есть формулы.
 const mathText = STIX_Two_Text({
   subsets: ["latin", "greek"],
-  weight: ["500"],
+  weight: ["400", "500"],
   style: ["italic", "normal"],
   variable: "--font-math",
   display: "swap",

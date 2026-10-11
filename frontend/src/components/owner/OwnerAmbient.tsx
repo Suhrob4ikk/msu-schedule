@@ -20,19 +20,26 @@ export default function OwnerAmbient() {
   const on = owner && !path?.startsWith("/dev");
   const box = useRef<HTMLDivElement>(null);
 
-  // формулы перемешаны один раз и берутся по порядку — без повторов на экране
+  // формулы перемешаны один раз и берутся по порядку — без повторов на экране. Каждой —
+  // своя полоса по высоте (слои чередуются: 0, 2, 4, 6 и 1, 3, 5) и сторона попеременно,
+  // чтобы формулы не наезжали друг на друга (владелец, 11 окт 2026).
   const layers = useMemo(() => {
     if (!on) return [];
     const pick = [...OWNER_FORMULAS].sort(() => Math.random() - 0.5);
+    const BANDS = 7, band = 100 / BANDS;
     return [0, 1, 2].map(i => ({
       stars: Array.from({ length: 34 - i * 9 }, () => {
         const z = rnd(0.8, 1.6) + i * 0.6;
         return { left: `${rnd(0, 100)}%`, top: `${rnd(0, 100)}%`, width: z, height: z, opacity: rnd(0.35, 0.95) };
       }),
-      formulas: i < 2 ? Array.from({ length: 3 }, (_, k) => ({
-        html: pick[i * 3 + k],
-        style: { left: `${rnd(4, 62)}%`, top: `${rnd(10 + k * 28, 30 + k * 28)}%`, fontSize: `${(i === 0 ? 15 : 21) + rnd(0, 6)}px`, animationDuration: `${rnd(22, 36)}s`, animationDirection: k % 2 ? "alternate" : "alternate-reverse" },
-      })) : [],
+      formulas: i < 2 ? Array.from({ length: 4 - i }, (_, k) => {
+        const slot = k * 2 + i;
+        const left = slot % 2 ? rnd(30, 50) : rnd(3, 18);
+        return {
+          html: pick[slot],
+          style: { left: `${left}%`, top: `${slot * band + rnd(1, band * 0.45)}%`, fontSize: `${(i === 0 ? 14 : 18) + rnd(0, 4)}px`, animationDuration: `${rnd(24, 38)}s`, animationDirection: k % 2 ? "alternate" : "alternate-reverse" },
+        };
+      }) : [],
     }));
   }, [on]);
 
