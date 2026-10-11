@@ -16,7 +16,7 @@ import {
 } from "@/lib/appearance";
 import { contrast } from "@/lib/color";
 import { useAppearance, useVip } from "@/lib/tablo/hooks";
-import { METALS, METAL_IDS, VIP_NEW_KEY, metalOf } from "@/lib/special";
+import { METALS, METAL_IDS, VIP_NEW_KEY, VIP_SEASON_KEY, metalOf, readVipSeason, type VipSeason } from "@/lib/special";
 
 const BGS: Background[] = ["system", "light", "dark", "black"];
 /** Подписи как в приложении (раздел «Фон»). */
@@ -104,6 +104,14 @@ export default function AppearanceView() {
   const vip = useVip();
   // Зашла во «Внешний вид» — метка «Новое» в Кабинете больше не нужна
   useEffect(() => { if (vip) try { localStorage.removeItem(VIP_NEW_KEY); } catch { /* приватный режим */ } }, [vip]);
+  // Сезонные эффекты особых (снег, лепестки, листья — VipAmbient): авто по месяцу или выкл
+  const [season, setSeason] = useState<VipSeason>("auto");
+  useEffect(() => { if (vip) setSeason(readVipSeason()); }, [vip]);
+  const pickSeason = (v: VipSeason) => {
+    setSeason(v);
+    try { localStorage.setItem(VIP_SEASON_KEY, v); } catch { /* приватный режим */ }
+    window.dispatchEvent(new Event("vip-season"));
+  };
   const [plus, setPlus] = useState<HTMLButtonElement | null>(null);
   const [custom, setCustom] = useState(false);
   // Свой цвет типа занятия: какой тип и у какой точки «+» стоит окно
@@ -203,6 +211,21 @@ export default function AppearanceView() {
             ))}
           </div>
         </section>
+
+        {vip && (
+          <>
+            <h2 className="t-over t-av-h">Сезонные эффекты</h2>
+            <section className="t-av-card">
+              <div className="t-seg vip-season-seg" role="radiogroup" aria-label="Сезонные эффекты">
+                {([["auto", "Авто"], ["winter", "Зима"], ["spring", "Весна"], ["autumn", "Осень"], ["off", "Выкл"]] as const).map(([v, label]) => (
+                  <button key={v} type="button" role="radio" aria-checked={season === v}
+                    className={`t-seg-btn ${season === v ? "t-seg-on" : ""}`} onClick={() => pickSeason(v)}>{label}</button>
+                ))}
+              </div>
+              <p className="t-ap-note">{season === "auto" ? "Зимой снег, весной лепестки, осенью листья, летом ничего" : season === "off" ? "Без эффектов" : "Всегда этот сезон"}</p>
+            </section>
+          </>
+        )}
 
         <h2 className="t-over t-av-h">Плотность карточек</h2>
         <section className="t-av-card">

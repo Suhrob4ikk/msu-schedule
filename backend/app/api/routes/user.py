@@ -307,3 +307,26 @@ def send_feedback(body: FeedbackBody, background_tasks: BackgroundTasks, db: Ses
     db.commit()
     background_tasks.add_task(_send_feedback_email, reg.name, group_label, body.rating, text)
     return {"ok": True}
+
+
+# ─── Серия и достижения «золотого профиля» (11 окт 2026) ────────────────────
+# Логика — services/vip_progress.py. Пускаем только зарегистрированное устройство,
+# у которого имя в Кабинете — как у особого человека.
+
+class VipProgressBody(BaseModel):
+    device_id: str
+    person: str
+    visit: bool = False
+    flags: list[str] = []
+
+
+@router.post("/vip/progress")
+def vip_progress(body: VipProgressBody, db: Session = Depends(get_db)):
+    from app.services.vip_progress import PEOPLE, first_word, touch
+
+    if body.person not in PEOPLE or len(body.device_id) > 100:
+        raise HTTPException(404, "Не найдено")
+    reg = db.query(UserRegistration).filter_by(device_id=body.device_id).first()
+    if not reg or first_word(reg.name) != PEOPLE[body.person]:
+        raise HTTPException(404, "Не найдено")
+    return touch(db, body.person, reg, body.visit, body.flags[:10])

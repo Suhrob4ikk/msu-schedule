@@ -577,7 +577,7 @@ export default function SchedulePage() {
 
       <main className={`t-main ${layout ? `t-main-${layout}` : ""}`}>
         <CourseCheckBanner />
-        {vip && now && !foreign && <VipGreeting name={vip.name} now={now} />}
+        {vip && now && !foreign && <VipGreeting vip={vip} now={now} />}
 
         {/* Панель инструментов — от 640 px */}
         {layout && layout !== "phone" && (

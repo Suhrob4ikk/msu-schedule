@@ -354,3 +354,19 @@ class Feedback(Base):
     rating = Column(Integer, nullable=False)
     text = Column(Text, nullable=False, default="")
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class VipProgress(Base):
+    """Серия и достижения «золотого профиля» (11 окт 2026, services/vip_progress.py).
+
+    Одна строка на особого человека: даты посещений, дни без пар у его группы и
+    моменты особых событий — всё JSON-текстом. Год посещений — пара килобайт.
+    Пишется не чаще раза в день (и при новом событии), поэтому база спит, как раньше."""
+    __tablename__ = "vip_progress"
+    id = Column(Integer, primary_key=True)
+    person = Column(String(50), unique=True, nullable=False)
+    first_day = Column(Date, nullable=True)
+    days = Column(Text, nullable=False, default="[]")      # ["2026-10-09", ...]
+    offdays = Column(Text, nullable=False, default="[]")   # будни, когда у группы не было пар
+    events = Column(Text, nullable=False, default="{}")    # {"early": "2026-10-14T07:12", ...}
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

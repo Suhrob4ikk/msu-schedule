@@ -16,7 +16,7 @@ import Icon from "@/components/tablo/Icon";
 import Login from "@/components/tablo/profile/Login";
 import { appearanceSummary } from "@/components/tablo/profile/AppearanceView";
 import { useAppearance, useVip } from "@/lib/tablo/hooks";
-import VipProfile from "@/components/tablo/vip/VipProfile";
+import VipProfile, { VipProgressSections } from "@/components/tablo/vip/VipProfile";
 import VipCodeEntry from "@/components/tablo/vip/VipCodeEntry";
 import { VIP_NEW_KEY, canActivateVip } from "@/lib/special";
 import { api, clearApiCache, rememberGroup, shortGroupName, type Group } from "@/lib/api";
@@ -284,6 +284,7 @@ export default function ProfilePage() {
                 <Icon name="chevronRight" size={20} />
               </Link>
             </nav>
+            {vip && <VipProgressSections vip={vip} />}
 
             <h2 className="t-over t-pf-h">Учёба</h2>
             <section className="t-pf-card">

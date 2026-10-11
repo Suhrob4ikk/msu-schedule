@@ -151,6 +151,9 @@ html.dark.vip.accent-platinum { --vip-edge: linear-gradient(90deg, transparent, 
   /* Плашка недели в шапке телефона — тоже на --soft */
   html.vip.accent-metal .t-phead-pill { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gold) 55%, transparent); }
   html.dark.vip.accent-metal .t-phead-pill { background: linear-gradient(135deg, var(--vip-night-1), var(--vip-night-2)); }
+  /* Кнопка «Обновить расписание» в Кабинете — тоже на --soft */
+  html.vip.accent-metal .t-pf-refresh { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gold) 55%, transparent); }
+  html.dark.vip.accent-metal .t-pf-refresh { background: linear-gradient(135deg, var(--vip-night-1), var(--vip-night-2)); }
   /* Кнопка «Ближайшая пара» на «Аудиториях» — тоже на --soft */
   html.vip.accent-metal .t-rm-when { border-color: color-mix(in srgb, var(--gold) 55%, transparent); }
   html.dark.vip.accent-metal .t-rm-when { background: linear-gradient(135deg, var(--vip-night-1), var(--vip-night-2)); }
@@ -240,18 +243,41 @@ html.dark.vip.accent-platinum { --vip-edge: linear-gradient(90deg, transparent, 
   .vip-amb .vip-spark { z-index: 1; }
   .vip-amb .vip-tw { animation: vip-sparkle 3s ease-in-out infinite; }
   .vip-amb .vip-hit { animation: none; opacity: 1; }
+  /* Сезоны и конфетти дня рождения: падают сверху, оттенки — из металла (VipAmbient) */
+  .vip-fall { position: absolute; top: -18px; animation: vip-fall linear infinite; }
+  @keyframes vip-fall { to { transform: translate(var(--dx), 110vh) rotate(var(--rot)); } }
+  .vip-fall-winter { border-radius: 50%; background: #fff6dc; box-shadow: 0 0 6px rgba(255, 246, 220, 0.9); }
+  .vip-amb-platinum .vip-fall-winter { background: #eef1f5; box-shadow: 0 0 6px rgba(238, 241, 245, 0.9); }
+  html:not(.dark) .vip-fall-winter { box-shadow: 0 0 2px rgba(0, 0, 0, 0.35), 0 0 6px rgba(255, 255, 255, 0.9); }
+  .vip-amb-diamond .vip-fall-winter { background: transparent; box-shadow: none; }
+  .vip-amb-diamond .vip-fall-winter::before, .vip-amb-diamond .vip-fall-winter::after {
+    content: ""; position: absolute; left: 50%; top: 50%; background: #fff; border-radius: 2px; transform: translate(-50%, -50%);
+    box-shadow: 0 0 5px 1px rgba(255, 255, 255, 0.9), 0 0 9px 2px rgba(170, 200, 255, 0.6);
+  }
+  .vip-amb-diamond .vip-fall-winter::before { width: 1.5px; height: 100%; }
+  .vip-amb-diamond .vip-fall-winter::after { width: 100%; height: 1.5px; }
+  html:not(.dark) .vip-amb-diamond .vip-fall-winter::before, html:not(.dark) .vip-amb-diamond .vip-fall-winter::after { background: #8aa0c8; }
+  .vip-fall-spring { width: 10px; height: 14px; border-radius: 60% 0 60% 0; opacity: 0.85; }
+  .vip-fall-autumn { width: 12px; height: 12px; border-radius: 0 70% 0 70%; opacity: 0.85; }
+  .vip-fall-confetti { width: 7px; height: 11px; border-radius: 2px; opacity: 0.9; }
+
   .vip-ripple { position: absolute; border-radius: 50%; border: 2px solid rgba(235, 240, 248, 0.85); box-shadow: 0 0 18px rgba(235, 240, 248, 0.5), inset 0 0 12px rgba(235, 240, 248, 0.35); }
   html:not(.dark) .vip-ripple { border-color: rgba(90, 96, 108, 0.6); box-shadow: 0 0 14px rgba(90, 96, 108, 0.25); }
   .vip-tapstar { position: absolute; color: #f7d774; }
   .vip-tapstar svg { width: 100%; height: 100%; display: block; }
 
   /* ── Приветствие на «Расписании» ─────────────────────────── */
-  .vip-greet { font-size: 28px; font-weight: 800; line-height: 1.12; margin: 2px 0 14px; letter-spacing: -0.01em; }
+  .vip-greet-name { position: relative; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: manipulation; }
+  .vip-hold {
+    position: absolute; width: 60px; height: 60px; margin: -30px 0 0 -30px; border-radius: 50%; pointer-events: none;
+    border: 3px solid var(--gold); box-shadow: 0 0 12px var(--vip-halo); animation: vip-hold 0.65s linear forwards;
+  }
+  @keyframes vip-hold { from { transform: scale(1.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  /* пасхалка: карта вылетает в центр (VipGreeting → FlyCard) */
+  .vip-egg { position: fixed; inset: 0; z-index: 110; display: grid; place-items: center; pointer-events: none; background: rgba(0, 0, 0, 0.6); opacity: 0; }
+  .vip-egg .vip-sp-card { position: relative; left: auto; top: auto; margin: 0; width: 280px; height: 177px; opacity: 1; transition: none; }
 
-  /* ── Звезда в «Отзыв отправлен» ────────────────────────────── */
-  .vip-bigstar { width: 72px; height: 72px; margin: 0 auto; color: var(--gold);
-    filter: drop-shadow(0 0 18px color-mix(in srgb, var(--gold-l) 90%, transparent)); }
-  .vip-bigstar svg { width: 100%; height: 100%; }
+  .vip-greet { font-size: 28px; font-weight: 800; line-height: 1.12; margin: 2px 0 14px; letter-spacing: -0.01em; }
 
   /* ── Кабинет: золотая карта ──────────────────────────────── */
   .vip-me { display: flex; flex-direction: column; gap: 10px; }
@@ -301,7 +327,7 @@ html.dark.vip.accent-platinum { --vip-edge: linear-gradient(90deg, transparent, 
   /* Бриллиантовая карта: светлый металл с гранями и вспышками-искрами */
   .vip-card-diamond {
     --vip-card-text: #1b2333; --vip-card-role: #3e5a8a;
-    --vip-card-foil: linear-gradient(100deg, #5b6b86, #1b2333 30%, #8aa0c8 50%, #1b2333 70%, #5b6b86);
+    --vip-card-foil: linear-gradient(100deg, #1b2333, #2a3b5e 35%, #4f6c9c 50%, #2a3b5e 65%, #1b2333);
     background: radial-gradient(130% 150% at 0% 0%, #f7f9ff 0%, #dfe6f3 40%, #c3cede 75%, #aab6c9 100%);
     box-shadow: 0 16px 34px rgba(0, 0, 0, 0.3), inset 0 0 0 1px rgba(255, 255, 255, 0.75);
   }
@@ -313,6 +339,10 @@ html.dark.vip.accent-platinum { --vip-edge: linear-gradient(90deg, transparent, 
       linear-gradient(45deg, transparent 48%, rgba(255, 255, 255, 0.45) 50%, transparent 52%);
     background-size: 100% 100%, 60px 60px, 60px 60px;
   }
+  /* подписи на светлой карте — без полупрозрачности, иначе сливаются с фоном */
+  .vip-card-diamond :is(.vip-card-brand, .vip-card-no, .vip-card-since, .vip-pg-stats span, .vip-pg-dots small) { opacity: 1; color: #2c3a58; }
+  .vip-card-diamond .vip-card-role { font-weight: 600; }
+  .vip-card-diamond :is(.vip-card-brand, .vip-card-no, .vip-card-since, .vip-card-role) { text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6); }
   .vip-card-diamond .vip-chip { background: linear-gradient(135deg, #ffffff, #cfd8e6 50%, #9eabbf); }
   .vip-card-diamond .vip-secret { color: #8aa0c8; filter: drop-shadow(0 0 8px rgba(170, 200, 255, 0.8)); }
   .vip-spark { position: absolute; z-index: 2; pointer-events: none; opacity: 0; animation: vip-sparkle 2.4s ease-in-out infinite; }
@@ -343,35 +373,176 @@ html.dark.vip.accent-platinum { --vip-edge: linear-gradient(90deg, transparent, 
   .vip-secret svg { width: 100%; height: 100%; animation: vip-twinkle 3s ease-in-out infinite; }
   @keyframes vip-twinkle { 0%, 75%, 100% { transform: rotate(0) scale(1); } 83% { transform: rotate(72deg) scale(1.2); } 91% { transform: rotate(144deg) scale(1); } }
 
-  /* ── Задания и отзыв ─────────────────────────────────────── */
-  .vip-tasks { padding: 16px 18px 18px; }
-  .vip-todo { display: grid; gap: 12px; }
-  .vip-todo > * { display: flex; gap: 10px; align-items: center; font-size: 16px; color: var(--text-2); transition: color 0.3s; }
-  .vip-todo a { color: var(--text-2); text-decoration: underline; text-underline-offset: 3px; }
-  .vip-todo i { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--line); display: grid; place-items: center; flex: none; transition: all 0.3s; color: var(--gold-on); }
-  .vip-todo .vip-ok { color: var(--text); }
-  .vip-todo .vip-ok a { color: var(--text); text-decoration: none; }
-  .vip-todo .vip-ok i { border-color: var(--gold); background: var(--gold); }
-  .vip-review-btn { width: 100%; padding: 14px; font-size: 16px; margin-top: 16px; }
-  .vip-sheet { padding: 4px 18px 22px; }
-  .vip-sheet h3 { margin: 0 0 4px; font-size: 22px; font-weight: 800; }
-  .vip-sheet-q { color: var(--text-2); font-size: 15px; margin-bottom: 16px; }
-  .vip-stars { display: flex; gap: 8px; justify-content: center; margin-bottom: 16px; }
-  .vip-stars button { width: 48px; height: 48px; border: 0; background: none; cursor: pointer; color: var(--line); padding: 2px; transition: transform 0.15s, color 0.2s; }
-  .vip-stars button.vip-on { color: var(--gold); filter: drop-shadow(0 0 6px color-mix(in srgb, var(--gold) 50%, transparent)); }
-  .vip-stars button:active { transform: scale(0.85); }
-  .vip-stars svg { width: 100%; height: 100%; }
-  .vip-sheet textarea {
-    width: 100%; height: 110px; font: inherit; font-size: 16px; border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px;
-    resize: none; outline: none; color: var(--text); background: var(--bg);
+  /* ── Карта переворачивается (11 окт 2026): наклон — на .vip-tilt, переворот — .vip-flip ── */
+  .vip-tilt {
+    position: relative; width: 100%; max-width: 440px; margin: 0 auto; aspect-ratio: 1.586;
+    transform-style: preserve-3d; transition: transform 0.15s ease-out; animation: vip-float 7s ease-in-out infinite;
   }
-  .vip-sheet textarea:focus { border-color: var(--gold); }
-  .vip-send { width: 100%; padding: 14px; font-size: 16px; margin-top: 12px; }
+  .vip-tilt.vip-held { animation: none; }
+  .vip-tilt.vip-held .vip-card::before { animation: none; }
+  .vip-flip { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform 0.8s cubic-bezier(0.3, 0.9, 0.3, 1); cursor: pointer; border-radius: 18px; outline: none; }
+  .vip-flip:focus-visible { box-shadow: 0 0 0 3px var(--ink); }
+  .vip-flipped { transform: rotateY(180deg); }
+  .vip-face { position: absolute; inset: 0; max-width: none; margin: 0; animation: none; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+  .vip-face-back { transform: rotateY(180deg); }
+  .vip-card-streak { display: flex; align-items: center; gap: 4px; font-size: 21px; font-weight: 800; line-height: 1; }
+  .vip-pg-back { gap: 8px; }
+  .vip-pg-stats { display: flex; gap: 8px; }
+  .vip-pg-stats > div { flex: 1; border-radius: 10px; padding: 7px 9px; background: rgba(0, 0, 0, 0.22); }
+  .vip-card-diamond .vip-pg-stats > div { background: rgba(255, 255, 255, 0.45); }
+  .vip-pg-stats b { display: flex; align-items: center; gap: 4px; font-size: 23px; font-weight: 800; line-height: 1.1; }
+  .vip-pg-stats b svg { width: 16px; height: 16px; }
+  .vip-pg-stats span { display: block; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.8; font-weight: 700; margin-top: 2px; }
+  .vip-pg-dots { display: flex; align-items: center; gap: 5px; }
+  .vip-pg-dots i { width: 19px; height: 19px; border-radius: 50%; background: var(--gold-metal); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5); }
+  .vip-pg-dots i.vip-pg-off { background: transparent; box-shadow: inset 0 0 0 1.5px currentColor; opacity: 0.4; }
+  .vip-pg-dots small { font-size: 11.5px; font-weight: 700; margin-left: auto; opacity: 0.85; }
+
+  /* ── Календарь посещений и медали — в свёрнутых разделах (Fold) ── */
+  .vip-pg-card { padding: 14px 14px 16px; }
+  .vip-fold + .vip-fold { margin-top: 10px; }
+  .vip-fold-h { display: flex; align-items: center; gap: 10px; width: 100%; padding: 16px 16px 16px 18px; text-align: left; font: inherit; }
+  .vip-fold-h b { font-size: 17px; font-weight: 700; }
+  .vip-fold-h em { margin-left: auto; font-style: normal; font-size: 14px; color: var(--text-2); }
+  .vip-fold-h svg { color: var(--text-2); transition: transform 0.25s; flex: none; }
+  .vip-fold-open .vip-fold-h svg { transform: rotate(180deg); }
+  .vip-fold-b { padding: 0 14px 16px; }
+  /* ── Живое пламя серии (VipFlame) ─────────────────────────── */
+  .vip-flame { display: inline-block; position: relative; flex: none; vertical-align: middle; }
+  .vip-flame svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  .vip-flame-1 { transform-origin: 50% 100%; animation: vip-flick 1.6s ease-in-out infinite; filter: drop-shadow(0 0 7px var(--vip-halo)); }
+  .vip-flame-2 { transform-origin: 50% 100%; animation: vip-flick 1.1s ease-in-out infinite reverse; }
+  .vip-flame-3 { transform-origin: 50% 100%; animation: vip-flick 0.8s ease-in-out infinite; }
+  @keyframes vip-flick {
+    0%, 100% { transform: scale(1, 1) skewX(0); }
+    25% { transform: scale(0.96, 1.06) skewX(-3deg); }
+    50% { transform: scale(1.04, 0.95) skewX(2deg); }
+    75% { transform: scale(0.98, 1.04) skewX(-1deg); }
+  }
+  .vip-flame-glow { position: absolute; left: 50%; bottom: -10%; width: 180%; height: 90%; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(circle, var(--vip-halo), transparent 65%); animation: vip-fglow 2s ease-in-out infinite; }
+  @keyframes vip-fglow { 50% { opacity: 0.55; transform: translateX(-50%) scale(1.15); } }
+  .vip-ember { position: absolute; left: 50%; bottom: 60%; width: 3px; height: 3px; border-radius: 50%; background: var(--gold-xl); box-shadow: 0 0 6px var(--gold-l); opacity: 0; animation: vip-ember 1.8s ease-out infinite; }
+  @keyframes vip-ember { 0% { opacity: 0; transform: translate(0, 0) scale(1); } 20% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--ex, 6px), -26px) scale(0.4); } }
+  .vip-card-streak { align-items: flex-end; gap: 3px; }
+  .vip-card-streak b { font-size: 28px; font-weight: 900; line-height: 0.9; letter-spacing: -0.02em; background: var(--vip-card-foil, var(--vip-foil)); background-size: 250% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: vip-foil 4s linear infinite; }
+
+  /* ── Оборот карты «Кольцо» ────────────────────────────────── */
+  .vip-ring-wrap { display: flex; align-items: center; gap: 12px; flex: 1; min-height: 0; }
+  .vip-ring { position: relative; width: min(118px, 38%); aspect-ratio: 1; flex: none; }
+  .vip-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .vip-ring-trk { fill: none; stroke: rgba(255, 255, 255, 0.12); stroke-width: 9; }
+  .vip-card-diamond .vip-ring-trk { stroke: rgba(27, 35, 51, 0.12); }
+  .vip-ring-val { fill: none; stroke: url(#vipRingG); stroke-width: 9; stroke-linecap: round; filter: drop-shadow(0 0 6px var(--vip-halo)); transition: stroke-dashoffset 1.4s cubic-bezier(0.2, 0.8, 0.2, 1) 0.3s; }
+  .vip-ring-mid { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .vip-ring-mid b { font-size: 32px; font-weight: 900; line-height: 0.95; background: var(--vip-card-foil, var(--vip-foil)); background-size: 250% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: vip-foil 4s linear infinite; }
+  .vip-ring-mid small { font-size: 8.5px; letter-spacing: 0.08em; font-weight: 800; text-transform: uppercase; opacity: 0.85; margin-top: 2px; }
+  .vip-ring-side { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+  .vip-ring-stat { display: flex; align-items: center; gap: 9px; }
+  .vip-ring-stat i { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--gold-metal); color: var(--gold-on); flex: none; box-shadow: 0 0 8px var(--vip-halo); }
+  .vip-ring-stat i svg { width: 16px; height: 16px; }
+  .vip-ring-stat b { display: block; font-size: 23px; font-weight: 900; line-height: 1; }
+  .vip-ring-stat span { font-size: 9.5px; letter-spacing: 0.1em; font-weight: 800; text-transform: uppercase; opacity: 0.85; }
+  .vip-ring-next { margin: 0; font-size: 10.5px; font-weight: 700; line-height: 1.25; opacity: 0.9; }
+  .vip-ring-next em { font-style: normal; font-weight: 800; }
+  .vip-card-diamond .vip-ring-mid small, .vip-card-diamond .vip-ring-stat span, .vip-card-diamond .vip-ring-next { color: #2c3a58; opacity: 1; }
+
+  /* ── «Неделя крупно» (WeekView) ───────────────────────────── */
+  .vip-week-h { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }
+  .vip-week-h button { width: 30px; height: 30px; border-radius: 10px; display: grid; place-items: center; color: var(--text-2); background: var(--chip); flex: none; }
+  .vip-week-h button:disabled { opacity: 0.3; }
+  .vip-week-h b { font-size: 16px; text-align: center; min-width: 120px; }
+  .vip-week-h span { margin-left: auto; font-size: 13px; color: var(--text-2); font-weight: 600; }
+  .vip-week { display: flex; justify-content: space-between; gap: 6px; }
+  .vip-wd { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .vip-wd small { font-size: 11px; color: var(--text-2); font-weight: 700; }
+  .vip-wd b { font-size: 12.5px; font-weight: 800; color: var(--text); }
+  .vip-wd-o { width: 100%; max-width: 46px; aspect-ratio: 1; border-radius: 50%; display: grid; place-items: center; position: relative; background: var(--chip); box-shadow: inset 0 0 0 1.5px var(--line); }
+  .vip-wd-v .vip-wd-o { background: radial-gradient(circle at 50% 40%, rgba(255, 255, 255, 0.1), rgba(0, 0, 0, 0.3) 70%); box-shadow: inset 0 0 0 2px var(--gold), 0 0 14px var(--vip-halo); }
+  html:not(.dark) .vip-wd-v .vip-wd-o { background: radial-gradient(circle at 50% 40%, #fff, color-mix(in srgb, var(--gold-xl) 60%, #fff) 70%); }
+  .vip-wd-f .vip-wd-o { background: transparent; box-shadow: inset 0 0 0 2px #8fb8ff; }
+  .vip-wd-snow { width: 8px; height: 8px; border-radius: 50%; background: #8fb8ff; box-shadow: 0 0 8px #8fb8ff; }
+  .vip-wd-off { opacity: 0.4; }
+  .vip-wd-today .vip-wd-o { outline: 2px solid var(--text); outline-offset: 2px; }
+  .vip-week-sum { display: flex; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .vip-week-sum div { flex: 1; text-align: center; }
+  .vip-week-sum b { display: block; font-size: 23px; font-weight: 900; line-height: 1.1; }
+  .vip-week-sum span { font-size: 10.5px; letter-spacing: 0.08em; color: var(--text-2); font-weight: 800; text-transform: uppercase; }
+  .vip-month-dots { display: flex; gap: 3px; margin-top: 12px; }
+  .vip-month-dots i { flex: 1; aspect-ratio: 1; max-width: 9px; border-radius: 50%; background: var(--line); }
+  .vip-month-dots i.vip-md-v { background: var(--gold); box-shadow: 0 0 4px var(--vip-halo); }
+  .vip-month-dots i.vip-md-fut { opacity: 0.4; }
+
+  .vip-meds { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px 6px; }
+  .vip-md { display: flex; flex-direction: column; align-items: center; gap: 7px; background: none; border: 0; font: inherit; color: inherit; cursor: pointer; padding: 0; }
+  .vip-md-c {
+    width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; position: relative;
+    background: var(--gold-metal); color: var(--gold-on); box-shadow: 0 0 10px var(--vip-halo), inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  }
+  .vip-md-c svg { width: 24px; height: 24px; }
+  .vip-md-c b { font-size: 20px; font-weight: 800; }
+  .vip-md-t1 { box-shadow: 0 0 0 2px #a36a3c, 0 0 8px rgba(163, 106, 60, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.55); }
+  .vip-md-t3::after {
+    content: ""; position: absolute; inset: -5px; border-radius: 50%; pointer-events: none;
+    background: conic-gradient(from 0deg, transparent, rgba(255, 255, 255, 0.9), transparent 30%, transparent 50%, rgba(255, 255, 255, 0.7), transparent 80%);
+    -webkit-mask: radial-gradient(circle, transparent 60%, #000 62%); mask: radial-gradient(circle, transparent 60%, #000 62%);
+    animation: vip-md-spin 3s linear infinite;
+  }
+  @keyframes vip-md-spin { to { transform: rotate(360deg); } }
+  .vip-md-lock .vip-md-c { background: transparent; color: var(--text-3); box-shadow: inset 0 0 0 1.5px var(--line); }
+  .vip-md-n { font-size: 11.5px; font-weight: 700; line-height: 1.15; text-align: center; color: var(--text); }
+  .vip-md-lock .vip-md-n { color: var(--text-2); }
+  .vip-md-pr { position: absolute; left: 6px; right: 6px; bottom: -7px; height: 3px; border-radius: 3px; background: var(--line); overflow: hidden; }
+  .vip-md-pr i { display: block; height: 100%; background: var(--gold-metal); }
+  .vip-pg-note { font-size: 12px; color: var(--text-3); margin-top: 14px; text-align: center; }
+
+  .vip-md-sheet { padding: 4px 18px 22px; text-align: center; }
+  .vip-md-grp { font-size: 11px; font-weight: 800; letter-spacing: 0.14em; color: var(--text-2); }
+  .vip-md-big { width: 88px; height: 88px; margin: 10px auto 12px; border-radius: 50%; display: grid; place-items: center; background: var(--gold-metal); color: var(--gold-on); box-shadow: 0 0 22px var(--vip-halo), inset 0 1px 0 rgba(255, 255, 255, 0.55); }
+  .vip-md-big svg { width: 42px; height: 42px; }
+  .vip-md-big b { font-size: 38px; font-weight: 800; }
+  .vip-md-big.vip-md-lock { background: transparent; color: var(--text-3); box-shadow: inset 0 0 0 2px var(--line); }
+  .vip-md-sheet h3 { margin: 0; font-size: 22px; font-weight: 800; }
+  .vip-md-sheet p { color: var(--text-2); font-size: 16px; margin: 8px 0 0; line-height: 1.4; }
+  .vip-md-when { display: inline-flex; gap: 6px; align-items: center; margin-top: 14px; font-size: 14px; font-weight: 700; color: var(--gold-on); background: var(--gold-metal); border-radius: 999px; padding: 7px 14px; }
+  .vip-md-when svg { width: 15px; height: 15px; }
+  .vip-md-bar { height: 8px; border-radius: 8px; background: var(--line); overflow: hidden; margin: 16px 0 6px; }
+  .vip-md-bar i { display: block; height: 100%; background: var(--gold-metal); }
+  .vip-md-sheet small { color: var(--text-2); font-size: 14px; }
+
+  /* ── День рождения (VipBirthday) ──────────────────────────── */
+  .vip-bd {
+    position: fixed; inset: 0; z-index: 120; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+    padding: max(24px, env(safe-area-inset-top)) 20px max(24px, env(safe-area-inset-bottom)); overflow: hidden; color: #fff;
+    background: radial-gradient(120% 80% at 50% 25%, #23202a 0%, #07080b 70%);
+  }
+  .vip-bd-card { position: relative; left: auto; top: auto; margin: 0 0 22px; width: 270px; height: 170px; opacity: 1; transition: none; cursor: default; }
+  .vip-bd-ribbon {
+    position: absolute; top: 22px; right: -50px; width: 190px; padding: 4px 0; transform: rotate(35deg); z-index: 3;
+    font-size: 9px; font-weight: 800; letter-spacing: 0.12em; text-align: center; color: var(--sp-on);
+    background: var(--gold-glint), var(--sp-metal); background-size: 250% 100%, 100% 100%; background-repeat: no-repeat;
+    animation: vip-glint 3.5s ease-in-out infinite; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  }
+  .vip-bd-hd { font-size: 11px; font-weight: 700; letter-spacing: 0.18em; color: #b9c3d6; opacity: 0; }
+  .vip-bd-title { font-size: 30px; font-weight: 800; line-height: 1.15; margin-top: 8px; opacity: 0; }
+  .vip-bd-title em { font-style: normal; background: var(--vip-foil); background-size: 250% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: vip-foil 4s linear infinite; }
+  .vip-bd-text { max-width: 340px; color: #d6d9e0; font-size: 16px; line-height: 1.45; margin-top: 12px; opacity: 0; }
+  .vip-bd-btn { width: 100%; max-width: 360px; margin-top: 26px; opacity: 0; }
+  .vip-fw { position: absolute; width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px; border-radius: 50%; pointer-events: none; }
+  .vip-fw-flash { position: absolute; width: 90px; height: 90px; margin: -45px 0 0 -45px; border-radius: 50%; pointer-events: none; background: radial-gradient(circle, rgba(255, 255, 255, 0.7), transparent 65%); }
+  .vip-cf { position: absolute; top: 0; width: 7px; height: 11px; border-radius: 2px; pointer-events: none; }
+  .vip-face-bday .vip-card-streak { margin-right: 64px; }
+  /* Лента на карте в Кабинете — весь день рождения */
+  .vip-card-ribbon {
+    position: absolute; top: 24px; right: -52px; width: 200px; padding: 4px 0; transform: rotate(35deg); z-index: 4; pointer-events: none;
+    font-size: 9.5px; font-weight: 800; letter-spacing: 0.12em; text-align: center; color: var(--gold-on);
+    background: var(--gold-glint), var(--gold-metal); background-size: 250% 100%, 100% 100%; background-repeat: no-repeat;
+    animation: vip-glint 3.5s ease-in-out infinite; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  }
+
+  /* ── Окно «Активация профиля» (VipCodeEntry) ─────────────────── */
+  .vip-sheet { padding: 4px 18px 22px; }
+  .vip-sheet-q { color: var(--text-2); font-size: 15px; margin-bottom: 16px; }
   .vip-err { color: var(--danger); font-size: 14px; margin-top: 8px; text-align: center; }
-  .vip-thanks { text-align: center; padding: 24px 0 10px; position: relative; }
-  .vip-thanks .vip-bigstar { width: 58px; height: 58px; }
-  .vip-thanks b { display: block; font-size: 22px; font-weight: 800; margin: 12px 0 4px; }
-  .vip-thanks span { color: var(--text-2); }
 
   /* ── Сюрприз «ещё два оформления» (VipSurprise) ────────────── */
   .vip-sp {
@@ -468,6 +639,8 @@ html.dark.vip.accent-platinum { --vip-edge: linear-gradient(90deg, transparent, 
     box-shadow: 0 0 10px rgba(170, 200, 255, 0.7); color: #1b2333 !important; }
   .vip-sw-platinum { background: conic-gradient(from 200deg, #4a4f5a, #b9bec7, #f1f3f6, #8b919c, #4a4f5a) !important;
     box-shadow: 0 0 10px rgba(200, 205, 215, 0.6); color: #14161a !important; }
+  .vip-season-seg { display: flex; flex-wrap: wrap; }
+  .vip-season-seg .t-seg-btn { flex: 1 1 auto; }
   .vip-only { display: inline-block; margin-top: 10px; font-size: 12px; font-weight: 700; color: var(--gold-d); background: var(--gold-xl); border-radius: 999px; padding: 3px 10px; }
 }
 
@@ -476,6 +649,7 @@ html.dark.vip.accent-platinum { --vip-edge: linear-gradient(90deg, transparent, 
   html.vip .t-focus-live::after, html.vip .t-cell-live::after,
   html.vip.accent-metal :is(.t-focus-live, .t-cell-live, .t-btn-fill, .t-float-mine, .t-dcell-on, .t-chip-sel, .t-count,
     .t-lg-go, .t-ap-live, .t-sw-on, .t-install-go, .t-cg-chip-on, .t-when-chip-on, .t-cp-ok, .t-focus, .t-focus::before),
+  .vip-tilt, .vip-md-t3::after, .vip-fall, .vip-flame-1, .vip-flame-2, .vip-flame-3, .vip-flame-glow, .vip-ember, .vip-card-streak b, .vip-ring-mid b, .vip-bd-ribbon, .vip-card-ribbon, .vip-bd-title em,
   .vip-sp-sh, .vip-sp-go, .vip-sp-title em, .vip-sp-nm, .vip-new, .vip-spark,
   html.vip .t-avatar::before, html.vip .t-top::before, html.vip .t-phead::before, html.vip .t-focus-live::before, html.vip .t-cell-live::before { animation: none !important; }
   .vip-amb { display: none; }

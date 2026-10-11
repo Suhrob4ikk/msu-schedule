@@ -18,6 +18,8 @@ import InstallPrompt from "@/components/InstallPrompt";
 import AppearanceSync from "@/components/AppearanceSync";
 import VipSurprise from "@/components/tablo/vip/VipSurprise";
 import VipAmbient from "@/components/tablo/vip/VipAmbient";
+import VipTracker from "@/components/tablo/vip/VipTracker";
+import VipBirthday from "@/components/tablo/vip/VipBirthday";
 import { appearanceInitScript, MODE_BASE } from "@/lib/appearance";
 import { specialInitScript } from "@/lib/special";
 
@@ -113,6 +115,8 @@ export default function RootLayout({
         <AppearanceSync />
         <VipSurprise />
         <VipAmbient />
+        <VipTracker />
+        <VipBirthday />
       </body>
     </html>
   );

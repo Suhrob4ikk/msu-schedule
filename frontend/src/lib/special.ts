@@ -21,6 +21,10 @@ export interface VipInfo {
   number: string;
   /** Дата регистрации — «С нами с …». */
   since: string;
+  /** Ключ на сервере (services/vip_progress.py → PEOPLE): серия и достижения. */
+  id: string;
+  /** День рождения «MM-DD» — праздничный показ и конфетти весь день. null — не знаем. */
+  birthday: string | null;
 }
 
 // firstName — код действует, только если в Кабинете имя начинается с этого слова
@@ -34,7 +38,7 @@ const PEOPLE: Person[] = [
     devices: ["vo32m1a4y2"],
     code: "qguwyk5mr5",
     firstName: "шахзода",
-    info: { name: "Шахзода", role: "Подружка админа", number: "001", since: "9 октября 2026" },
+    info: { name: "Шахзода", role: "Подружка админа", number: "001", since: "9 октября 2026", id: "shahzoda", birthday: "08-10" },
   },
 ];
 
@@ -105,7 +109,42 @@ export function specialInitScript(): string {
 export { GOLD_ACCENT, METALS, METAL_IDS, metalOf, type MetalId } from "./appearance";
 
 // Что особый пользователь уже посмотрел. Ключи — только в его браузере.
-export const VIP_TASKS_KEY = "vip_tasks_v1";
 // Сюрприз «ещё два оформления» показан; метка «Новое» на «Внешнем виде», пока туда не зашла.
 export const VIP_SURPRISE_KEY = "vip_surprise_metals_v1";
 export const VIP_NEW_KEY = "vip_new_metals";
+// Серия и достижения (VipTracker, lib/vipProgress.ts)
+export const VIP_VISIT_KEY = "vip_visit_day";        // день последней отметки
+export const VIP_FLAGS_KEY = "vip_flags_sent";       // события, уже отправленные на сервер
+export const VIP_TABS_KEY = "vip_tabs_seen";         // вкладки, где побывала («Исследователь»)
+export const VIP_METALS_KEY = "vip_metals_tried";    // примеренные металлы («Коллекционер»)
+// Сезонные эффекты: auto | winter | spring | autumn | off (выбор во «Внешнем виде»)
+export const VIP_SEASON_KEY = "vip_season";
+// Праздничный показ в день рождения — один раз в году: ключ + год
+export const VIP_BDAY_KEY = "vip_bday_shown";
+// Только для проверки владельцем: «1» — сегодня как будто день рождения
+export const VIP_BDAY_TEST_KEY = "vip_bday_test";
+
+/** Сегодня (по часам Душанбе, now = dushanbeNow()) её день рождения. Для проверки
+ *  владельцем — ключ VIP_BDAY_TEST_KEY = «1» в браузере. */
+export function isVipBirthday(vip: VipInfo, now: Date): boolean {
+  try { if (localStorage.getItem(VIP_BDAY_TEST_KEY) === "1") return true; } catch { /* приватный режим */ }
+  if (!vip.birthday) return false;
+  const mmdd = `${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  return vip.birthday === mmdd;
+}
+
+export type VipSeason = "auto" | "winter" | "spring" | "autumn" | "off";
+export function readVipSeason(): VipSeason {
+  try {
+    const v = localStorage.getItem(VIP_SEASON_KEY);
+    return v === "winter" || v === "spring" || v === "autumn" || v === "off" ? v : "auto";
+  } catch { return "auto"; }
+}
+/** Какой сезон показывать сейчас: «авто» — по месяцу (дек–фев зима, мар–май весна,
+ *  сен–ноя осень, летом ничего). null — ничего не показывать. */
+export function activeSeason(choice: VipSeason, now: Date): "winter" | "spring" | "autumn" | null {
+  if (choice === "off") return null;
+  if (choice !== "auto") return choice;
+  const m = now.getMonth();
+  return m === 11 || m <= 1 ? "winter" : m <= 4 ? "spring" : m >= 8 && m <= 10 ? "autumn" : null;
+}
