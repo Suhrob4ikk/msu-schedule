@@ -341,9 +341,9 @@ def my_dev_messages(device_id: str, db: Session = Depends(get_db)):
 
 @router.get("/messages/unread")
 def dev_messages_unread(device_id: str, db: Session = Depends(get_db)):
-    """Сколько ответов не прочитано — из памяти, базу не будит."""
+    """Сколько ответов не прочитано и текст последнего (для баннера) — из памяти, базу не будит."""
     from app.services import dev_messages as dm
-    return {"unread": dm.unread_count(db, device_id[:100])}
+    return dm.unread_info(db, device_id[:100])
 
 
 @router.post("/messages/seen")

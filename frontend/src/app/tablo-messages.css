@@ -38,4 +38,24 @@
 
 /* Точка «есть ответ» в Кабинете */
 .t-pf-nav em.t-msg-new { color: var(--ink); font-weight: 700; }
+
+/* Баннер «Ответ разработчика» на любой странице (DevReplyToast) */
+.t-reply-toast {
+  position: fixed; left: 50%; top: calc(12px + env(safe-area-inset-top)); z-index: 120; width: min(440px, calc(100vw - 24px));
+  display: flex; align-items: center; border-radius: 20px; overflow: hidden;
+  background: var(--surface); color: var(--text);
+  box-shadow: 0 14px 34px rgba(10, 20, 50, 0.22), inset 0 0 0 1.5px var(--fill);
+  transform: translateX(-50%); animation: t-reply-in 0.5s cubic-bezier(0.2, 1.3, 0.4, 1) both;
+}
+.t-reply-toast-out { animation: t-reply-out 0.3s ease-in forwards; }
+.t-reply-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 12px 4px 12px 12px; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.t-reply-ic { width: 44px; height: 44px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--fill); color: var(--on-fill); }
+.t-reply-tx { min-width: 0; }
+.t-reply-tx small { display: block; font-size: 12px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink); }
+.t-reply-tx b { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 15.5px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
+.t-reply-x { flex: none; width: 44px; align-self: stretch; display: grid; place-items: center; border: 0; background: none; color: var(--text-2); cursor: pointer; }
+.t-reply-x:hover { color: var(--text); }
+@keyframes t-reply-in { from { opacity: 0; transform: translate(-50%, -24px) scale(0.96); } }
+@keyframes t-reply-out { to { opacity: 0; transform: translate(-50%, -24px) scale(0.96); } }
+@media (prefers-reduced-motion: reduce) { .t-reply-toast, .t-reply-toast-out { animation: none; } }
 }

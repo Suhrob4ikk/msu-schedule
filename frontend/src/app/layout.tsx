@@ -23,6 +23,7 @@ import VipAmbient from "@/components/tablo/vip/VipAmbient";
 import VipTracker from "@/components/tablo/vip/VipTracker";
 import VipBirthday from "@/components/tablo/vip/VipBirthday";
 import VipMedalToast from "@/components/tablo/vip/VipMedalToast";
+import DevReplyToast from "@/components/DevReplyToast";
 import OwnerSync from "@/components/OwnerSync";
 import OwnerAmbient from "@/components/owner/OwnerAmbient";
 import OwnerTracker from "@/components/owner/OwnerTracker";
@@ -149,6 +150,7 @@ export default function RootLayout({
         <VipTracker />
         <VipBirthday />
         <VipMedalToast />
+        <DevReplyToast />
         <OwnerSync />
         <OwnerAmbient />
         <OwnerTracker />

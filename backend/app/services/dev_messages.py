@@ -11,7 +11,8 @@
 зато нельзя и заспамить.
 
 База трогается только при отправке, открытии переписки и в панели. Счётчик
-непрочитанных ответов (точка в Кабинете) — в памяти: Neon должен днём спать.
+непрочитанных ответов и текст последнего (надпись в Кабинете и баннер «Ответ
+разработчика» на любой странице — DevReplyToast) — в памяти: Neon должен днём спать.
 """
 import logging
 import time
@@ -29,8 +30,9 @@ PER_DEVICE_DAY = 5
 PER_HOUR = 30
 
 _times: list[float] = []
-# device_id → сколько ответов ещё не прочитано; None — ещё не загружали из базы
-_unread: dict[str, int] | None = None
+# device_id → {"n": сколько ответов не прочитано, "id": последний такой вопрос, "text": его ответ};
+# None — ещё не загружали из базы
+_unread: dict[str, dict] | None = None
 
 
 class MessageError(Exception):
@@ -40,19 +42,28 @@ class MessageError(Exception):
         self.text = text
 
 
-def _load_unread(db: Session) -> dict[str, int]:
+def _load_unread(db: Session) -> dict[str, dict]:
     global _unread
     if _unread is None:
-        out: dict[str, int] = {}
-        rows = db.query(DevMessage.device_id).filter(DevMessage.reply.isnot(None), DevMessage.reply_seen.is_(False)).all()
-        for (dev,) in rows:
-            out[dev] = out.get(dev, 0) + 1
+        out: dict[str, dict] = {}
+        rows = (db.query(DevMessage.device_id, DevMessage.id, DevMessage.reply)
+                .filter(DevMessage.reply.isnot(None), DevMessage.reply_seen.is_(False))
+                .order_by(DevMessage.replied_at.asc()).all())
+        for dev, mid, text in rows:
+            n = out.get(dev, {}).get("n", 0) + 1
+            out[dev] = {"n": n, "id": mid, "text": text}
         _unread = out
     return _unread
 
 
 def unread_count(db: Session, device_id: str) -> int:
-    return _load_unread(db).get(device_id, 0)
+    return _load_unread(db).get(device_id, {}).get("n", 0)
+
+
+def unread_info(db: Session, device_id: str) -> dict:
+    """Для баннера: сколько непрочитанных, id и текст последнего ответа."""
+    u = _load_unread(db).get(device_id)
+    return {"unread": u["n"], "id": u["id"], "text": u["text"][:200]} if u else {"unread": 0}
 
 
 def _row(m: DevMessage) -> dict:
@@ -154,9 +165,9 @@ def reply(db: Session, message_id: int, text: str) -> bool:
     m.replied_at = datetime.utcnow()
     m.reply_seen = False
     db.commit()
-    if not was_unread:
-        cache = _load_unread(db)
-        cache[m.device_id] = cache.get(m.device_id, 0) + 1
+    cache = _load_unread(db)
+    n = cache.get(m.device_id, {}).get("n", 0) + (0 if was_unread else 1)
+    cache[m.device_id] = {"n": n, "id": m.id, "text": text}
 
     sub = db.query(UserSubscription).filter_by(session_id=m.device_id).first()
     if not sub or not sub.push_endpoint or not sub.push_keys:
@@ -172,12 +183,16 @@ def delete(db: Session, message_id: int) -> None:
     m = db.get(DevMessage, message_id)
     if not m:
         return
-    if m.reply is not None and not m.reply_seen:
-        cache = _load_unread(db)
-        left = cache.get(m.device_id, 0) - 1
-        if left > 0:
-            cache[m.device_id] = left
-        else:
-            cache.pop(m.device_id, None)
+    unread = m.reply is not None and not m.reply_seen
+    dev = m.device_id
     db.delete(m)
     db.commit()
+    if unread:
+        # проще и точнее перечитать этого студента из базы, чем чинить «последний ответ»
+        cache = _load_unread(db)
+        cache.pop(dev, None)
+        rows = (db.query(DevMessage.id, DevMessage.reply)
+                .filter(DevMessage.device_id == dev, DevMessage.reply.isnot(None), DevMessage.reply_seen.is_(False))
+                .order_by(DevMessage.replied_at.asc()).all())
+        if rows:
+            cache[dev] = {"n": len(rows), "id": rows[-1][0], "text": rows[-1][1]}

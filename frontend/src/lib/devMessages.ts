@@ -37,9 +37,16 @@ export const loadMessages = (device: string) =>
 export const sendMessage = (device: string, text: string, anonymous: boolean) =>
   call<DevMessage>("/user/messages", post({ device_id: device, text, anonymous }));
 
-/** Сколько ответов не прочитано — сервер держит это в памяти. */
-export const unreadReplies = (device: string) =>
-  call<{ unread: number }>(`/user/messages/unread?device_id=${encodeURIComponent(device)}`).then(r => r.unread).catch(() => 0);
+export type UnreadInfo = { unread: number; id?: number; text?: string };
+
+/** Сколько ответов не прочитано и текст последнего — сервер держит это в памяти. */
+export const unreadInfo = (device: string) =>
+  call<UnreadInfo>(`/user/messages/unread?device_id=${encodeURIComponent(device)}`).catch((): UnreadInfo => ({ unread: 0 }));
+
+export const unreadReplies = (device: string) => unreadInfo(device).then(r => r.unread);
+
+/** Ответ, баннер о котором уже показан или закрыт, — «id:начало текста» (DevReplyToast). */
+export const REPLY_BANNER_KEY = "dev_reply_banner";
 
 export const markRepliesSeen = (device: string) =>
   call<{ ok: boolean }>("/user/messages/seen", post({ device_id: device })).catch(() => null);
