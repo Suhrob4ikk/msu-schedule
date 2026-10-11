@@ -323,6 +323,9 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
   const [missing, setMissing] = useState<any[]>([]);
   const [names, setNames] = useState<any>(null);
   const [feedback, setFeedback] = useState<any[]>([]);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [replies, setReplies] = useState<Record<number, string>>({});
+  const [msgNote, setMsgNote] = useState<Record<number, string>>({});
   const [owners, setOwners] = useState<any[]>([]);
   const [userList, setUserList] = useState<any[]>([]);
   const [userQ, setUserQ] = useState("");
@@ -349,6 +352,7 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
     try { setMissing(await api<any[]>("/missing-teachers")); } catch { setMissing([]); }
     try { setNames(await api<any>("/full-names")); } catch { setNames(null); }
     try { setFeedback(await api<any[]>("/feedback")); } catch { setFeedback([]); }
+    try { setMessages(await api<any[]>("/messages")); } catch { setMessages([]); }
     try { setOwners(await api<any[]>("/owner-devices")); } catch { setOwners([]); }
     try { setUserList(await api<any[]>("/users/list")); } catch { setUserList([]); }
   }, [api, onLogout]);
@@ -424,11 +428,28 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
   const lastAt = parseUtc(last?.started_at);
   const zero = ov.zero_lesson_groups as any[];
   const missingNew = missing.filter(m => !m.override);
+  const unanswered = messages.filter(m => !m.reply);
+  const sendReply = async (id: number) => {
+    const text = (replies[id] ?? "").trim();
+    if (!text) return;
+    try {
+      const r = await api<any>(`/messages/${id}/reply`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
+      setMsgNote(n => ({ ...n, [id]: r.message }));
+      setReplies(rs => ({ ...rs, [id]: "" }));
+      setMessages(await api<any[]>("/messages"));
+    } catch (e: any) { setMsgNote(n => ({ ...n, [id]: e.message || "Не удалось отправить" })); }
+  };
+  const deleteMessage = async (id: number) => {
+    if (!window.confirm("Удалить сообщение? У студента оно тоже исчезнет вместе с ответом.")) return;
+    try { await api(`/messages/${id}`, { method: "DELETE" }); setMessages(ms => ms.filter(m => m.id !== id)); } catch { /* сеть */ }
+  };
   const health =
     last?.status === "error"
       ? { tone: "red", text: "Последняя проверка msu.tj закончилась ошибкой", sub: last?.message }
       : zero.length > 0
         ? { tone: "yellow", text: `${zero.length} ${zero.length === 1 ? "группа" : "групп(ы)"} без пар на этой неделе`, sub: "Возможно, парсер не разобрал файл — список в разделе «Расписание в базе»" }
+        : unanswered.length > 0
+        ? { tone: "yellow", text: `${unanswered.length} ${unanswered.length === 1 ? "вопрос ждёт" : "вопроса(ов) ждут"} ответа`, sub: "Раздел «Вопросы» ниже" }
         : names?.pending?.length > 0
         ? { tone: "yellow", text: `${names.pending.length} ${names.pending.length === 1 ? "вариант имени ждёт" : "вариантов имён ждут"} проверки`, sub: "Раздел «Полные имена преподавателей» ниже" }
         : missingNew.length > 0
@@ -571,6 +592,42 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
                 </div>
               );
             })()}
+          </Section>
+
+          <Section title={`Вопросы${unanswered.length ? ` · ${unanswered.length} без ответа` : ""}`} hint={<>Кабинет сайта → «Написать разработчику» (вместо ссылки на ваш Telegram). Каждый вопрос приходит и на почту. Ответ студент увидит там же, в Кабинете, и получит уведомление, если включал их на сайте. «Аноним» — студент попросил не показывать имя: оно не сохраняется вовсе.</>}>
+            {messages.length === 0
+              ? <div style={{ fontSize: 13, color: c.muted }}>Пока вопросов нет</div>
+              : <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {messages.map((m: any) => (
+                    <div key={m.id} style={{ background: c.panel2, borderRadius: 10, padding: "10px 12px", borderLeft: m.reply ? undefined : `3px solid ${c.yellow}` }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 13 }}>
+                        <span><b>{m.name}</b>{m.group && <span style={{ color: c.faint }}> · {m.group}</span>}</span>
+                        <span style={{ color: c.muted, whiteSpace: "nowrap" }}>{fmtTime(parseUtc(m.created_at))}</span>
+                      </div>
+                      <div style={{ fontSize: 14, lineHeight: 1.45, whiteSpace: "pre-wrap", margin: "6px 0" }}>{m.text}</div>
+                      {m.reply && (
+                        <div style={{ fontSize: 13.5, lineHeight: 1.45, whiteSpace: "pre-wrap", borderLeft: `2px solid ${c.green}`, paddingLeft: 10, margin: "8px 0", color: c.fg }}>
+                          <div style={{ fontSize: 12, color: c.muted, marginBottom: 2 }}>
+                            Ваш ответ · {fmtTime(parseUtc(m.replied_at))} · {m.reply_seen ? "прочитан" : "ещё не прочитан"}
+                          </div>
+                          {m.reply}
+                        </div>
+                      )}
+                      <textarea
+                        value={replies[m.id] ?? ""}
+                        onChange={e => setReplies(rs => ({ ...rs, [m.id]: e.target.value }))}
+                        placeholder={m.reply ? "Исправить ответ" : "Ответ студенту"}
+                        rows={2}
+                        style={{ ...input, width: "100%", resize: "vertical", fontFamily: "inherit", marginTop: 4 }}
+                      />
+                      <div style={{ display: "flex", gap: 8, marginTop: 6, alignItems: "center", flexWrap: "wrap" }}>
+                        <button style={btn} disabled={!(replies[m.id] ?? "").trim()} onClick={() => sendReply(m.id)}>{m.reply ? "Заменить ответ" : "Ответить"}</button>
+                        <button style={{ ...btn, color: c.red }} onClick={() => deleteMessage(m.id)}>Удалить</button>
+                        {msgNote[m.id] && <span style={{ fontSize: 12, color: c.muted }}>{msgNote[m.id]}</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>}
           </Section>
 
           <Section title="Отзывы о дизайне" hint="Отзывы из «золотого профиля» (frontend/src/lib/special.ts). Кнопку на сайте убрали, когда отзыв оставлен; каждый отзыв ещё и приходил вам на почту.">

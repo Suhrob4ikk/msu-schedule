@@ -309,6 +309,50 @@ def send_feedback(body: FeedbackBody, background_tasks: BackgroundTasks, db: Ses
     return {"ok": True}
 
 
+# ─── Вопросы разработчику (11 окт 2026, вместо ссылки на Telegram) ───────────
+# Логика и лимиты — services/dev_messages.py.
+
+class DevMessageBody(BaseModel):
+    device_id: str
+    text: str
+    anonymous: bool = False
+
+
+class DeviceBody(BaseModel):
+    device_id: str
+
+
+@router.post("/messages")
+def send_dev_message(body: DevMessageBody, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    from app.services import dev_messages as dm
+    try:
+        row, author, group_label = dm.send(db, body.device_id, body.text, body.anonymous)
+    except dm.MessageError as e:
+        raise HTTPException(e.status, e.text)
+    background_tasks.add_task(dm.send_email, author, group_label, row["text"])
+    return row
+
+
+@router.get("/messages")
+def my_dev_messages(device_id: str, db: Session = Depends(get_db)):
+    from app.services import dev_messages as dm
+    return dm.my_messages(db, device_id[:100])
+
+
+@router.get("/messages/unread")
+def dev_messages_unread(device_id: str, db: Session = Depends(get_db)):
+    """Сколько ответов не прочитано — из памяти, базу не будит."""
+    from app.services import dev_messages as dm
+    return {"unread": dm.unread_count(db, device_id[:100])}
+
+
+@router.post("/messages/seen")
+def dev_messages_seen(body: DeviceBody, db: Session = Depends(get_db)):
+    from app.services import dev_messages as dm
+    dm.mark_seen(db, body.device_id[:100])
+    return {"ok": True}
+
+
 # ─── Серия и достижения «золотого профиля» (11 окт 2026) ────────────────────
 # Логика — services/vip_progress.py. Пускаем только зарегистрированное устройство,
 # у которого имя в Кабинете — как у особого человека.

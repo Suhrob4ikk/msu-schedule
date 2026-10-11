@@ -137,7 +137,8 @@ self.addEventListener('push', e => {
   // свой тег: правка, пришедшая следом, не должна её затирать.
   const isExam = data.type === 'exam';
   const tag = isExam ? `exam-${data.exam_key ?? Date.now()}`
-    : data.type === 'new_week' ? 'new-week' : 'schedule-change';
+    : data.type === 'new_week' ? 'new-week'
+    : data.type === 'dev-reply' ? 'dev-reply' : 'schedule-change';
 
   e.waitUntil(Promise.all([
     self.registration.showNotification(data.title, {
@@ -162,7 +163,11 @@ self.addEventListener('notificationclick', e => {
   e.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
       const existing = list.find(c => c.url.includes(self.location.origin));
-      if (existing) { existing.focus(); return; }
+      if (existing) {
+        // Ответ разработчика и т. п. — открыть нужную страницу и в уже открытой вкладке
+        if (url !== '/' && 'navigate' in existing) existing.navigate(url).catch(() => {});
+        return existing.focus();
+      }
       return clients.openWindow(url);
     })
   );

@@ -26,6 +26,7 @@ import { getInstallEvent, isIOS, isStandalone, onInstallChange, runInstall } fro
 import { getPushStatus, resyncPush, subscribePush, unsubscribePush, type PushStatus } from "@/lib/push";
 import { collectNotes, collectSkips, type SkipStats } from "@/lib/studyData";
 import { newLabel } from "@/lib/tablo/changes";
+import { myDeviceId, unreadReplies } from "@/lib/devMessages";
 
 // ─── Мелочи ────────────────────────────────────────────────────────────────
 
@@ -107,8 +108,26 @@ function PushRow({ sessionId, groupId }: { sessionId: string; groupId: number | 
 
 // ─── Страница ──────────────────────────────────────────────────────────────
 
-// Telegram владельца — ошибки и предложения. В приложении то же — src/profile/ProfileScreen.tsx
-const DEVELOPER_TELEGRAM = "https://t.me/davlatov3007";
+/**
+ * «Написать разработчику» — переписка прямо на сайте (app/profile/messages). До 11 окт 2026 здесь
+ * была ссылка на Telegram владельца; убрана по его решению: аккаунт не на виду, а студент может
+ * спросить без имени. Справа — «Новый ответ», если владелец ответил (счётчик сервер держит в памяти).
+ */
+function MessagesLink() {
+  const [unread, setUnread] = useState(0);
+  useEffect(() => {
+    const dev = myDeviceId();
+    if (dev) unreadReplies(dev).then(setUnread);
+  }, []);
+  return (
+    <Link href="/profile/messages">
+      <span className="t-pf-ic"><Icon name="chat" size={22} /></span>
+      <b>Написать разработчику</b>
+      {unread > 0 && <em className="t-msg-new">{unread === 1 ? "Новый ответ" : `Ответов: ${unread}`}</em>}
+      <Icon name="chevronRight" size={20} />
+    </Link>
+  );
+}
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -364,13 +383,9 @@ export default function ProfilePage() {
               )}
             {/* «Синхронизация» с кнопкой «Обновить расписание» убрана (владелец, 11 окт 2026): сайт обновляет
                 расписание сам — при открытии, возврате на вкладку и по push (lib/api.ts, ServerResync) */}
-            {/* Связь с владельцем: ошибки и предложения (просьба владельца 8 окт 2026) */}
+            {/* Связь с владельцем: вопросы, ошибки и предложения — переписка на сайте */}
             <nav className="t-pf-card t-pf-nav t-pf-contact" aria-label="Связь">
-              <a href={DEVELOPER_TELEGRAM} target="_blank" rel="noopener noreferrer">
-                <span className="t-pf-ic"><Icon name="send" size={22} /></span>
-                <b>Связаться с разработчиком</b>
-                <Icon name="chevronRight" size={20} />
-              </a>
+              <MessagesLink />
             </nav>
             <p className="t-pf-foot">
               МГУ Душанбе · Расписание · Данные с msu.tj

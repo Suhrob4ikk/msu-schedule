@@ -8,6 +8,7 @@ import "./tablo-rooms.css";
 import "./tablo-changes.css";
 import "./tablo-compare.css";
 import "./tablo-profile.css";
+import "./tablo-messages.css";
 import "./tablo-names.css";
 import "./tablo-vip.css";
 import "./tablo-owner.css";

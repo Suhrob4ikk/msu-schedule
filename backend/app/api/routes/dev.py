@@ -546,6 +546,36 @@ def dev_feedback(db: Session = Depends(get_db)):
     ]
 
 
+class DevReplyIn(BaseModel):
+    text: str
+
+
+@router.get("/messages", dependencies=[Depends(require_dev)])
+def dev_messages_list(db: Session = Depends(get_db)):
+    """Вопросы с сайта (Кабинет → «Написать разработчику»), новые сверху."""
+    from app.services.dev_messages import admin_list
+    return admin_list(db)
+
+
+@router.post("/messages/{message_id}/reply", dependencies=[Depends(require_dev)])
+def dev_messages_reply(message_id: int, body: DevReplyIn, db: Session = Depends(get_db)):
+    """Ответ студенту: виден у него в Кабинете, плюс web-push, если он их включал."""
+    from app.services import dev_messages as dm
+    try:
+        pushed = dm.reply(db, message_id, body.text)
+    except dm.MessageError as e:
+        raise HTTPException(e.status, e.text)
+    return {"ok": True, "message": "Ответ отправлен" + (" · уведомление ушло" if pushed
+            else " · уведомления у студента выключены — увидит, когда откроет Кабинет")}
+
+
+@router.delete("/messages/{message_id}", dependencies=[Depends(require_dev)])
+def dev_messages_delete(message_id: int, db: Session = Depends(get_db)):
+    from app.services.dev_messages import delete
+    delete(db, message_id)
+    return {"ok": True}
+
+
 @router.post("/test-push", dependencies=[Depends(require_dev)])
 def dev_test_push(db: Session = Depends(get_db)):
     """Тестовое уведомление в оба канала — браузер (Web Push) и приложение

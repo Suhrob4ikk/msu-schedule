@@ -356,6 +356,23 @@ class Feedback(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class DevMessage(Base):
+    """Вопрос разработчику с сайта и его ответ (11 окт 2026, вместо ссылки на Telegram).
+
+    Анонимно — name и group_label пустые: имя не сохраняется вовсе. device_id нужен,
+    чтобы показать ответ в Кабинете того же устройства. Логика — services/dev_messages.py."""
+    __tablename__ = "dev_messages"
+    id = Column(Integer, primary_key=True)
+    device_id = Column(String(100), nullable=False, index=True)
+    name = Column(String(200), nullable=True)
+    group_label = Column(String(200), nullable=True)
+    text = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    reply = Column(Text, nullable=True)
+    replied_at = Column(DateTime, nullable=True)
+    reply_seen = Column(Boolean, default=False, nullable=False)
+
+
 class VipProgress(Base):
     """Серия и достижения «золотого профиля» (11 окт 2026, services/vip_progress.py).
 
