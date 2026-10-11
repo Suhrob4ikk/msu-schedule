@@ -1,20 +1,28 @@
-/* «Космос + математика» — оформление владельца (11 окт 2026). Включается только классом
-   `owner` на <html>: его ставит OwnerSync на устройствах, привязанных в /dev по паролю.
-   Космический фон, звёзды и падающие звёзды — в тёмной теме; блоки владельца (пульт,
-   поиск, карта) хороши в обеих. */
+/* Оформление владельца (11 окт 2026). Включается только классом `owner` на <html>: его
+   ставит OwnerSync на устройствах, привязанных в /dev по паролю.
+   Тёмная тема — «Космос»: звёзды, падающие звёзды, туманность. Светлая — «Тетрадь в
+   клетку» (выбор владельца из демо v2): клетка, красная линия полей, формулы синими
+   «чернилами», вместо звёзд — точки графика. Формулы плывут в обеих.
+   С 11 окт 2026 (демо v3) профиль — личный: серия, уровни, теоремы, семестр; админского нет. */
 
 :root {
   --ow-cyan: #00c2ff;
   --ow-cyan-l: #7fe0ff;
   --ow-violet: #8a5cff;
-  --ow-violet-l: #c9b6ff;
-  --ow-grad: linear-gradient(90deg, #7fe0ff, #c9b6ff);
+  --ow-ink: #1f56d6;
   --ow-edge: linear-gradient(90deg, transparent, #00c2ff, #8a5cff, transparent);
 }
 
-/* Фон рисует сам <html>: страница и body прозрачные, слой звёзд (z-index: -1)
-   ложится между фоном и содержимым — карточки закрывают звёзды, а не наоборот. */
-html.owner { background: var(--bg); }
+/* Фон рисует сам <html>: страница и body прозрачные, слой звёзд (z-index: -1) ложится
+   между фоном и содержимым — карточки закрывают звёзды, а не наоборот. Вне @layer:
+   иначе body из globals.css перебивает. */
+html.owner {
+  background-color: #fbfcff;
+  background-image: linear-gradient(90deg, transparent 30px, rgba(230, 70, 90, 0.4) 30px, rgba(230, 70, 90, 0.4) 31.5px, transparent 31.5px),
+    linear-gradient(rgba(50, 100, 220, 0.12) 1px, transparent 1px), linear-gradient(90deg, rgba(50, 100, 220, 0.12) 1px, transparent 1px);
+  background-size: 100% 100%, 22px 22px, 22px 22px;
+  background-attachment: fixed;
+}
 html.owner.dark {
   background: radial-gradient(60% 40% at 82% 12%, rgba(120, 80, 255, 0.28), transparent 70%),
     radial-gradient(50% 35% at 8% 85%, rgba(0, 190, 255, 0.18), transparent 70%), #03040b;
@@ -22,13 +30,8 @@ html.owner.dark {
 }
 html.owner body, html.owner .t-page { background: transparent; }
 
-/* Фокус в поиске — свечение всей плашки, а не прямоугольная рамка вокруг поля внутри
-   неё. Вне слоя: общее правило фокуса в tablo.css тоже вне слоя. */
-.t-page .ow-search input:focus-visible { outline: none; }
-html .ow-search:focus-within { box-shadow: inset 0 0 0 1.5px var(--ow-cyan), 0 0 16px rgba(0, 194, 255, 0.25); }
-
 @layer components {
-  /* ── Фон и рамки ─────────────────────────────────────────── */
+  /* ── Рамки, вкладки, аватар ──────────────────────────────── */
   html.owner .t-top, html.owner .t-bottom { border-image: var(--ow-edge) 1; }
   html.owner .t-phead { border-bottom: 1px solid transparent; border-image: var(--ow-edge) 1; }
   html.owner.dark .t-phead { background: color-mix(in srgb, #03040b 70%, transparent); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
@@ -44,23 +47,31 @@ html .ow-search:focus-within { box-shadow: inset 0 0 0 1.5px var(--ow-cyan), 0 0
     animation: vip-spin 3s linear infinite;
   }
 
-  /* Идущая пара — тёмно-синяя «туманность» с голубой рамкой; следующая — стекло */
+  /* ── Карточки ─────────────────────────────────────────────── */
+  /* Космос: идущая пара — тёмно-синяя «туманность» с голубой рамкой, следующая — стекло */
   html.owner.dark .t-focus-live, html.owner.dark .t-cell-live {
     background: radial-gradient(circle at 85% 18%, rgba(138, 92, 255, 0.45), transparent 45%), radial-gradient(120% 140% at 0% 0%, #1b2a6b, #0b0f2e 60%);
     color: #e8ecff; box-shadow: inset 0 0 0 1.5px rgba(0, 194, 255, 0.55), 0 0 24px rgba(0, 194, 255, 0.22);
   }
   html.owner.dark .t-focus-live .t-pill, html.owner.dark .t-cell-live .t-pill { background: rgba(0, 194, 255, 0.2); color: var(--ow-cyan-l); }
   html.owner.dark .t-focus:not(.t-focus-live) { background: rgba(14, 18, 40, 0.7); box-shadow: inset 0 0 0 1px rgba(140, 160, 255, 0.25); }
+  /* Тетрадь: карточки обведены синими «чернилами» и отбрасывают ровную тень, как на чертеже */
+  html.owner:not(.dark) :is(.t-daycard, .t-wday, .t-card, .t-pf-card, .t-focus:not(.t-focus-live)) {
+    box-shadow: inset 0 0 0 1.5px rgba(31, 86, 214, 0.3), 3px 3px 0 rgba(31, 86, 214, 0.12);
+  }
+  html.owner:not(.dark) :is(.t-focus-live, .t-cell-live) { box-shadow: 4px 4px 0 rgba(31, 86, 214, 0.25); }
 
-  /* ── Слой: звёзды, формулы, падающие звёзды (OwnerAmbient) ── */
+  /* ── Фон: звёзды, точки графика, формулы (OwnerAmbient) ───── */
   .ow-amb { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
   .ow-layer { position: absolute; inset: -40px; transition: transform 0.25s ease-out; }
   .ow-st { position: absolute; border-radius: 50%; background: #fff; display: none; }
   html.dark .ow-st { display: block; }
   .ow-st-big { box-shadow: 0 0 6px #fff; }
+  .ow-graph { position: absolute; inset: 0; width: 100%; height: 100%; }
+  html.dark .ow-graph { display: none; }
   .ow-formula {
     position: absolute; white-space: nowrap; font-family: var(--font-math), var(--font-math-sym), "Cambria Math", "Times New Roman", serif; font-style: italic; font-weight: 500; font-variant-numeric: lining-nums;
-    color: rgba(60, 70, 140, 0.11); animation: ow-float linear infinite;
+    color: rgba(30, 70, 190, 0.3); animation: ow-float linear infinite;
   }
   html.dark .ow-formula { color: rgba(160, 180, 255, 0.17); text-shadow: 0 0 12px rgba(127, 224, 255, 0.22); }
   .ow-formula sup, .ow-formula sub { font-size: 0.62em; line-height: 0; }
@@ -69,76 +80,136 @@ html .ow-search:focus-within { box-shadow: inset 0 0 0 1.5px var(--ow-cyan), 0 0
   .ow-lim sup, .ow-lim sub { font-size: 1em; line-height: inherit; vertical-align: baseline; }
   /* lim, det — прямым шрифтом, как принято в математическом наборе */
   .ow-up { font-style: normal; }
+  /* Дробь «этажами»: числитель над чертой, знаменатель под ней; черта — на уровне знака «−» */
+  .ow-frac { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; margin: 0 0.12em; font-size: 0.8em; line-height: 1.12; }
+  .ow-frac > span { padding: 0 0.12em; white-space: nowrap; }
+  .ow-frac > span:first-child { border-bottom: 0.07em solid currentColor; }
+  .ow-frac sup, .ow-frac sub { font-size: 0.7em; }
+  /* Скобки во весь рост дроби */
+  .ow-paren { display: inline-block; font-size: 1.55em; font-style: normal; font-weight: 400; line-height: 0; vertical-align: -0.12em; transform: scaleX(0.75); }
   @keyframes ow-float { from { transform: translateX(30px); } to { transform: translateX(-30px); } }
   .ow-shoot { position: absolute; width: 120px; height: 2px; border-radius: 2px; background: linear-gradient(90deg, rgba(255, 255, 255, 0), #fff); opacity: 0; }
 
-  /* ── Главная: приветствие, пульт, быстрые действия, поиск (OwnerHome) ── */
+  /* ── Главная: приветствие и две плашки (OwnerHome) ───────── */
   .ow-home { margin: 2px 0 14px; max-width: 720px; position: relative; z-index: 1; }
-  .ow-glass { background: color-mix(in srgb, var(--surface) 70%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); box-shadow: inset 0 0 0 1px rgba(120, 150, 255, 0.22); border-radius: 16px; color: var(--text); }
-  html.dark .ow-glass { background: rgba(14, 18, 40, 0.62); box-shadow: inset 0 0 0 1px rgba(140, 160, 255, 0.2); }
-  .ow-top { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
-  .ow-hello { flex: 1; font-size: 28px; font-weight: 800; line-height: 1.12; }
-  .ow-hello span { background: linear-gradient(90deg, #00a6e0, #7a5cff, #00a6e0); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: ow-flow 5s linear infinite; }
+  .ow-glass { background: rgba(255, 255, 255, 0.92); box-shadow: inset 0 0 0 1.5px rgba(31, 86, 214, 0.32), 3px 3px 0 rgba(31, 86, 214, 0.12); border-radius: 18px; color: var(--text); }
+  html.dark .ow-glass { background: rgba(14, 18, 40, 0.62); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); box-shadow: inset 0 0 0 1px rgba(140, 160, 255, 0.2); }
+  .ow-hello { font-size: 30px; font-weight: 800; line-height: 1.08; margin: 4px 2px 12px; }
+  .ow-hello span { background: linear-gradient(90deg, #1f56d6, #6b3df0, #1f56d6); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: ow-flow 5s linear infinite; }
   html.dark .ow-hello span { background-image: linear-gradient(90deg, #7fe0ff, #c9b6ff, #7fe0ff); }
   @keyframes ow-flow { to { background-position: 200% 0; } }
-  .ow-phi {
-    width: 46px; height: 46px; border-radius: 50%; flex: none; display: grid; place-items: center; cursor: pointer; border: 0;
-    font-family: var(--font-math), "Times New Roman", serif; font-style: italic; font-size: 25px; font-weight: 500; color: #fff;
-    background: radial-gradient(circle at 35% 30%, #7fe0ff, #3a4bff 60%, #120b3a); box-shadow: 0 0 18px rgba(0, 194, 255, 0.55);
-  }
-  .ow-phi:active { transform: scale(0.92); }
-  .ow-pulse { position: relative; overflow: hidden; display: flex; align-items: center; gap: 9px; width: 100%; padding: 11px 14px; font: inherit; font-size: 14px; font-weight: 700; text-align: left; cursor: pointer; margin-bottom: 10px; }
-  .ow-pulse > span, .ow-pulse > b, .ow-pulse > i { position: relative; }
-  .ow-pulse em { font-style: normal; opacity: 0.5; margin: 0 2px; }
-  .ow-pulse > b { margin-left: auto; opacity: 0.6; transition: transform 0.25s; }
-  .ow-pulse-open > b { transform: rotate(180deg); }
-  .ow-wave { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; opacity: 0.4; }
-  .ow-wave path { fill: none; stroke: var(--ow-cyan); stroke-width: 1.5; }
-  .ow-dot { width: 9px; height: 9px; border-radius: 50%; background: #22c98a; box-shadow: 0 0 8px #22c98a; flex: none; animation: ow-blink 2s ease-in-out infinite; }
-  .ow-dot-bad { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
-  @keyframes ow-blink { 50% { opacity: 0.45; } }
-  .ow-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; max-height: 0; overflow: hidden; transition: max-height 0.35s ease, margin 0.35s ease; }
-  .ow-actions-open { max-height: 140px; margin-bottom: 10px; }
-  .ow-act { padding: 12px 10px; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; border: 0; text-align: center; }
-  .ow-act:disabled { opacity: 0.6; }
-  .ow-search { display: flex; align-items: center; gap: 9px; padding: 12px 14px; margin-bottom: 10px; color: var(--text-2); }
-  .ow-search input { flex: 1; min-width: 0; border: 0; background: none; outline: none; font: inherit; font-size: 15px; color: var(--text); }
-  .ow-results { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
-  .ow-res { display: flex; align-items: center; gap: 10px; padding: 11px 14px; text-decoration: none; }
-  .ow-res b { display: block; font-size: 15px; } .ow-res small { display: block; font-size: 12.5px; color: var(--text-2); }
-  .ow-res em { margin-left: auto; font-style: normal; font-size: 10.5px; font-weight: 800; letter-spacing: 0.06em; color: var(--text-2); }
-  .ow-none { margin: 0 0 10px 4px; font-size: 14px; color: var(--text-2); }
-  .ow-spiral-box { position: fixed; inset: 0; z-index: 110; pointer-events: none; }
-  .ow-spiral { position: absolute; left: 0; top: 0; width: 4px; height: 4px; border-radius: 50%; background: #ffe07a; box-shadow: 0 0 8px #ffe07a; }
+  .ow-chips { display: flex; gap: 8px; }
+  .ow-chip { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 11px 12px; }
+  .ow-chip b { display: block; font-size: 18px; font-weight: 900; line-height: 1.1; white-space: nowrap; }
+  .ow-chip small { display: block; font-size: 12.5px; font-weight: 700; color: var(--text-2); white-space: nowrap; }
+  .ow-chip-ic { width: 34px; height: 34px; flex: none; border-radius: 11px; display: grid; place-items: center; font-size: 18px; font-weight: 900; color: #fff; background: linear-gradient(135deg, #1f56d6, #6b3df0); }
+  html.dark .ow-chip-ic { color: #03040b; background: linear-gradient(135deg, #7fe0ff, #8a5cff); }
+  .ow-chip-f { font-family: var(--font-math), "Times New Roman", serif; font-style: italic; font-weight: 500; font-size: 20px; }
 
-  /* ── Карта «№ 000 · Админ» (OwnerCard) ─────────────────── */
+  /* ── Карта: наклон снаружи, переворот внутри (OwnerCard) ─────── */
   .ow-me { display: flex; flex-direction: column; gap: 10px; }
+  .ow-tilt { width: 100%; max-width: 440px; margin: 0 auto; transform-style: preserve-3d; transition: transform 0.15s ease-out; }
+  .ow-flip { position: relative; aspect-ratio: 1.586; border-radius: 18px; transform-style: preserve-3d; transition: transform 0.7s cubic-bezier(0.3, 1.4, 0.5, 1); cursor: pointer; }
+  .ow-flip-on { transform: rotateY(180deg); }
   .ow-card {
-    position: relative; width: 100%; max-width: 440px; margin: 0 auto; aspect-ratio: 1.586; border-radius: 18px; overflow: hidden;
-    padding: 16px 18px; display: flex; flex-direction: column; justify-content: space-between; color: #fff; transition: transform 0.15s ease-out;
-    background: #060818; box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(160, 190, 255, 0.35);
+    position: absolute; inset: 0; border-radius: 18px; overflow: hidden; padding: 16px 18px; display: flex; flex-direction: column; justify-content: space-between; color: #fff;
+    backface-visibility: hidden; -webkit-backface-visibility: hidden; box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35), inset 0 0 0 1px rgba(160, 190, 255, 0.35);
   }
+  .ow-front { background: #060818; }
+  .ow-back { transform: rotateY(180deg); background: radial-gradient(circle at 85% 0%, rgba(138, 92, 255, 0.5), transparent 50%), linear-gradient(160deg, #0d1440, #060818); }
   .ow-card canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
-  .ow-card-shade { position: absolute; inset: 0; background: linear-gradient(100deg, rgba(3, 4, 22, 0.78) 0%, rgba(3, 4, 22, 0.45) 45%, rgba(3, 4, 22, 0.1) 75%); }
+  .ow-card-shade { position: absolute; inset: 0; background: linear-gradient(100deg, rgba(3, 4, 22, 0.82) 0%, rgba(3, 4, 22, 0.45) 48%, rgba(3, 4, 22, 0.05) 80%); }
   .ow-card-holo { position: absolute; inset: 0; mix-blend-mode: overlay; animation: ow-holo 8s linear infinite;
-    background: conic-gradient(from var(--ow-h, 0deg) at 50% 50%, rgba(255, 122, 217, 0.35), rgba(127, 224, 255, 0.35), rgba(183, 255, 122, 0.25), rgba(255, 224, 122, 0.3), rgba(255, 122, 217, 0.35)); }
+    background: conic-gradient(from var(--ow-h, 0deg) at 50% 50%, rgba(255, 122, 217, 0.3), rgba(127, 224, 255, 0.3), rgba(183, 255, 122, 0.2), rgba(255, 224, 122, 0.25), rgba(255, 122, 217, 0.3)); }
   @keyframes ow-holo { to { --ow-h: 360deg; } }
-  .ow-card-glint { position: absolute; inset: 0; mix-blend-mode: screen; background: linear-gradient(105deg, transparent 40%, rgba(255, 255, 255, 0.45) 50%, transparent 60%); background-size: 250% 100%; background-repeat: no-repeat; animation: vip-glint-1 4.5s ease-in-out infinite; }
-  .ow-card > div { position: relative; z-index: 1; text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6); }
-  .ow-card-top { display: flex; justify-content: space-between; font-size: 11px; letter-spacing: 0.18em; font-weight: 800; }
-  .ow-card-eq { font-family: var(--font-math), "Times New Roman", serif; font-style: italic; font-size: 16px; font-variant-numeric: lining-nums; opacity: 0.9; }
-  .ow-card-eq sup { font-size: 0.65em; }
-  .ow-card-name { font-size: 27px; font-weight: 900; letter-spacing: 0.06em; text-transform: uppercase; text-shadow: none; filter: drop-shadow(0 1px 6px rgba(0, 0, 0, 0.6));
-    background: linear-gradient(90deg, #fff, #bff3ff, #e4d9ff, #fff); background-size: 300% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: ow-flow 5s linear infinite; }
-  .ow-card-role { font-size: 12.5px; letter-spacing: 0.2em; font-weight: 800; }
-  .ow-stats { display: flex; gap: 8px; }
-  .ow-stats div { flex: 1; padding: 10px; text-align: center; }
-  .ow-stats b { display: block; font-size: 22px; font-weight: 900; }
-  .ow-stats span { display: block; font-size: 12.5px; font-weight: 700; white-space: nowrap; color: var(--text-2); }
+  .ow-front > div { position: relative; z-index: 1; text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6); }
+  .ow-card-top { display: flex; justify-content: space-between; font-size: 11.5px; letter-spacing: 0.18em; font-weight: 800; }
+  .ow-card-name { font-size: 30px; font-weight: 900; letter-spacing: 0.06em; text-transform: uppercase; line-height: 1; }
+  .ow-lvl { display: flex; align-items: center; gap: 10px; margin-top: 8px; padding-right: 36px; }
+  .ow-lvl-ring { width: 38px; height: 38px; flex: none; }
+  .ow-lvl-ring text { font-size: 14px; font-weight: 900; fill: #fff; }
+  .ow-lvl b { display: block; font-size: 16px; font-weight: 800; }
+  .ow-lvl small { display: block; font-size: 12.5px; font-weight: 700; opacity: 0.78; }
+  .ow-turn { position: absolute; right: 14px; bottom: 12px; z-index: 2; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, 0.16); }
+  .ow-turn svg { width: 15px; height: 15px; }
+  .ow-back-top { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; }
+  .ow-back-big { font-size: 46px; font-weight: 900; line-height: 0.95; }
+  .ow-back-big small, .ow-back-next small { display: block; margin-top: 4px; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; color: rgba(232, 236, 255, 0.6); }
+  .ow-back-next { font-size: 17px; font-weight: 800; text-align: right; color: var(--ow-cyan-l); }
+  .ow-back-next small { letter-spacing: 0; }
+  .ow-fib { display: flex; gap: 4px; }
+  .ow-fib span { flex: 1; height: 30px; border-radius: 8px; display: grid; place-items: center; font-size: 13px; font-weight: 800; background: rgba(255, 255, 255, 0.07); color: rgba(232, 236, 255, 0.4); }
+  .ow-fib .ow-fib-on { background: linear-gradient(135deg, #7fe0ff, #8a5cff); color: #03040b; box-shadow: 0 0 10px rgba(127, 224, 255, 0.45); }
+  .ow-fib .ow-fib-next { box-shadow: inset 0 0 0 1.5px var(--ow-cyan-l); color: var(--ow-cyan-l); }
+  .ow-back-row { display: flex; justify-content: space-between; gap: 8px; font-size: 12.5px; font-weight: 700; color: rgba(232, 236, 255, 0.72); }
+  .ow-back-row b { color: #fff; }
+  .ow-back-wait { margin: auto; text-align: center; color: rgba(232, 236, 255, 0.7); }
+
+  /* ── Семестр, неделя, зачёт (OwnerSections) ────────────────── */
+  .ow-sem { padding: 14px 16px; }
+  .ow-sem-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .ow-sem-top b { font-size: 26px; font-weight: 900; }
+  .ow-sem-top span { font-size: 14px; font-weight: 700; color: var(--text-2); }
+  .ow-bar { position: relative; height: 10px; margin: 10px 0 8px; border-radius: 6px; overflow: hidden; background: color-mix(in srgb, var(--ow-ink) 14%, transparent); }
+  .ow-bar i { position: absolute; inset: 0 auto 0 0; border-radius: 6px; background: repeating-linear-gradient(45deg, #1f56d6 0 6px, #3b6ef0 6px 12px); }
+  html.dark .ow-bar { background: rgba(127, 224, 255, 0.14); }
+  html.dark .ow-bar i { background: linear-gradient(90deg, #00c2ff, #8a5cff); }
+  .ow-sem-sub { display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; color: var(--text-2); }
+  .ow-wk { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
+  .ow-wk div { padding: 11px 6px; text-align: center; }
+  .ow-wk b { display: block; font-size: 22px; font-weight: 900; }
+  .ow-wk span { font-size: 12.5px; font-weight: 700; color: var(--text-2); }
+  .ow-exam { display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin-top: 8px; }
+  .ow-exam-n { min-width: 44px; text-align: center; font-size: 30px; font-weight: 900; line-height: 1; color: var(--ow-ink); }
+  html.dark .ow-exam-n { color: var(--ow-cyan-l); }
+  .ow-exam-n small { display: block; font-size: 11px; font-weight: 800; color: var(--text-2); }
+  .ow-exam b { display: block; font-size: 16px; }
+  .ow-exam span { font-size: 13px; color: var(--text-2); }
+
+  /* ── Теоремы ─────────────────────────────────────────────── */
+  .ow-thm { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .ow-th { position: relative; min-height: 92px; display: flex; flex-direction: column; gap: 4px; padding: 12px; border: 0; font: inherit; text-align: left; cursor: pointer; }
+  .ow-th-k { font-size: 11px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-2); }
+  .ow-th b { font-size: 15.5px; font-weight: 800; line-height: 1.15; padding-right: 14px; }
+  .ow-th small { margin-top: auto; font-size: 12.5px; color: var(--text-2); }
+  .ow-th:not(.ow-th-ok) { opacity: 0.62; }
+  .ow-th-ok { box-shadow: inset 0 0 0 2px var(--ow-ink), 3px 3px 0 rgba(31, 86, 214, 0.2); }
+  html.dark .ow-th-ok { box-shadow: inset 0 0 0 1.5px rgba(127, 224, 255, 0.6), 0 0 18px rgba(0, 194, 255, 0.15); }
+  .ow-th-ok .ow-th-k { color: var(--ow-ink); }
+  html.dark .ow-th-ok .ow-th-k { color: var(--ow-cyan-l); }
+  .ow-th-sec b { letter-spacing: 0.2em; }
+  /* ∎ — знак конца доказательства */
+  .ow-qed { display: inline-block; width: 11px; height: 11px; background: var(--ow-ink); }
+  html.dark .ow-qed { background: var(--ow-cyan-l); }
+  .ow-th .ow-qed { position: absolute; right: 11px; top: 11px; }
+  .ow-th-sheet { padding: 4px 4px 8px; }
+  .ow-th-name { font-size: 24px; font-weight: 800; margin: 6px 0 10px; }
+  .ow-th-sheet p { margin: 0; font-size: 16px; line-height: 1.45; color: var(--text-2); }
+  .ow-th-sheet p i { font-family: var(--font-math), "Times New Roman", serif; color: var(--text); }
+  .ow-th-when { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 14.5px; font-weight: 700; color: var(--ow-ink); }
+  html.dark .ow-th-when { color: var(--ow-cyan-l); }
+
+  /* ── Баннер «Доказано ∎» / «Новый уровень» (OwnerToast) ────── */
+  .ow-toast {
+    position: fixed; left: 50%; top: calc(12px + env(safe-area-inset-top)); z-index: 120; width: min(420px, calc(100vw - 24px));
+    display: flex; align-items: center; gap: 12px; padding: 12px 16px 12px 12px; border: 0; border-radius: 20px; font: inherit; text-align: left; cursor: pointer; color: #e8ecff;
+    background: linear-gradient(160deg, #121a4d, #070a22); box-shadow: inset 0 0 0 1.5px rgba(127, 224, 255, 0.6), 0 14px 34px rgba(0, 0, 0, 0.4);
+    transform: translateX(-50%); animation: ow-toast-in 0.5s cubic-bezier(0.2, 1.3, 0.4, 1) both;
+  }
+  .ow-toast-out { animation: ow-toast-out 0.35s ease-in forwards; }
+  .ow-toast-ic { width: 48px; height: 48px; flex: none; border-radius: 14px; display: grid; place-items: center; background: linear-gradient(135deg, #7fe0ff, #8a5cff); }
+  .ow-toast-ic i { width: 16px; height: 16px; background: #03040b; }
+  .ow-toast-lvl { border-radius: 50%; font-size: 22px; font-weight: 900; color: #03040b; }
+  .ow-toast-tx small { display: block; font-size: 11.5px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ow-cyan-l); }
+  .ow-toast-tx b { display: block; font-size: 18px; font-weight: 800; line-height: 1.2; }
+  .ow-toast-tx em { display: block; font-style: normal; font-size: 13px; opacity: 0.75; }
+  @keyframes ow-toast-in { from { opacity: 0; transform: translate(-50%, -30px) scale(0.92); } to { opacity: 1; transform: translate(-50%, 0); } }
+  @keyframes ow-toast-out { from { opacity: 1; transform: translate(-50%, 0); } to { opacity: 0; transform: translate(-50%, -24px); } }
 }
 
 @property --ow-h { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
 
 @media (prefers-reduced-motion: reduce) {
-  .ow-formula, .ow-hello span, .ow-dot, .ow-card-holo, .ow-card-glint, .ow-card-name, html.owner .t-avatar::before { animation: none !important; }
+  .ow-formula, .ow-hello span, .ow-card-holo, .ow-toast, .ow-toast-out, html.owner .t-avatar::before { animation: none !important; }
+  .ow-flip { transition: none; }
 }

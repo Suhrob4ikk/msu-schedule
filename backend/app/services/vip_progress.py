@@ -10,6 +10,10 @@
   вкладки), collector (все три металла), secret (пасхалка), names (ответ в опросе имён).
 Серию, рекорд и даты получения медалей считает сайт из этих списков.
 
+С 11 окт 2026 здесь же профиль владельца (person = "owner", пускает только привязанные
+в /dev устройства — api/routes/user.py). Его «теоремы»: pi (15:14), palindrome (12:21
+или 21:12), zero (секрет: 0:00) — время проверяет сервер по своим часам.
+
 Ответ держим в памяти: повторные открытия Кабинета базу не будят.
 """
 
@@ -27,8 +31,25 @@ DAYS = ["понедельник", "вторник", "среда", "четвер�
 
 # Кто особый: ключ — как на сайте (special.ts), значение — первое слово имени в регистрации.
 PEOPLE = {"shahzoda": "шахзода"}
-# События, которые сайт может попросить отметить. early/owl сервер проверяет по своим часам.
-CLIENT_EVENTS = {"early", "owl", "explorer", "collector", "secret"}
+# События, которые сайт может попросить отметить. Время у early/owl/pi/palindrome/zero
+# сервер проверяет по своим часам.
+CLIENT_EVENTS = {"early", "owl", "explorer", "collector", "secret", "pi", "palindrome", "zero"}
+
+
+def _time_ok(flag: str, now: datetime) -> bool:
+    hm = now.strftime("%H:%M")
+    minutes = now.hour * 60 + now.minute
+    if flag == "early":
+        return 4 * 60 <= minutes < 7 * 60 + 30
+    if flag == "owl":
+        return now.hour >= 23
+    if flag == "pi":
+        return hm == "15:14"
+    if flag == "palindrome":
+        return hm in ("12:21", "21:12")
+    if flag == "zero":
+        return minutes <= 1          # 0:00–0:01: запрос может прийти на минуту позже
+    return True
 
 _cache: dict[str, dict] = {}
 _lock = threading.Lock()
@@ -107,17 +128,12 @@ def touch(db: Session, person: str, reg: UserRegistration, visit: bool, flags: l
             changed = True
 
         stamp = now.strftime("%Y-%m-%dT%H:%M")
-        minutes = now.hour * 60 + now.minute
         for f in flags:
-            if f not in CLIENT_EVENTS or f in st["events"]:
-                continue
-            if f == "early" and not (4 * 60 <= minutes < 7 * 60 + 30):
-                continue
-            if f == "owl" and now.hour < 23:
+            if f not in CLIENT_EVENTS or f in st["events"] or not _time_ok(f, now):
                 continue
             st["events"][f] = stamp
             changed = True
-        if "names" not in st["events"]:
+        if person in PEOPLE and "names" not in st["events"]:
             devices = [r.device_id for r in db.query(UserRegistration.device_id, UserRegistration.name).all()
                        if first_word(r.name) == PEOPLE[person]]
             voted = db.query(TeacherNameVote).filter(

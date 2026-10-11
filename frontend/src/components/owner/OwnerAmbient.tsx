@@ -4,7 +4,8 @@
  * устройства, класс `owner`; решение владельца, 11 окт 2026): звёзды в три слоя
  * смещаются при наклоне телефона или за мышью (глубина), в глубине медленно плывут
  * формулы, иногда пролетает падающая звезда. Слой под шапкой и меню, нажатия не ловит.
- * Звёзды и падающие звёзды — только в тёмной теме; в светлой формулы едва видны.
+ * Звёзды и падающие звёзды — только в тёмной теме. В светлой («Тетрадь в клетку»,
+ * выбор владельца из демо v2) вместо звёзд — точки графика, соединённые пунктиром.
  */
 import { useEffect, useMemo, useRef } from "react";
 import { usePathname } from "next/navigation";
@@ -33,6 +34,18 @@ export default function OwnerAmbient() {
         style: { left: `${rnd(4, 62)}%`, top: `${rnd(10 + k * 28, 30 + k * 28)}%`, fontSize: `${(i === 0 ? 15 : 21) + rnd(0, 6)}px`, animationDuration: `${rnd(22, 36)}s`, animationDirection: k % 2 ? "alternate" : "alternate-reverse" },
       })) : [],
     }));
+  }, [on]);
+
+  // точки графика для светлой темы: 3 ломаные по 5 точек, в пикселях окна (слой рисуется только на клиенте)
+  const graph = useMemo(() => {
+    if (!on) return [];
+    const w = window.innerWidth, h = window.innerHeight;
+    return Array.from({ length: 3 }, () => {
+      let x = rnd(0.1, 0.85) * w, y = rnd(0.1, 0.9) * h;
+      const pts: [number, number][] = [[x, y]];
+      for (let k = 0; k < 4; k++) { x += rnd(-50, 60); y += rnd(-50, 50); pts.push([x, y]); }
+      return pts;
+    });
   }, [on]);
 
   // глубина: слои смещаются за мышью / наклоном
@@ -68,6 +81,14 @@ export default function OwnerAmbient() {
   if (!on) return null;
   return (
     <div ref={box} className="ow-amb" aria-hidden="true">
+      <svg className="ow-graph">
+        {graph.map((pts, i) => (
+          <g key={i}>
+            <polyline points={pts.map(p => p.join(",")).join(" ")} fill="none" stroke="rgba(31,86,214,.18)" strokeWidth="1.2" strokeDasharray="3 3" />
+            {pts.map(([x, y], k) => <circle key={k} cx={x} cy={y} r="2.6" fill="rgba(31,86,214,.3)" />)}
+          </g>
+        ))}
+      </svg>
       {layers.map((l, i) => (
         <div key={i} className="ow-layer">
           {l.stars.map((st, k) => <span key={k} className={`ow-st ${i === 2 ? "ow-st-big" : ""}`} style={st} />)}

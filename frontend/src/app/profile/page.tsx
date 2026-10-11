@@ -16,7 +16,7 @@ import Icon from "@/components/tablo/Icon";
 import Login from "@/components/tablo/profile/Login";
 import { appearanceSummary } from "@/components/tablo/profile/AppearanceView";
 import { useAppearance, useOwner, useVip } from "@/lib/tablo/hooks";
-import OwnerCard from "@/components/owner/OwnerCard";
+import { OwnerCard, OwnerSections } from "@/components/owner/OwnerCard";
 import VipProfile, { VipProgressSections } from "@/components/tablo/vip/VipProfile";
 import VipCodeEntry from "@/components/tablo/vip/VipCodeEntry";
 import { VIP_NEW_KEY, canActivateVip } from "@/lib/special";
@@ -249,7 +249,10 @@ export default function ProfilePage() {
       <main className="t-main t-pf-main">
         <div className="t-pf">
             {vip ? <VipProfile vip={vip} onEdit={() => setIsEditing(true)} /> : owner ? (
-              <OwnerCard name={name.trim().split(/\s+/)[0] || "Админ"} group={group ? `${shortGroupName(group.name)} ${group.year}` : null} onEdit={() => setIsEditing(true)} />
+              <>
+                <OwnerCard name={name.trim().split(/\s+/)[0] || "Админ"} onEdit={() => setIsEditing(true)} />
+                <OwnerSections groupId={groupId} />
+              </>
             ) : (
             <section className="t-pf-card t-pf-me">
               <div className="t-pf-who">

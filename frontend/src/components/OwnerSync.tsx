@@ -21,7 +21,11 @@ export default function OwnerSync() {
       .then((j: { owner: boolean } | null) => {
         if (!j) return;
         try { localStorage.setItem(OWNER_KEY, j.owner ? "1" : "0"); } catch { /* приватный режим */ }
-        document.documentElement.classList.toggle("owner", j.owner);
+        const html = document.documentElement;
+        html.classList.toggle("owner", j.owner);
+        // узкий шрифт — как у «золотого профиля»; у него класс свой, его не снимаем
+        if (j.owner) html.classList.add("font-condensed");
+        else if (!html.classList.contains("vip")) html.classList.remove("font-condensed");
         window.dispatchEvent(new Event("owner-change"));
       })
       .catch(() => { /* нет сети — остаётся то, что было */ });

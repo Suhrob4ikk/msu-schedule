@@ -324,10 +324,15 @@ class VipProgressBody(BaseModel):
 def vip_progress(body: VipProgressBody, db: Session = Depends(get_db)):
     from app.services.vip_progress import PEOPLE, first_word, touch
 
-    if body.person not in PEOPLE or len(body.device_id) > 100:
+    if len(body.device_id) > 100:
         raise HTTPException(404, "Не найдено")
     reg = db.query(UserRegistration).filter_by(device_id=body.device_id).first()
-    if not reg or first_word(reg.name) != PEOPLE[body.person]:
+    if body.person == "owner":
+        # Профиль владельца (11 окт 2026): только устройства, привязанные в /dev по паролю.
+        # Прогресс один на все его устройства — телефон и компьютер считаются вместе.
+        if not reg or not is_owner_device(body.device_id, db)["owner"]:
+            raise HTTPException(404, "Не найдено")
+    elif body.person not in PEOPLE or not reg or first_word(reg.name) != PEOPLE[body.person]:
         raise HTTPException(404, "Не найдено")
     return touch(db, body.person, reg, body.visit, body.flags[:10])
 
@@ -354,36 +359,3 @@ def is_owner_device(device_id: str, db: Session = Depends(get_db)):
         _owner_ids = {d for (d,) in db.query(OwnerDevice.device_id).all()}
     return {"owner": device_id in _owner_ids}
 
-
-_pulse_cache: dict = {}
-
-
-@router.get("/owner-pulse")
-def owner_pulse(device_id: str, db: Session = Depends(get_db)):
-    """Пульт на главной у владельца: пользователи, новые за сегодня, последняя проверка
-    msu.tj. Только привязанным устройствам (номер устройства не угадать); остальным — 404."""
-    global _owner_ids
-    from datetime import datetime, time, timedelta
-    from zoneinfo import ZoneInfo
-    from app.models import OwnerDevice, SyncLog
-    if _owner_ids is None:
-        _owner_ids = {d for (d,) in db.query(OwnerDevice.device_id).all()}
-    if device_id not in _owner_ids:
-        raise HTTPException(404, "Не найдено")
-    import time as _t
-    if _pulse_cache.get("at", 0) > _t.time() - 60:   # минута — база не просыпается на каждое открытие
-        return _pulse_cache["data"]
-    tz = ZoneInfo("Asia/Dushanbe")
-    start = datetime.combine(datetime.now(tz=tz).date(), time.min, tzinfo=tz).astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
-    last = db.query(SyncLog).order_by(SyncLog.started_at.desc()).first()
-    data = {
-        "users": db.query(UserRegistration).count(),
-        "today": db.query(UserRegistration).filter(UserRegistration.registered_at >= start).count(),
-        "app": db.query(UserRegistration).filter(UserRegistration.app_version.isnot(None)).count(),
-        "last_sync": {
-            "at": last.started_at.isoformat() if last and last.started_at else None,
-            "status": last.status if last else None,
-        },
-    }
-    _pulse_cache.update(at=_t.time(), data=data)
-    return data

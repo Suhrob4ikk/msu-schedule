@@ -1,92 +1,237 @@
 "use client";
 /**
- * Карта владельца в Кабинете (11 окт 2026): «№ 000 · Админ». Фон — фрактал
- * Мандельброта («долина морских коньков»), считается в браузере один раз; поверх —
- * затенение под надписями, голографический перелив, бегущий блик, тождество Эйлера.
- * Наклон — за мышью и наклоном телефона. Ниже — пользователи из пульта.
+ * Профиль владельца в Кабинете (выбор владельца из демо, 11 окт 2026).
+ * OwnerCard — карта «№ 000 · Админ»: фрактал Мандельброта, который **растёт с уровнем**
+ * (на 1-м — всё множество целиком, на каждом следующем — глубже, к «долине морских коньков»),
+ * имя, кольцо уровня. Нажатие переворачивает: на обороте серия и ряд Фибоначчи.
+ * OwnerSections — семестр, моя неделя, ближайший зачёт и теоремы (lib/ownerProgress.ts).
  */
 import { useEffect, useRef, useState } from "react";
 import Icon from "@/components/tablo/Icon";
+import { Sheet } from "@/components/tablo/Overlay";
+import { api, type Lesson } from "@/lib/api";
+import { dushanbeNow } from "@/lib/tablo/schedule";
+import { todayIso } from "@/lib/vipProgress";
+import { FIB, isExam, nextFib, termOf, theoremWhen, weekStats, type Theorem } from "@/lib/ownerProgress";
+import { useOwnerProgress } from "./OwnerTracker";
 
-const API = process.env.NEXT_PUBLIC_API_URL!;
+// Палитра — только цвета оформления, по кругу
+const STOPS = [[11, 15, 46], [58, 75, 255], [127, 224, 255], [235, 248, 255], [138, 92, 255], [40, 20, 110], [11, 15, 46]];
+function color(v: number): number[] {
+  const t = (v * 0.03) % 1, f = t * (STOPS.length - 1), i = Math.floor(f), k = f - i, A = STOPS[i], B = STOPS[i + 1];
+  return [A[0] + (B[0] - A[0]) * k, A[1] + (B[1] - A[1]) * k, A[2] + (B[2] - A[2]) * k];
+}
 
-function drawMandelbrot(c: HTMLCanvasElement) {
-  const w = (c.width = Math.round(c.clientWidth * Math.min(2, window.devicePixelRatio || 1)));
-  const h = (c.height = Math.round(c.clientHeight * Math.min(2, window.devicePixelRatio || 1)));
+/** Фрактал для уровня L: с каждым уровнем ближе к точке у «долины морских коньков». */
+function drawLevel(c: HTMLCanvasElement, L: number) {
+  const res = Math.min(2, window.devicePixelRatio || 1);
+  const w = (c.width = Math.round(c.clientWidth * res)), h = (c.height = Math.round(c.clientHeight * res));
   const ctx = c.getContext("2d");
   if (!ctx || !w || !h) return;
+  // 1-й уровень — всё множество; дальше камера сразу смотрит на «долину морских коньков»
+  // (раньше летела к ней по прямой через пустую область — на 3–4 уровне был скучный «конус»)
+  const tx = -0.743643887, ty = 0.131825904;
+  const cx0 = L === 1 ? -0.6 : tx, cy0 = L === 1 ? 0 : ty;
+  // шкала подобрана сравнением всех 10 уровней: со 2-го в кадре уже узоры, а не тёмная «перемычка»
+  const span = L === 1 ? 3.4 : 0.1 * Math.pow(0.62, L - 2), maxI = Math.round(80 + 45 * L), sc = span / w;
   const img = ctx.createImageData(w, h);
-  const cx0 = -0.743644786, cy0 = 0.1318252536, sc = 0.0042 / w, maxI = 420;
   for (let py = 0; py < h; py++) {
     for (let px = 0; px < w; px++) {
-      const x0 = cx0 + (px - w / 2) * sc, y0 = cy0 + (py - h / 2) * sc;
+      const x0 = cx0 + (px - w * 0.62) * sc, y0 = cy0 + (py - h / 2) * sc;
       let x = 0, y = 0, i = 0;
       while (x * x + y * y < 4 && i < maxI) { const t = x * x - y * y + x0; y = 2 * x * y + y0; x = t; i++; }
-      const k = (py * w + px) * 4;
-      if (i === maxI) { img.data[k] = 6; img.data[k + 1] = 8; img.data[k + 2] = 26; }
-      else {
-        const v = i + 1 - Math.log2(Math.log2(x * x + y * y) / 2);
-        const t = Math.min(1, Math.pow(v / 300, 0.75));
-        img.data[k] = 20 + 230 * Math.pow(t, 0.9) * (0.6 + 0.4 * Math.sin(v * 0.15));
-        img.data[k + 1] = 30 + 160 * Math.pow(t, 0.6);
-        img.data[k + 2] = 80 + 175 * Math.pow(t, 0.4);
-      }
-      img.data[k + 3] = 255;
+      const p = (py * w + px) * 4;
+      if (i === maxI) { img.data[p] = 6; img.data[p + 1] = 8; img.data[p + 2] = 26; }
+      else { const [r, g, b] = color(i + 1 - Math.log2(Math.log2(x * x + y * y) / 2)); img.data[p] = r; img.data[p + 1] = g; img.data[p + 2] = b; }
+      img.data[p + 3] = 255;
     }
   }
   ctx.putImageData(img, 0, 0);
 }
 
-interface Pulse { users: number; today: number; app: number }
+const plural = (n: number, one: string, few: string, many: string) =>
+  n % 10 === 1 && n % 100 !== 11 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? few : many;
 
-export default function OwnerCard({ name, group, onEdit }: { name: string; group: string | null; onEdit: () => void }) {
+export function OwnerCard({ name, onEdit }: { name: string; onEdit: () => void }) {
   const canvas = useRef<HTMLCanvasElement>(null);
-  const card = useRef<HTMLDivElement>(null);
-  const [pulse, setPulse] = useState<Pulse | null>(null);
+  const tilt = useRef<HTMLDivElement>(null);
+  const [flip, setFlip] = useState(false);
+  const pg = useOwnerProgress();
+  const level = pg?.level.level ?? 0;
 
   useEffect(() => {
     const c = canvas.current;
-    if (c) requestAnimationFrame(() => drawMandelbrot(c));
-    let device = "";
-    try { device = localStorage.getItem("msu_device_id_v2") ?? ""; } catch { /* приватный режим */ }
-    if (device) fetch(`${API}/user/owner-pulse?device_id=${encodeURIComponent(device)}`).then(r => (r.ok ? r.json() : null)).then(setPulse).catch(() => {});
-  }, []);
+    if (c && level) requestAnimationFrame(() => drawLevel(c, level));
+  }, [level]);
 
   useEffect(() => {
-    const el = card.current;
+    const el = tilt.current;
     if (!el) return;
-    const tilt = (px: number, py: number) => { el.style.transform = `perspective(900px) rotateY(${(px - 0.5) * 16}deg) rotateX(${(0.5 - py) * 12}deg)`; };
-    const onMove = (e: PointerEvent) => { const r = el.getBoundingClientRect(); tilt((e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height); };
+    const set = (px: number, py: number) => { el.style.transform = `perspective(900px) rotateY(${(px - 0.5) * 14}deg) rotateX(${(0.5 - py) * 10}deg)`; };
+    const onMove = (e: PointerEvent) => { if (e.pointerType !== "mouse") return; const r = el.getBoundingClientRect(); set((e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height); };
     const reset = () => { el.style.transform = ""; };
-    const onOri = (e: DeviceOrientationEvent) => { if (e.gamma != null && e.beta != null) tilt(Math.min(1, Math.max(0, 0.5 + e.gamma / 50)), Math.min(1, Math.max(0, 0.5 + (e.beta - 45) / 50))); };
+    const onOri = (e: DeviceOrientationEvent) => { if (e.gamma != null && e.beta != null) set(Math.min(1, Math.max(0, 0.5 + e.gamma / 50)), Math.min(1, Math.max(0, 0.5 + (e.beta - 45) / 50))); };
     el.addEventListener("pointermove", onMove);
     el.addEventListener("pointerleave", reset);
     window.addEventListener("deviceorientation", onOri);
     return () => { el.removeEventListener("pointermove", onMove); el.removeEventListener("pointerleave", reset); window.removeEventListener("deviceorientation", onOri); };
   }, []);
 
+  const lv = pg?.level;
+  const nf = pg ? nextFib(pg.streak) : null;
+  const toggle = () => setFlip(f => !f);
+
   return (
     <section className="ow-me">
-      <div className="ow-card" ref={card}>
-        <canvas ref={canvas} aria-hidden="true" />
-        <span className="ow-card-shade" /><span className="ow-card-holo" /><span className="ow-card-glint" />
-        <div className="ow-card-top"><span>МГУ · РАСПИСАНИЕ</span><span>№ 000</span></div>
-        <div className="ow-card-who">
-          <div className="ow-card-eq">e<sup>iπ</sup> + 1 = 0</div>
-          <div className="ow-card-name">{name}</div>
-          <div className="ow-card-role">АДМИН{group ? ` · ${group}` : ""}</div>
+      <div className="ow-tilt" ref={tilt}>
+        <div className={`ow-flip ${flip ? "ow-flip-on" : ""}`} role="button" tabIndex={0} aria-pressed={flip}
+          aria-label="Карта — нажмите, чтобы перевернуть"
+          onClick={toggle} onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } }}>
+          <div className="ow-card ow-front">
+            <canvas ref={canvas} aria-hidden="true" />
+            <span className="ow-card-shade" /><span className="ow-card-holo" />
+            <div className="ow-card-top"><span>МГУ · РАСПИСАНИЕ</span><span>№ 000</span></div>
+            <div>
+              <div className="ow-card-name">{name}</div>
+              {lv && (
+                <div className="ow-lvl">
+                  <svg className="ow-lvl-ring" viewBox="0 0 40 40" aria-hidden="true">
+                    <circle cx="20" cy="20" r="16" fill="none" stroke="rgba(255,255,255,.2)" strokeWidth="4" />
+                    <circle cx="20" cy="20" r="16" fill="none" stroke="#7fe0ff" strokeWidth="4" strokeLinecap="round" transform="rotate(-90 20 20)"
+                      strokeDasharray="100.5" strokeDashoffset={(100.5 * (1 - lv.share)).toFixed(1)} />
+                    <text x="20" y="25" textAnchor="middle">{lv.level}</text>
+                  </svg>
+                  <div>
+                    <b>Уровень {lv.level} · {lv.name}</b>
+                    <small>{lv.next ? `ещё ${lv.toNext} ${plural(lv.toNext, "очко", "очка", "очков")} до «${lv.next}»` : "высший уровень"}</small>
+                  </div>
+                </div>
+              )}
+            </div>
+            <span className="ow-turn" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 12a8 8 0 1 1-2.3-5.7" /><path d="M20 4v5h-5" /></svg>
+            </span>
+          </div>
+          <div className="ow-card ow-back">
+            {!pg ? <p className="ow-back-wait">Загружается…</p> : (
+              <>
+                <div className="ow-back-top">
+                  <div className="ow-back-big">{pg.streak}<small>{plural(pg.streak, "ДЕНЬ", "ДНЯ", "ДНЕЙ")} ПОДРЯД</small></div>
+                  {nf && <div className="ow-back-next">до {nf} — {nf - pg.streak} {plural(nf - pg.streak, "день", "дня", "дней")}<small>число Фибоначчи</small></div>}
+                </div>
+                <div className="ow-fib">
+                  {FIB.map(n => <span key={n} className={n <= pg.streak ? "ow-fib-on" : n === nf ? "ow-fib-next" : ""}>{n}</span>)}
+                </div>
+                <div className="ow-back-row">
+                  <span>Рекорд <b>{pg.best}</b></span>
+                  <span>С нами <b>{pg.total} {plural(pg.total, "день", "дня", "дней")}</b></span>
+                  <span>Заморозка <b>{pg.frozenThisWeek ? "потрачена" : "есть"}</b></span>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
-      {pulse && (
-        <div className="ow-stats">
-          <div className="ow-glass"><b>{pulse.users}</b><span>всего</span></div>
-          <div className="ow-glass"><b>{pulse.app}</b><span>в приложении</span></div>
-          <div className="ow-glass"><b>{pulse.today}</b><span>сегодня</span></div>
-        </div>
-      )}
       <div className="t-pf-card">
         <button type="button" className="t-pf-link" onClick={onEdit}>Изменить имя или группу<Icon name="chevronRight" size={20} /></button>
       </div>
     </section>
+  );
+}
+
+/** Семестр, моя неделя, ближайший зачёт, теоремы. */
+export function OwnerSections({ groupId }: { groupId: number | null }) {
+  const pg = useOwnerProgress();
+  const [now, setNow] = useState<Date | null>(null);
+  const [week, setWeek] = useState<Lesson[] | null>(null);
+  const [exam, setExam] = useState<{ l: Lesson; days: number } | null>(null);
+  const [open, setOpen] = useState<Theorem | null>(null);
+
+  useEffect(() => { setNow(dushanbeNow()); }, []);
+
+  // эта неделя (по дате Душанбе) и следующая — для «моей недели» и ближайшего зачёта
+  useEffect(() => {
+    if (!groupId) return;
+    let alive = true;
+    (async () => {
+      try {
+        const today = todayIso(dushanbeNow());
+        const weeks = (await api.getGroupWeeks(groupId)).filter(w => w.is_latest).sort((a, b) => a.week_start.localeCompare(b.week_start));
+        let curIdx = -1;
+        weeks.forEach((w, i) => { if (w.week_start <= today) curIdx = i; });
+        // в воскресенье полезнее наступающая неделя
+        if (dushanbeNow().getDay() === 0 && weeks[curIdx + 1]) curIdx += 1;
+        const cur = curIdx >= 0 ? weeks[curIdx] : null;
+        const next = weeks[curIdx + 1] ?? null;
+        const curL = cur ? await api.getGroupSchedule(groupId, undefined, cur.id) : [];
+        const nextL = next ? await api.getGroupSchedule(groupId, undefined, next.id) : [];
+        if (!alive) return;
+        setWeek(curL);
+        const d = dushanbeNow();
+        const hhmm = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+        const up = [...curL, ...nextL]
+          .filter(l => isExam(l) && l.lesson_date && (l.lesson_date > today || (l.lesson_date === today && l.pair_time_end > hhmm)))
+          .sort((a, b) => `${a.lesson_date}${a.pair_time_start}`.localeCompare(`${b.lesson_date}${b.pair_time_start}`))[0];
+        setExam(up ? { l: up, days: Math.round((new Date(up.lesson_date + "T00:00:00").getTime() - new Date(today + "T00:00:00").getTime()) / 86400000) } : null);
+      } catch { /* без сети — блоки не показываем */ }
+    })();
+    return () => { alive = false; };
+  }, [groupId]);
+
+  const term = now ? termOf(now) : null;
+  const ws = week ? weekStats(week) : null;
+  const hours = ws ? (Number.isInteger(ws.hours) ? `${ws.hours}` : ws.hours.toFixed(1).replace(".", ",")) : "";
+
+  return (
+    <>
+      <h2 className="t-over t-pf-h">Семестр</h2>
+      {term ? (
+        <div className="ow-glass ow-sem">
+          <div className="ow-sem-top"><b>{Math.round(term.share * 100)}%</b><span>{term.week}-я неделя из {term.weeks}</span></div>
+          <div className="ow-bar"><i style={{ width: `${Math.min(100, term.share * 100)}%` }} /></div>
+          <div className="ow-sem-sub"><span>{term.startLabel}</span><span>до сессии {term.weeksLeft} {plural(term.weeksLeft, "неделя", "недели", "недель")}</span></div>
+        </div>
+      ) : now && <div className="ow-glass ow-sem"><div className="ow-sem-top"><b>Сессия или каникулы</b></div></div>}
+      {ws && ws.pairs > 0 && (
+        <div className="ow-wk">
+          <div className="ow-glass"><b>{ws.pairs}</b><span>{plural(ws.pairs, "пара", "пары", "пар")} на неделе</span></div>
+          <div className="ow-glass"><b>{hours} ч</b><span>учёбы</span></div>
+          <div className="ow-glass"><b>{ws.windows}</b><span>{plural(ws.windows, "окно", "окна", "окон")}</span></div>
+        </div>
+      )}
+      {exam && (
+        <div className="ow-glass ow-exam">
+          <div className="ow-exam-n">{exam.days === 0 ? "сег." : exam.days}{exam.days > 0 && <small>{plural(exam.days, "ДЕНЬ", "ДНЯ", "ДНЕЙ")}</small>}</div>
+          <div>
+            <b>{exam.l.lesson_type ? `${exam.l.lesson_type[0].toUpperCase()}${exam.l.lesson_type.slice(1)} · ` : ""}{exam.l.subject}</b>
+            <span>{new Date(exam.l.lesson_date + "T00:00:00").toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" })} · {exam.l.pair_time_start}{exam.l.room ? ` · ауд. ${exam.l.room.name}` : ""}</span>
+          </div>
+        </div>
+      )}
+
+      <h2 className="t-over t-pf-h">Теоремы{pg ? ` · доказано ${pg.proved} из ${pg.theorems.length}` : ""}</h2>
+      {pg && (
+        <div className="ow-thm">
+          {pg.theorems.map(t => (
+            <button key={t.id} type="button" className={`ow-glass ow-th ${t.got ? "ow-th-ok" : ""} ${t.secret && !t.got ? "ow-th-sec" : ""}`} onClick={() => setOpen(t)}>
+              {t.got && <span className="ow-qed" aria-hidden="true" />}
+              <span className="ow-th-k">{t.got ? "Доказано" : t.secret ? "Секрет" : "Не доказано"}</span>
+              <b>{t.name}</b>
+              <small>{t.got ? theoremWhen(t) : t.short}</small>
+            </button>
+          ))}
+        </div>
+      )}
+      {open && (
+        <Sheet onClose={() => setOpen(null)} label={open.name}>
+          <div className="ow-th-sheet">
+            <div className="ow-th-k">{open.got ? "Доказано" : open.secret ? "Секретная теорема" : "Ещё не доказано"}</div>
+            <div className="ow-th-name">{open.name}</div>
+            <p>{open.statement ? <><i>Формулировка.</i> {open.statement}</> : "Условие не раскрывается. Доказательство найдётся само — может быть, случайно."}</p>
+            {open.got && <div className="ow-th-when"><span className="ow-qed" aria-hidden="true" />Доказано {theoremWhen(open)}</div>}
+          </div>
+        </Sheet>
+      )}
+    </>
   );
 }
