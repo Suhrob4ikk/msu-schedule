@@ -4,7 +4,7 @@
  *
  * Пока группа не выбрана (первый вход) или нажато «Изменить имя или группу»
  * (?edit=1) — экран «Вход» (components/tablo/profile/Login). Иначе две колонки:
- * слева профиль, «Учёба», «Разделы», «Синхронизация»; справа «Внешний вид» с
+ * слева профиль, «Учёба», «Разделы»; справа «Внешний вид» с
  * живым примером, ниже приглашение с QR и уведомления.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -19,7 +19,7 @@ import { useAppearance, useVip } from "@/lib/tablo/hooks";
 import VipProfile, { VipProgressSections } from "@/components/tablo/vip/VipProfile";
 import VipCodeEntry from "@/components/tablo/vip/VipCodeEntry";
 import { VIP_NEW_KEY, canActivateVip } from "@/lib/special";
-import { api, clearApiCache, rememberGroup, shortGroupName, type Group } from "@/lib/api";
+import { api, rememberGroup, shortGroupName, type Group } from "@/lib/api";
 import { markGroupChosen } from "@/lib/features";
 import { getInstallEvent, isIOS, isStandalone, onInstallChange, runInstall } from "@/lib/install";
 import { getPushStatus, resyncPush, subscribePush, unsubscribePush, type PushStatus } from "@/lib/push";
@@ -127,7 +127,6 @@ export default function ProfilePage() {
   const [newCount, setNewCount] = useState(0);
   const [skips, setSkips] = useState<SkipStats | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-  const [syncing, setSyncing] = useState(false);
   const [canInstall, setCanInstall] = useState(false);
   const [iosHint, setIosHint] = useState(false);
   const [apk, setApk] = useState<string | null>(null);
@@ -210,18 +209,6 @@ export default function ProfilePage() {
     return () => window.clearTimeout(id);
   }, [toast]);
 
-  const syncNow = async () => {
-    if (syncing) return;
-    setSyncing(true);
-    clearApiCache();
-    try {
-      await Promise.all([api.getGroups(), api.getAllWeeks(), groupId ? api.getChanges(groupId) : Promise.resolve([])]);
-      setToast("Расписание обновлено");
-    } catch {
-      setToast("Нет связи с сервером");
-    }
-    setSyncing(false);
-  };
 
   if (!hydrated) {
     return (
@@ -368,12 +355,8 @@ export default function ProfilePage() {
                   }}><Icon name="share" size={18} />Поделиться ссылкой</button>
                 </section>
               )}
-            <h2 className="t-over t-pf-h">Синхронизация</h2>
-            <section className="t-pf-card t-pf-sync">
-              <button type="button" className="t-pf-refresh" onClick={syncNow} disabled={syncing}>
-                <Icon name="history" size={20} />{syncing ? "Обновляем…" : "Обновить расписание"}
-              </button>
-            </section>
+            {/* «Синхронизация» с кнопкой «Обновить расписание» убрана (владелец, 11 окт 2026): сайт обновляет
+                расписание сам — при открытии, возврате на вкладку и по push (lib/api.ts, ServerResync) */}
             {/* Связь с владельцем: ошибки и предложения (просьба владельца 8 окт 2026) */}
             <nav className="t-pf-card t-pf-nav t-pf-contact" aria-label="Связь">
               <a href={DEVELOPER_TELEGRAM} target="_blank" rel="noopener noreferrer">

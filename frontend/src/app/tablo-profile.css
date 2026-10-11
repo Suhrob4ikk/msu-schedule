@@ -51,12 +51,6 @@
 .t-pf-nav > a > svg:last-child, .t-pf-nav > button > svg:last-child { color: var(--text-2); }
 .t-pf-ic { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 14px; background: var(--chip); flex-shrink: 0; }
 
-.t-pf-sync { padding-bottom: 14px; }
-.t-pf-sync .t-pf-row-flat { flex-direction: row; }
-.t-pf-sync .t-pf-row-flat b { font-size: 18px; font-weight: 700; }
-.t-pf-refresh { display: flex; align-items: center; justify-content: center; gap: 10px; width: calc(100% - 28px); height: 56px; margin: 0 14px; border-radius: 16px; background: var(--soft); color: var(--ink); font-size: 18px; font-weight: 700; }
-.t-pf-refresh:hover:not(:disabled) { filter: brightness(0.97); }
-.t-pf-refresh:disabled { opacity: 0.6; }
 
 /* QR слева, справа название и ссылка, под ними кнопка. На узком телефоне кнопка — под QR
    во всю ширину: рядом с QR ей и слову «одногруппников» не хватало места (8 окт 2026). */

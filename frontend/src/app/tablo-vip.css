@@ -151,9 +151,6 @@ html.dark.vip.accent-platinum { --vip-edge: linear-gradient(90deg, transparent, 
   /* Плашка недели в шапке телефона — тоже на --soft */
   html.vip.accent-metal .t-phead-pill { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gold) 55%, transparent); }
   html.dark.vip.accent-metal .t-phead-pill { background: linear-gradient(135deg, var(--vip-night-1), var(--vip-night-2)); }
-  /* Кнопка «Обновить расписание» в Кабинете — тоже на --soft */
-  html.vip.accent-metal .t-pf-refresh { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gold) 55%, transparent); }
-  html.dark.vip.accent-metal .t-pf-refresh { background: linear-gradient(135deg, var(--vip-night-1), var(--vip-night-2)); }
   /* Кнопка «Ближайшая пара» на «Аудиториях» — тоже на --soft */
   html.vip.accent-metal .t-rm-when { border-color: color-mix(in srgb, var(--gold) 55%, transparent); }
   html.dark.vip.accent-metal .t-rm-when { background: linear-gradient(135deg, var(--vip-night-1), var(--vip-night-2)); }
