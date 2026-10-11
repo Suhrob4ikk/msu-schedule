@@ -323,6 +323,13 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
   const [missing, setMissing] = useState<any[]>([]);
   const [names, setNames] = useState<any>(null);
   const [feedback, setFeedback] = useState<any[]>([]);
+  const [owners, setOwners] = useState<any[]>([]);
+  const [myDevice, setMyDevice] = useState("");
+  const [ownerLabel, setOwnerLabel] = useState("");
+  useEffect(() => {
+    try { setMyDevice(localStorage.getItem("msu_device_id_v2") ?? ""); } catch { /* приватный режим */ }
+    setOwnerLabel(/iPhone|Android/i.test(navigator.userAgent) ? "Телефон" : "Компьютер");
+  }, []);
   const overrideForm = useRef<HTMLDivElement>(null);
   const realNameInput = useRef<HTMLInputElement>(null);
 
@@ -340,6 +347,7 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
     try { setMissing(await api<any[]>("/missing-teachers")); } catch { setMissing([]); }
     try { setNames(await api<any>("/full-names")); } catch { setNames(null); }
     try { setFeedback(await api<any[]>("/feedback")); } catch { setFeedback([]); }
+    try { setOwners(await api<any[]>("/owner-devices")); } catch { setOwners([]); }
   }, [api, onLogout]);
 
   useEffect(() => { refresh(); }, [refresh]);
@@ -501,7 +509,45 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
             )}
           </Section>
 
-          <Section title="Отзывы о дизайне" hint="Кнопка «Оставить отзыв» есть только в «золотом профиле» (frontend/src/lib/special.ts). Каждый отзыв ещё и приходит вам на почту.">
+          <Section title="Мои устройства" hint={<>На этих устройствах сайт включает <b style={{ color: c.fg }}>ваше оформление</b>. Привязать можно только отсюда, с паролем — по имени или коду это не включить. Права админа это не даёт: панель всё равно спрашивает пароль. Новый телефон — откройте на нём панель и нажмите кнопку.</>}>
+            {(() => {
+              const mine = owners.some((o: any) => o.device_id === myDevice);
+              return (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {!myDevice ? (
+                    <div style={{ fontSize: 13, color: c.yellow }}>У этого браузера ещё нет номера устройства — откройте на сайте Кабинет и выберите группу.</div>
+                  ) : mine ? (
+                    <div style={{ fontSize: 13, color: c.green }}>Это устройство уже ваше.</div>
+                  ) : (
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <input value={ownerLabel} onChange={e => setOwnerLabel(e.target.value)} placeholder="Название, например «Телефон»" style={{ ...input, flex: "1 1 160px" }} />
+                      <button style={btnPrimary} disabled={!!busy} onClick={() => act("owner", async () => {
+                        await api("/owner-devices", { method: "POST", body: JSON.stringify({ device_id: myDevice, label: ownerLabel }) });
+                        try { localStorage.removeItem("owner_device"); } catch { /* приватный режим */ }
+                        return { message: "Устройство привязано. Откройте сайт заново — включится ваше оформление." };
+                      })}>{busy === "owner" ? "Привязываем…" : "Это моё устройство"}</button>
+                    </div>
+                  )}
+                  {owners.length === 0
+                    ? <div style={{ fontSize: 13, color: c.muted }}>Пока ни одного устройства</div>
+                    : owners.map((o: any) => (
+                        <div key={o.id} style={{ display: "flex", alignItems: "center", gap: 10, background: c.panel2, borderRadius: 10, padding: "8px 12px", fontSize: 13 }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <b>{o.label || "Устройство"}</b>{o.device_id === myDevice && <span style={{ color: c.green }}> · это устройство</span>}
+                            <div style={{ color: c.faint, fontSize: 12 }}>привязано {fmtTime(parseUtc(o.created_at))} · …{String(o.device_id).slice(-6)}</div>
+                          </div>
+                          <button style={btn} disabled={!!busy} onClick={() => {
+                            if (!window.confirm(`Отвязать «${o.label || "устройство"}»?`)) return;
+                            act("owner" + o.id, async () => { await api(`/owner-devices/${o.id}`, { method: "DELETE" }); return { message: "Устройство отвязано" }; });
+                          }}>Отвязать</button>
+                        </div>
+                      ))}
+                </div>
+              );
+            })()}
+          </Section>
+
+          <Section title="Отзывы о дизайне" hint="Отзывы из «золотого профиля» (frontend/src/lib/special.ts). Кнопку на сайте убрали, когда отзыв оставлен; каждый отзыв ещё и приходил вам на почту.">
             {feedback.length === 0
               ? <div style={{ fontSize: 13, color: c.muted }}>Пока отзывов нет</div>
               : <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>

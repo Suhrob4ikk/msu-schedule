@@ -20,6 +20,8 @@ import VipSurprise from "@/components/tablo/vip/VipSurprise";
 import VipAmbient from "@/components/tablo/vip/VipAmbient";
 import VipTracker from "@/components/tablo/vip/VipTracker";
 import VipBirthday from "@/components/tablo/vip/VipBirthday";
+import OwnerSync from "@/components/OwnerSync";
+import { ownerInitScript } from "@/lib/owner";
 import { appearanceInitScript, MODE_BASE } from "@/lib/appearance";
 import { specialInitScript } from "@/lib/special";
 
@@ -104,6 +106,11 @@ export default function RootLayout({
           strategy="beforeInteractive"
           dangerouslySetInnerHTML={{ __html: specialInitScript() }}
         />
+        <Script
+          id="owner-init"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: ownerInitScript() }}
+        />
       </head>
       <body className={`${onest.variable} ${robotoCondensed.variable} ${letterFont.variable} min-h-full flex flex-col antialiased`}>
         {children}
@@ -117,6 +124,7 @@ export default function RootLayout({
         <VipAmbient />
         <VipTracker />
         <VipBirthday />
+        <OwnerSync />
       </body>
     </html>
   );

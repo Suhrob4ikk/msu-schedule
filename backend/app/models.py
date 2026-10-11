@@ -370,3 +370,14 @@ class VipProgress(Base):
     offdays = Column(Text, nullable=False, default="[]")   # будни, когда у группы не было пар
     events = Column(Text, nullable=False, default="{}")    # {"early": "2026-10-14T07:12", ...}
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class OwnerDevice(Base):
+    """Устройства владельца (11 окт 2026): привязываются в панели /dev по паролю.
+    Сайт спрашивает /api/user/owner — включать ли оформление владельца. Права админа
+    это не даёт: панель по-прежнему закрыта паролем."""
+    __tablename__ = "owner_devices"
+    id = Column(Integer, primary_key=True)
+    device_id = Column(String(100), unique=True, nullable=False)
+    label = Column(String(100), nullable=False, default="")
+    created_at = Column(DateTime, default=datetime.utcnow)

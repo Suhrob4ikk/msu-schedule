@@ -29,7 +29,7 @@ from app.core.config import settings
 from app.database import get_db
 from app.models import (
     Group, Lesson, Teacher, Room, WeekSchedule, SyncLog,
-    UserRegistration, UserSubscription, TeacherOverride, Feedback,
+    UserRegistration, UserSubscription, TeacherOverride, Feedback, OwnerDevice,
 )
 
 logger = logging.getLogger(__name__)
@@ -461,6 +461,48 @@ def dev_users(db: Session = Depends(get_db)):
         ),
         "vapid_configured": bool(settings.VAPID_PUBLIC_KEY and settings.VAPID_PRIVATE_KEY),
     }
+
+
+class OwnerDeviceIn(BaseModel):
+    device_id: str
+    label: str = ""
+
+
+@router.get("/owner-devices", dependencies=[Depends(require_dev)])
+def owner_devices(db: Session = Depends(get_db)):
+    """Устройства владельца — на них сайт включает оформление владельца."""
+    return [{"id": d.id, "device_id": d.device_id, "label": d.label,
+             "created_at": d.created_at.isoformat() if d.created_at else None}
+            for d in db.query(OwnerDevice).order_by(OwnerDevice.created_at).all()]
+
+
+@router.post("/owner-devices", dependencies=[Depends(require_dev)])
+def add_owner_device(body: OwnerDeviceIn, db: Session = Depends(get_db)):
+    """«Это моё устройство»: привязать устройство, с которого открыта панель."""
+    from app.api.routes.user import forget_owner_cache
+    dev_id = body.device_id.strip()
+    if not dev_id or len(dev_id) > 100:
+        raise HTTPException(400, "Нет номера устройства — откройте на сайте Кабинет и выберите группу")
+    row = db.query(OwnerDevice).filter_by(device_id=dev_id).first()
+    if not row:
+        row = OwnerDevice(device_id=dev_id, label=body.label.strip()[:100])
+        db.add(row)
+    else:
+        row.label = body.label.strip()[:100] or row.label
+    db.commit()
+    forget_owner_cache()
+    return {"ok": True}
+
+
+@router.delete("/owner-devices/{row_id}", dependencies=[Depends(require_dev)])
+def delete_owner_device(row_id: int, db: Session = Depends(get_db)):
+    from app.api.routes.user import forget_owner_cache
+    row = db.get(OwnerDevice, row_id)
+    if row:
+        db.delete(row)
+        db.commit()
+    forget_owner_cache()
+    return {"ok": True}
 
 
 @router.get("/feedback", dependencies=[Depends(require_dev)])

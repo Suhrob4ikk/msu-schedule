@@ -330,3 +330,26 @@ def vip_progress(body: VipProgressBody, db: Session = Depends(get_db)):
     if not reg or first_word(reg.name) != PEOPLE[body.person]:
         raise HTTPException(404, "Не найдено")
     return touch(db, body.person, reg, body.visit, body.flags[:10])
+
+
+
+# ─── Устройства владельца (11 окт 2026) ─────────────────────────────────────
+# Привязываются в /dev по паролю (api/routes/dev.py → /dev/owner-devices). Сайт
+# спрашивает здесь, включать ли оформление владельца. Список держим в памяти:
+# база не просыпается на каждый вопрос.
+
+_owner_ids: set[str] | None = None
+
+
+def forget_owner_cache() -> None:
+    global _owner_ids
+    _owner_ids = None
+
+
+@router.get("/owner")
+def is_owner_device(device_id: str, db: Session = Depends(get_db)):
+    global _owner_ids
+    from app.models import OwnerDevice
+    if _owner_ids is None:
+        _owner_ids = {d for (d,) in db.query(OwnerDevice.device_id).all()}
+    return {"owner": device_id in _owner_ids}
