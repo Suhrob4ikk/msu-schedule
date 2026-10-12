@@ -31,6 +31,10 @@ _RETRY_COOLDOWN = 300.0
 # и накопленные заметки для конкретной установленной версии.
 _cache: dict = {"releases": None, "ts": 0.0, "last_attempt": 0.0}
 
+# Повторный показ карточки обновления старым версиям — см. get_latest_version.
+REANNOUNCE_BELOW = (2, 0, 4)
+REANNOUNCE_ROUND = 1
+
 
 def parse_version(v: str) -> tuple:
     """«v1.9.10» → (1, 9, 10). Нечисловые куски игнорируем."""
@@ -107,8 +111,19 @@ async def get_latest_version(
             else:
                 notes = missed[0]["notes"]
 
+    # Показать карточку «Доступно обновление» ещё раз тем, кто закрыл её крестиком
+    # (решение владельца 12 окт 2026). Приложение до 2.0.5 запоминает закрытую версию
+    # навсегда и сравнивает строку целиком, а номер разбирает parseInt: «2.0.4 » для
+    # него та же 2.0.4, но уже не «закрытая». Пробел в конце на экране не виден.
+    # Только для версий без обновления внутри приложения (< 2.0.4, и самых старых,
+    # что не передают installed): у 2.0.4+ версия попадает в имя скачанного файла.
+    # Ещё один повтор — REANNOUNCE_ROUND + 1.
+    version = latest["version"]
+    if not installed or parse_version(installed) < REANNOUNCE_BELOW:
+        version += " " * REANNOUNCE_ROUND
+
     return {
-        "version": latest["version"],
+        "version": version,
         "download_url": latest["download_url"],
         "notes": notes,
         # Сколько версий пропущено — чтобы приложение могло написать
