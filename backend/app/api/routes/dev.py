@@ -559,14 +559,26 @@ def dev_messages_list(db: Session = Depends(get_db)):
 
 @router.post("/messages/{message_id}/reply", dependencies=[Depends(require_dev)])
 def dev_messages_reply(message_id: int, body: DevReplyIn, db: Session = Depends(get_db)):
-    """Ответ студенту: виден у него в Кабинете, плюс web-push, если он их включал."""
+    """Новое сообщение студенту в переписку сообщения message_id: видно у него в Кабинете,
+    плюс web-push, если он их включал. Можно несколько подряд (13 окт 2026)."""
     from app.services import dev_messages as dm
     try:
         pushed = dm.reply(db, message_id, body.text)
     except dm.MessageError as e:
         raise HTTPException(e.status, e.text)
-    return {"ok": True, "message": "Ответ отправлен" + (" · уведомление ушло" if pushed
+    return {"ok": True, "message": "Отправлено" + (" · уведомление ушло" if pushed
             else " · уведомления у студента выключены — увидит, когда откроет Кабинет")}
+
+
+@router.post("/messages/{message_id}/edit", dependencies=[Depends(require_dev)])
+def dev_messages_edit(message_id: int, body: DevReplyIn, db: Session = Depends(get_db)):
+    """Исправить своё сообщение — студент увидит новый текст с пометкой «изменено»."""
+    from app.services import dev_messages as dm
+    try:
+        dm.edit(db, message_id, body.text)
+    except dm.MessageError as e:
+        raise HTTPException(e.status, e.text)
+    return {"ok": True}
 
 
 @router.delete("/messages/{message_id}", dependencies=[Depends(require_dev)])

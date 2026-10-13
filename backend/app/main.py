@@ -224,6 +224,22 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             MIGRATION_STATUS += f"; expo_push_token: ошибка — {e}"
 
+        # Вопросы разработчику — переписка (13 окт 2026): сообщения разработчика — свои
+        # строки (from_dev), их можно править (edited_at). Старые ответы из поля reply
+        # переносятся в такие строки один раз, reply после этого пустой.
+        try:
+            dm_cols = [c["name"] for c in sa_inspect(engine).get_columns("dev_messages")]
+            with engine.begin() as conn:
+                if "from_dev" not in dm_cols:
+                    conn.execute(text("ALTER TABLE dev_messages ADD COLUMN from_dev BOOLEAN NOT NULL DEFAULT FALSE"))
+                if "edited_at" not in dm_cols:
+                    conn.execute(text("ALTER TABLE dev_messages ADD COLUMN edited_at TIMESTAMP"))
+            from app.services.dev_messages import migrate_replies
+            moved = migrate_replies()
+            MIGRATION_STATUS += f"; dev_messages: ок, ответов перенесено {moved}"
+        except Exception as e:
+            MIGRATION_STATUS += f"; dev_messages: ошибка — {e}"
+
         # Дозаполняем старые записи без week_start. Файл с расписанием новой недели
         # приходит в конце текущей (пт–вс) — тогда изменение относится к СЛЕДУЮЩЕМУ
         # понедельнику; правки в пн–чт относятся к текущей неделе.

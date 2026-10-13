@@ -13,6 +13,10 @@
 База трогается только при отправке, открытии переписки и в панели. Счётчик
 непрочитанных ответов и текст последнего (надпись в Кабинете и баннер «Ответ
 разработчика» на любой странице — DevReplyToast) — в памяти: Neon должен днём спать.
+
+С 13 окт 2026 это переписка, а не «вопрос — ответ»: сообщение разработчика — своя строка
+(from_dev), их может быть несколько подряд, и их можно править. Панель собирает строки
+устройства в переписку; анонимные — отдельной, иначе соседний вопрос с именем выдал бы автора.
 """
 import logging
 import time
@@ -42,18 +46,33 @@ class MessageError(Exception):
         self.text = text
 
 
+def _unread_rows(db: Session, device_id: str | None = None):
+    """Непрочитанные студентом сообщения разработчика, старые сначала."""
+    q = db.query(DevMessage.device_id, DevMessage.id, DevMessage.text).filter(
+        DevMessage.from_dev.is_(True), DevMessage.reply_seen.is_(False))
+    if device_id is not None:
+        q = q.filter(DevMessage.device_id == device_id)
+    return q.order_by(DevMessage.created_at.asc(), DevMessage.id.asc()).all()
+
+
 def _load_unread(db: Session) -> dict[str, dict]:
     global _unread
     if _unread is None:
         out: dict[str, dict] = {}
-        rows = (db.query(DevMessage.device_id, DevMessage.id, DevMessage.reply)
-                .filter(DevMessage.reply.isnot(None), DevMessage.reply_seen.is_(False))
-                .order_by(DevMessage.replied_at.asc()).all())
-        for dev, mid, text in rows:
+        for dev, mid, text in _unread_rows(db):
             n = out.get(dev, {}).get("n", 0) + 1
             out[dev] = {"n": n, "id": mid, "text": text}
         _unread = out
     return _unread
+
+
+def _reload_unread(db: Session, device_id: str) -> None:
+    """Перечитать одного студента из базы — после правки или удаления."""
+    cache = _load_unread(db)
+    cache.pop(device_id, None)
+    rows = _unread_rows(db, device_id)
+    if rows:
+        cache[device_id] = {"n": len(rows), "id": rows[-1][1], "text": rows[-1][2]}
 
 
 def unread_count(db: Session, device_id: str) -> int:
@@ -61,7 +80,7 @@ def unread_count(db: Session, device_id: str) -> int:
 
 
 def unread_info(db: Session, device_id: str) -> dict:
-    """Для баннера: сколько непрочитанных, id и текст последнего ответа."""
+    """Для баннера: сколько непрочитанных, id и текст последнего сообщения разработчика."""
     u = _load_unread(db).get(device_id)
     return {"unread": u["n"], "id": u["id"], "text": u["text"][:200]} if u else {"unread": 0}
 
@@ -70,11 +89,29 @@ def _row(m: DevMessage) -> dict:
     return {
         "id": m.id,
         "text": m.text,
+        "from_dev": bool(m.from_dev),
         "anonymous": m.name is None,
         "created_at": m.created_at.isoformat() if m.created_at else None,
-        "reply": m.reply,
-        "replied_at": m.replied_at.isoformat() if m.replied_at else None,
+        "edited": m.edited_at is not None,
     }
+
+
+def migrate_replies() -> int:
+    """Старые ответы (поле reply) — в отдельные строки разработчика. Один раз при запуске
+    (main.py); повторно делать нечего — reply после переноса пустой. Возвращает, сколько."""
+    from app.database import SessionLocal
+    db = SessionLocal()
+    try:
+        old = db.query(DevMessage).filter(DevMessage.reply.isnot(None), DevMessage.from_dev.is_(False)).all()
+        for m in old:
+            db.add(DevMessage(device_id=m.device_id, name=m.name, group_label=m.group_label,
+                              text=m.reply, created_at=m.replied_at or m.created_at,
+                              reply_seen=m.reply_seen, from_dev=True))
+            m.reply, m.replied_at = None, None
+        db.commit()
+        return len(old)
+    finally:
+        db.close()
 
 
 def _quiet(reg: UserRegistration, group: Group | None) -> bool:
@@ -105,7 +142,8 @@ def send(db: Session, device_id: str, text: str, anonymous: bool) -> tuple[dict,
         raise MessageError(403, "Сначала выберите группу в Кабинете")
 
     day_ago = datetime.utcnow() - timedelta(days=1)
-    recent = db.query(DevMessage).filter(DevMessage.device_id == device_id, DevMessage.created_at >= day_ago).count()
+    recent = db.query(DevMessage).filter(DevMessage.device_id == device_id, DevMessage.from_dev.is_(False),
+                                         DevMessage.created_at >= day_ago).count()
     now = time.time()
     _times[:] = [t for t in _times if now - t < 3600]
     if recent >= PER_DEVICE_DAY or len(_times) >= PER_HOUR:
@@ -137,15 +175,17 @@ def send_email(author: str, group_label: str, text: str) -> None:
 
 
 def my_messages(db: Session, device_id: str) -> list[dict]:
-    rows = db.query(DevMessage).filter_by(device_id=device_id).order_by(DevMessage.created_at.asc()).limit(100).all()
-    return [_row(m) for m in rows]
+    """Переписка студента — последние 200 сообщений по порядку."""
+    rows = (db.query(DevMessage).filter_by(device_id=device_id)
+            .order_by(DevMessage.created_at.desc(), DevMessage.id.desc()).limit(200).all())
+    return [_row(m) for m in reversed(rows)]
 
 
 def mark_seen(db: Session, device_id: str) -> None:
     if not unread_count(db, device_id):
         return
     db.query(DevMessage).filter(
-        DevMessage.device_id == device_id, DevMessage.reply.isnot(None), DevMessage.reply_seen.is_(False),
+        DevMessage.device_id == device_id, DevMessage.from_dev.is_(True), DevMessage.reply_seen.is_(False),
     ).update({DevMessage.reply_seen: True}, synchronize_session=False)
     db.commit()
     _load_unread(db).pop(device_id, None)
@@ -154,41 +194,31 @@ def mark_seen(db: Session, device_id: str) -> None:
 # ─── Панель /dev ─────────────────────────────────────────────────────────────
 
 def admin_list(db: Session) -> list[dict]:
-    """Последние 100 вопросов. `thread` — ключ переписки: панель собирает вопросы одного
-    студента в одну карточку (13 окт 2026). Анонимные — отдельной перепиской того же
-    устройства, иначе соседний вопрос с именем выдал бы автора."""
-    rows = db.query(DevMessage).order_by(DevMessage.created_at.desc()).limit(100).all()
+    """Последние 300 сообщений, новые сверху. `thread` — ключ переписки: устройство и
+    анонимно ли. Сообщения разработчика берут имя переписки, поэтому ключ у них тот же."""
+    rows = (db.query(DevMessage).order_by(DevMessage.created_at.desc(), DevMessage.id.desc())
+            .limit(300).all())
     return [{
         **_row(m),
         "thread": f"{m.device_id}:{'a' if m.name is None else 'n'}",
         "name": m.name or "Аноним",
         "group": m.group_label,
-        "reply_seen": bool(m.reply_seen),
+        "seen": bool(m.reply_seen),
     } for m in rows]
 
 
-def reply(db: Session, message_id: int, text: str) -> bool:
-    """Записывает ответ и шлёт студенту web-push. True — уведомление ушло."""
-    from app.services.push import send_push
-
+def _check_text(text: str) -> str:
     text = (text or "").strip()
     if not text:
-        raise MessageError(400, "Напишите ответ")
+        raise MessageError(400, "Напишите сообщение")
     if len(text) > MAX_LEN:
         raise MessageError(400, f"Слишком длинно — не больше {MAX_LEN} символов")
-    m = db.get(DevMessage, message_id)
-    if not m:
-        raise MessageError(404, "Сообщение не найдено")
-    was_unread = m.reply is not None and not m.reply_seen
-    m.reply = text
-    m.replied_at = datetime.utcnow()
-    m.reply_seen = False
-    db.commit()
-    cache = _load_unread(db)
-    n = cache.get(m.device_id, {}).get("n", 0) + (0 if was_unread else 1)
-    cache[m.device_id] = {"n": n, "id": m.id, "text": text}
+    return text
 
-    sub = db.query(UserSubscription).filter_by(session_id=m.device_id).first()
+
+def _push(db: Session, device_id: str, text: str) -> bool:
+    from app.services.push import send_push
+    sub = db.query(UserSubscription).filter_by(session_id=device_id).first()
     if not sub or not sub.push_endpoint or not sub.push_keys:
         return False
     try:
@@ -198,20 +228,43 @@ def reply(db: Session, message_id: int, text: str) -> bool:
         return False
 
 
+def reply(db: Session, message_id: int, text: str) -> bool:
+    """Новое сообщение разработчика в переписку того сообщения (любого в ней) и web-push
+    студенту. True — уведомление ушло."""
+    text = _check_text(text)
+    m = db.get(DevMessage, message_id)
+    if not m:
+        raise MessageError(404, "Переписка не найдена")
+    d = DevMessage(device_id=m.device_id, name=m.name, group_label=m.group_label,
+                   text=text, from_dev=True, reply_seen=False)
+    db.add(d)
+    db.commit()
+    cache = _load_unread(db)
+    n = cache.get(d.device_id, {}).get("n", 0) + 1
+    cache[d.device_id] = {"n": n, "id": d.id, "text": text}
+    return _push(db, d.device_id, text)
+
+
+def edit(db: Session, message_id: int, text: str) -> None:
+    """Исправить своё сообщение. Студент увидит новый текст с пометкой «изменено»;
+    уведомления нет — он уже знает, что ответ пришёл."""
+    text = _check_text(text)
+    m = db.get(DevMessage, message_id)
+    if not m or not m.from_dev:
+        raise MessageError(404, "Сообщение не найдено")
+    if m.text == text:
+        return
+    m.text = text
+    m.edited_at = datetime.utcnow()
+    db.commit()
+    _reload_unread(db, m.device_id)
+
+
 def delete(db: Session, message_id: int) -> None:
     m = db.get(DevMessage, message_id)
     if not m:
         return
-    unread = m.reply is not None and not m.reply_seen
     dev = m.device_id
     db.delete(m)
     db.commit()
-    if unread:
-        # проще и точнее перечитать этого студента из базы, чем чинить «последний ответ»
-        cache = _load_unread(db)
-        cache.pop(dev, None)
-        rows = (db.query(DevMessage.id, DevMessage.reply)
-                .filter(DevMessage.device_id == dev, DevMessage.reply.isnot(None), DevMessage.reply_seen.is_(False))
-                .order_by(DevMessage.replied_at.asc()).all())
-        if rows:
-            cache[dev] = {"n": len(rows), "id": rows[-1][0], "text": rows[-1][1]}
+    _reload_unread(db, dev)

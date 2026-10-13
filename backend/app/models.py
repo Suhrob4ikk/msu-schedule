@@ -368,6 +368,11 @@ class DevMessage(Base):
     group_label = Column(String(200), nullable=True)
     text = Column(Text, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+    # С 13 окт 2026 переписка: сообщение разработчика — своя строка (from_dev), name и
+    # group_label у неё — как у переписки (пустые — анонимная), reply_seen — прочитано
+    # студентом. reply и replied_at — только у старых строк до переноса (main.py).
+    from_dev = Column(Boolean, default=False, nullable=False)
+    edited_at = Column(DateTime, nullable=True)
     reply = Column(Text, nullable=True)
     replied_at = Column(DateTime, nullable=True)
     reply_seen = Column(Boolean, default=False, nullable=False)

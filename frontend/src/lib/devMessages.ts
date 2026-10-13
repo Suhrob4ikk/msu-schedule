@@ -4,13 +4,15 @@
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL!;
 
+/** Сообщение переписки (с 13 окт 2026): своё или разработчика (`from_dev`), идут по порядку.
+ *  `anonymous` — у своих: отправлено без имени. `edited` — разработчик исправил текст. */
 export type DevMessage = {
   id: number;
   text: string;
+  from_dev: boolean;
   anonymous: boolean;
   created_at: string | null;
-  reply: string | null;
-  replied_at: string | null;
+  edited: boolean;
 };
 
 export function myDeviceId(): string {

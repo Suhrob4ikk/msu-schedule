@@ -326,6 +326,8 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
   const [messages, setMessages] = useState<any[]>([]);
   const [replies, setReplies] = useState<Record<string, string>>({});
   const [msgNote, setMsgNote] = useState<Record<string, string>>({});
+  // Правка своего сообщения: какое и черновик текста
+  const [editing, setEditing] = useState<{ id: number; text: string } | null>(null);
   const [owners, setOwners] = useState<any[]>([]);
   const [userList, setUserList] = useState<any[]>([]);
   const [userQ, setUserQ] = useState("");
@@ -428,9 +430,8 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
   const lastAt = parseUtc(last?.started_at);
   const zero = ov.zero_lesson_groups as any[];
   const missingNew = missing.filter(m => !m.override);
-  // Вопросы одного студента — одна переписка (13 окт 2026): сервер отдаёт ключ `thread`,
-  // анонимные вопросы того же устройства — отдельной перепиской. Ответ пишется к последнему
-  // вопросу; переписка ждёт ответа, пока на последний вопрос не ответили.
+  // Переписки (13 окт 2026): сервер отдаёт ключ `thread` — устройство и анонимно ли;
+  // сообщения разработчика — свои строки (from_dev). Ждёт ответа — если последним писал студент.
   const threads = (() => {
     const by = new Map<string, any[]>();
     for (const m of messages) {
@@ -439,10 +440,11 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
     }
     return [...by.entries()].map(([key, list]) => {
       const items = [...list].reverse(); // сервер отдаёт свежие сначала, в переписке — по порядку
-      return { key, items, last: items[items.length - 1] };
+      const student = [...items].reverse().find(m => !m.from_dev) ?? items[0];
+      return { key, items, last: items[items.length - 1], student };
     });
   })();
-  const unanswered = threads.filter(t => !t.last.reply);
+  const unanswered = threads.filter(t => !t.last.from_dev);
   const sendReply = async (key: string, id: number) => {
     const text = (replies[key] ?? "").trim();
     if (!text) return;
@@ -453,8 +455,17 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
       setMessages(await api<any[]>("/messages"));
     } catch (e: any) { setMsgNote(n => ({ ...n, [key]: e.message || "Не удалось отправить" })); }
   };
+  const saveEdit = async (key: string) => {
+    if (!editing || !editing.text.trim()) return;
+    try {
+      await api(`/messages/${editing.id}/edit`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: editing.text }) });
+      setEditing(null);
+      setMsgNote(n => ({ ...n, [key]: "Исправлено" }));
+      setMessages(await api<any[]>("/messages"));
+    } catch (e: any) { setMsgNote(n => ({ ...n, [key]: e.message || "Не удалось исправить" })); }
+  };
   const deleteMessage = async (id: number) => {
-    if (!window.confirm("Удалить сообщение? У студента оно тоже исчезнет вместе с ответом.")) return;
+    if (!window.confirm("Удалить сообщение? У студента оно тоже исчезнет.")) return;
     try { await api(`/messages/${id}`, { method: "DELETE" }); setMessages(ms => ms.filter(m => m.id !== id)); } catch { /* сеть */ }
   };
   const health =
@@ -608,45 +619,55 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
             })()}
           </Section>
 
-          <Section title={`Вопросы${unanswered.length ? ` · ${unanswered.length} без ответа` : ""}`} hint={<>Кабинет сайта → «Написать разработчику» (вместо ссылки на ваш Telegram). Вопросы одного студента — одной перепиской, ответ — к последнему вопросу. Каждый вопрос приходит и на почту, кроме ваших (Сухроб, ПМиИ 3) и тестовых. Ответ студент увидит там же, в Кабинете, и получит уведомление, если включал их на сайте. «Аноним» — студент попросил не показывать имя: оно не сохраняется вовсе.</>}>
+          <Section title={`Вопросы${unanswered.length ? ` · ${unanswered.length} без ответа` : ""}`} hint={<>Кабинет сайта → «Написать разработчику» (вместо ссылки на ваш Telegram). Каждый студент — одна переписка, писать можно несколько сообщений подряд, свои — исправить («изм.»). Каждый вопрос приходит и на почту, кроме ваших (Сухроб, ПМиИ 3) и тестовых. Ваши сообщения студент увидит там же, в Кабинете, и получит уведомление, если включал их на сайте. «Аноним» — студент попросил не показывать имя: оно не сохраняется вовсе.</>}>
             {threads.length === 0
               ? <div style={{ fontSize: 13, color: c.muted }}>Пока вопросов нет</div>
               : <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {threads.map(({ key, items, last }) => (
-                    <div key={key} style={{ background: c.panel2, borderRadius: 10, padding: "10px 12px", borderLeft: last.reply ? undefined : `3px solid ${c.yellow}` }}>
+                  {threads.map(({ key, items, last, student }) => (
+                    <div key={key} style={{ background: c.panel2, borderRadius: 10, padding: "10px 12px", borderLeft: last.from_dev ? undefined : `3px solid ${c.yellow}` }}>
                       <div style={{ fontSize: 13 }}>
-                        <b>{last.name}</b>{last.group && <span style={{ color: c.faint }}> · {last.group}</span>}
-                        {items.length > 1 && <span style={{ color: c.muted }}> · {items.length} сообщ.</span>}
+                        <b>{student.name}</b>{student.group && <span style={{ color: c.faint }}> · {student.group}</span>}
                       </div>
                       {items.map((m: any) => (
-                        <div key={m.id} style={{ marginTop: 8 }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline" }}>
-                            <div style={{ fontSize: 14, lineHeight: 1.45, whiteSpace: "pre-wrap" }}>{m.text}</div>
-                            <span style={{ fontSize: 12, color: c.muted, whiteSpace: "nowrap" }}>
-                              {fmtTime(parseUtc(m.created_at))}
+                        <div key={m.id} style={m.from_dev
+                          ? { borderLeft: `2px solid ${c.green}`, paddingLeft: 10, margin: "8px 0 0" }
+                          : { margin: "8px 0 0" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 12, color: c.muted }}>
+                            <span>
+                              {m.from_dev ? "Вы" : "Студент"} · {fmtTime(parseUtc(m.created_at))}
+                              {m.edited && " · изменено"}
+                              {m.from_dev && (m.seen ? " · прочитано" : " · ещё не прочитано")}
+                            </span>
+                            <span style={{ whiteSpace: "nowrap" }}>
+                              {m.from_dev && editing?.id !== m.id && (
+                                <button onClick={() => setEditing({ id: m.id, text: m.text })} title="Исправить сообщение"
+                                  style={{ background: "none", border: "none", color: c.muted, cursor: "pointer", fontSize: 12, padding: 0 }}>изм.</button>
+                              )}
                               <button onClick={() => deleteMessage(m.id)} aria-label="Удалить сообщение" title="Удалить сообщение"
-                                style={{ background: "none", border: "none", color: c.red, cursor: "pointer", fontSize: 14, marginLeft: 6, padding: 0 }}>×</button>
+                                style={{ background: "none", border: "none", color: c.red, cursor: "pointer", fontSize: 14, marginLeft: 8, padding: 0 }}>×</button>
                             </span>
                           </div>
-                          {m.reply && (
-                            <div style={{ fontSize: 13.5, lineHeight: 1.45, whiteSpace: "pre-wrap", borderLeft: `2px solid ${c.green}`, paddingLeft: 10, margin: "6px 0", color: c.fg }}>
-                              <div style={{ fontSize: 12, color: c.muted, marginBottom: 2 }}>
-                                Ваш ответ · {fmtTime(parseUtc(m.replied_at))} · {m.reply_seen ? "прочитан" : "ещё не прочитан"}
-                              </div>
-                              {m.reply}
-                            </div>
-                          )}
+                          {editing?.id === m.id
+                            ? <>
+                                <textarea value={editing?.text ?? ""} onChange={e => setEditing({ id: m.id, text: e.target.value })} rows={2}
+                                  style={{ ...input, width: "100%", resize: "vertical", fontFamily: "inherit", marginTop: 4 }} />
+                                <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                                  <button style={btn} disabled={!editing?.text.trim()} onClick={() => saveEdit(key)}>Сохранить</button>
+                                  <button style={btn} onClick={() => setEditing(null)}>Отмена</button>
+                                </div>
+                              </>
+                            : <div style={{ fontSize: 14, lineHeight: 1.45, whiteSpace: "pre-wrap", marginTop: 2, color: c.fg }}>{m.text}</div>}
                         </div>
                       ))}
                       <textarea
                         value={replies[key] ?? ""}
                         onChange={e => setReplies(rs => ({ ...rs, [key]: e.target.value }))}
-                        placeholder={last.reply ? "Исправить последний ответ" : "Ответ студенту"}
+                        placeholder="Сообщение студенту"
                         rows={2}
-                        style={{ ...input, width: "100%", resize: "vertical", fontFamily: "inherit", marginTop: 8 }}
+                        style={{ ...input, width: "100%", resize: "vertical", fontFamily: "inherit", marginTop: 10 }}
                       />
                       <div style={{ display: "flex", gap: 8, marginTop: 6, alignItems: "center", flexWrap: "wrap" }}>
-                        <button style={btn} disabled={!(replies[key] ?? "").trim()} onClick={() => sendReply(key, last.id)}>{last.reply ? "Заменить ответ" : "Ответить"}</button>
+                        <button style={btn} disabled={!(replies[key] ?? "").trim()} onClick={() => sendReply(key, student.id)}>Отправить</button>
                         {msgNote[key] && <span style={{ fontSize: 12, color: c.muted }}>{msgNote[key]}</span>}
                       </div>
                     </div>
