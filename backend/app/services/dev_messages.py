@@ -77,8 +77,22 @@ def _row(m: DevMessage) -> dict:
     }
 
 
-def send(db: Session, device_id: str, text: str, anonymous: bool) -> tuple[dict, str, str]:
-    """Сохраняет вопрос. Возвращает (строку для клиента, подпись автора, группу) — для письма."""
+def _quiet(reg: UserRegistration, group: Group | None) -> bool:
+    """Без письма владельцу (просьба владельца 13 окт 2026): тестовые аккаунты («Тест …»)
+    и сам владелец — «Сухроб» / «Suhrob» в ПМиИ 3. Однофамилец из другой группы письмо
+    получит. Вопрос всё равно сохраняется и виден в панели. Проверяем по регистрации,
+    а не по подписи: анонимный тест тоже без письма."""
+    from app.api.routes.dev import is_owner_name
+    from app.api.routes.user import _no_email_name
+    if _no_email_name(reg.name or ""):
+        return True
+    return (is_owner_name(reg.name) and group is not None and group.year == 3
+            and (group.name or "").lower().startswith("прикладная математика"))
+
+
+def send(db: Session, device_id: str, text: str, anonymous: bool) -> tuple[dict, str, str, bool]:
+    """Сохраняет вопрос. Возвращает (строку для клиента, подпись автора, группу, слать ли
+    письмо) — для письма."""
     text = (text or "").strip()
     if not text:
         raise MessageError(400, "Напишите сообщение")
@@ -98,16 +112,17 @@ def send(db: Session, device_id: str, text: str, anonymous: bool) -> tuple[dict,
         raise MessageError(429, "Слишком много сообщений — попробуйте завтра")
     _times.append(now)
 
+    group = db.get(Group, reg.group_id) if reg.group_id else None
+    notify = not _quiet(reg, group)
     if anonymous:
         name, group_label = None, None
     else:
-        group = db.get(Group, reg.group_id) if reg.group_id else None
         name = (reg.name or "")[:200]
         group_label = f"{group.year} курс · {group.name}"[:200] if group else None
     m = DevMessage(device_id=device_id, name=name, group_label=group_label, text=text)
     db.add(m)
     db.commit()
-    return _row(m), name or "Аноним", group_label or ""
+    return _row(m), name or "Аноним", group_label or "", notify
 
 
 def send_email(author: str, group_label: str, text: str) -> None:

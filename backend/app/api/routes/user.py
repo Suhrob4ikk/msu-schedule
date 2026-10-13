@@ -326,10 +326,11 @@ class DeviceBody(BaseModel):
 def send_dev_message(body: DevMessageBody, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     from app.services import dev_messages as dm
     try:
-        row, author, group_label = dm.send(db, body.device_id, body.text, body.anonymous)
+        row, author, group_label, notify = dm.send(db, body.device_id, body.text, body.anonymous)
     except dm.MessageError as e:
         raise HTTPException(e.status, e.text)
-    background_tasks.add_task(dm.send_email, author, group_label, row["text"])
+    if notify:
+        background_tasks.add_task(dm.send_email, author, group_label, row["text"])
     return row
 
 
