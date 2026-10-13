@@ -329,8 +329,8 @@ def send_dev_message(body: DevMessageBody, background_tasks: BackgroundTasks, db
         row, author, group_label, notify = dm.send(db, body.device_id, body.text, body.anonymous)
     except dm.MessageError as e:
         raise HTTPException(e.status, e.text)
-    if notify:
-        background_tasks.add_task(dm.send_email, author, group_label, row["text"])
+    if notify:  # подряд идущие сообщения — одним письмом через несколько минут
+        dm.queue_email(f"{body.device_id}:{'a' if row['anonymous'] else 'n'}", author, group_label, row["text"])
     return row
 
 

@@ -19,6 +19,7 @@
 устройства в переписку; анонимные — отдельной, иначе соседний вопрос с именем выдал бы автора.
 """
 import logging
+import threading
 import time
 from datetime import datetime, timedelta
 from html import escape
@@ -163,14 +164,55 @@ def send(db: Session, device_id: str, text: str, anonymous: bool) -> tuple[dict,
     return _row(m), name or "Аноним", group_label or "", notify
 
 
-def send_email(author: str, group_label: str, text: str) -> None:
+# ─── Письмо владельцу: подряд идущие сообщения — одним письмом (13 окт 2026) ───
+# Письмо уходит через EMAIL_QUIET_S после последнего сообщения переписки, но не позже
+# EMAIL_MAX_WAIT_S после первого. Очередь — в памяти: деплой в эти минуты её теряет,
+# но сообщения остаются в панели.
+EMAIL_QUIET_S = 180
+EMAIL_MAX_WAIT_S = 900
+_mail_lock = threading.Lock()
+# ключ переписки → {"author", "group", "items": [(время, текст)], "first": time, "timer"}
+_mail_queue: dict[str, dict] = {}
+
+
+def queue_email(thread: str, author: str, group_label: str, text: str) -> None:
+    now = time.time()
+    with _mail_lock:
+        q = _mail_queue.get(thread)
+        if q is None:
+            q = _mail_queue[thread] = {"author": author, "group": group_label, "items": [], "first": now, "timer": None}
+        q["items"].append((datetime.utcnow() + timedelta(hours=5), text))  # Душанбе, UTC+5
+        if q["timer"]:
+            q["timer"].cancel()
+        delay = max(0.0, min(EMAIL_QUIET_S, q["first"] + EMAIL_MAX_WAIT_S - now))
+        q["timer"] = threading.Timer(delay, _flush_email, args=(thread,))
+        q["timer"].daemon = True
+        q["timer"].start()
+
+
+def _flush_email(thread: str) -> None:
+    with _mail_lock:
+        q = _mail_queue.pop(thread, None)
+    if q:
+        send_email(q["author"], q["group"], q["items"])
+
+
+def send_email(author: str, group_label: str, items: list[tuple[datetime, str]]) -> None:
     from app.services.email import send_owner_email
+    who = f"{author}{' · ' + group_label if group_label else ''}"
+    n = len(items)
+    subject = f"Вопрос с сайта — {author}" + (f" ({n} сообщ.)" if n > 1 else "")
+    tail = "Ответить — в панели разработчика, раздел «Вопросы»."
+    html = "".join(
+        (f"<p style=\"color:#888;margin:12px 0 2px\">{t:%H:%M}</p>" if n > 1 else "")
+        + f"<p style=\"white-space:pre-wrap;margin:0\">{escape(x)}</p>"
+        for t, x in items)
+    text = "\n\n".join((f"{t:%H:%M}\n" if n > 1 else "") + x for t, x in items)
     send_owner_email(
-        f"Вопрос с сайта — {author}",
-        f"<p><b>{escape(author)}</b>{' · ' + escape(group_label) if group_label else ''}</p>"
-        f"<p style=\"white-space:pre-wrap\">{escape(text)}</p>"
-        f"<p style=\"color:#888\">Ответить — в панели разработчика, раздел «Вопросы».</p>",
-        f"{author}{' · ' + group_label if group_label else ''}\n\n{text}\n\nОтветить — в панели разработчика, раздел «Вопросы».",
+        subject,
+        f"<p><b>{escape(author)}</b>{' · ' + escape(group_label) if group_label else ''}</p>{html}"
+        f"<p style=\"color:#888;margin-top:16px\">{tail}</p>",
+        f"{who}\n\n{text}\n\n{tail}",
     )
 
 
