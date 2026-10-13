@@ -17,6 +17,17 @@ import {
 
 const MAX = 2000;
 
+/** «Ждёт ответа» — один раз, под последним из идущих подряд вопросов без ответа.
+ *  Разработчик отвечает на всю переписку сразу — к последнему вопросу (13 окт 2026),
+ *  поэтому вопрос, после которого уже пришёл ответ, не ждёт. Анонимные — своя переписка. */
+function waiting(list: { reply: string | null; anonymous: boolean }[], i: number): boolean {
+  const open = (j: number) =>
+    !list[j].reply && !list.slice(j + 1).some(n => n.anonymous === list[j].anonymous && n.reply);
+  if (!open(i)) return false;
+  const next = list.findIndex((n, j) => j > i && n.anonymous === list[i].anonymous);
+  return next === -1 || !open(next);
+}
+
 export default function MessagesPage() {
   // null — ещё не знаем (до монтирования), "" — устройство не зарегистрировано
   const [device, setDevice] = useState<string | null>(null);
@@ -101,7 +112,7 @@ export default function MessagesPage() {
 
             {list && list.length > 0 && (
               <div className="t-msg-thread" aria-label="Переписка">
-                {list.map(m => (
+                {list.map((m, i) => (
                   <div key={m.id} className="t-msg-pair">
                     <div className="t-msg-bubble t-msg-mine">
                       <p>{m.text}</p>
@@ -113,7 +124,7 @@ export default function MessagesPage() {
                           <p>{m.reply}</p>
                           <span>{fmtMessageTime(parseServerTime(m.replied_at))}</span>
                         </div>
-                      : <div className="t-msg-wait">Ждёт ответа</div>}
+                      : waiting(list, i) && <div className="t-msg-wait">Ждёт ответа</div>}
                   </div>
                 ))}
                 <div ref={endRef} />

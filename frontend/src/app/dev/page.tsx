@@ -324,8 +324,8 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
   const [names, setNames] = useState<any>(null);
   const [feedback, setFeedback] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
-  const [replies, setReplies] = useState<Record<number, string>>({});
-  const [msgNote, setMsgNote] = useState<Record<number, string>>({});
+  const [replies, setReplies] = useState<Record<string, string>>({});
+  const [msgNote, setMsgNote] = useState<Record<string, string>>({});
   const [owners, setOwners] = useState<any[]>([]);
   const [userList, setUserList] = useState<any[]>([]);
   const [userQ, setUserQ] = useState("");
@@ -428,16 +428,30 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
   const lastAt = parseUtc(last?.started_at);
   const zero = ov.zero_lesson_groups as any[];
   const missingNew = missing.filter(m => !m.override);
-  const unanswered = messages.filter(m => !m.reply);
-  const sendReply = async (id: number) => {
-    const text = (replies[id] ?? "").trim();
+  // Вопросы одного студента — одна переписка (13 окт 2026): сервер отдаёт ключ `thread`,
+  // анонимные вопросы того же устройства — отдельной перепиской. Ответ пишется к последнему
+  // вопросу; переписка ждёт ответа, пока на последний вопрос не ответили.
+  const threads = (() => {
+    const by = new Map<string, any[]>();
+    for (const m of messages) {
+      const k = m.thread ?? String(m.id);
+      by.set(k, [...(by.get(k) ?? []), m]);
+    }
+    return [...by.entries()].map(([key, list]) => {
+      const items = [...list].reverse(); // сервер отдаёт свежие сначала, в переписке — по порядку
+      return { key, items, last: items[items.length - 1] };
+    });
+  })();
+  const unanswered = threads.filter(t => !t.last.reply);
+  const sendReply = async (key: string, id: number) => {
+    const text = (replies[key] ?? "").trim();
     if (!text) return;
     try {
       const r = await api<any>(`/messages/${id}/reply`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
-      setMsgNote(n => ({ ...n, [id]: r.message }));
-      setReplies(rs => ({ ...rs, [id]: "" }));
+      setMsgNote(n => ({ ...n, [key]: r.message }));
+      setReplies(rs => ({ ...rs, [key]: "" }));
       setMessages(await api<any[]>("/messages"));
-    } catch (e: any) { setMsgNote(n => ({ ...n, [id]: e.message || "Не удалось отправить" })); }
+    } catch (e: any) { setMsgNote(n => ({ ...n, [key]: e.message || "Не удалось отправить" })); }
   };
   const deleteMessage = async (id: number) => {
     if (!window.confirm("Удалить сообщение? У студента оно тоже исчезнет вместе с ответом.")) return;
@@ -594,36 +608,46 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
             })()}
           </Section>
 
-          <Section title={`Вопросы${unanswered.length ? ` · ${unanswered.length} без ответа` : ""}`} hint={<>Кабинет сайта → «Написать разработчику» (вместо ссылки на ваш Telegram). Каждый вопрос приходит и на почту. Ответ студент увидит там же, в Кабинете, и получит уведомление, если включал их на сайте. «Аноним» — студент попросил не показывать имя: оно не сохраняется вовсе.</>}>
-            {messages.length === 0
+          <Section title={`Вопросы${unanswered.length ? ` · ${unanswered.length} без ответа` : ""}`} hint={<>Кабинет сайта → «Написать разработчику» (вместо ссылки на ваш Telegram). Вопросы одного студента — одной перепиской, ответ — к последнему вопросу. Каждый вопрос приходит и на почту, кроме ваших (Сухроб, ПМиИ 3) и тестовых. Ответ студент увидит там же, в Кабинете, и получит уведомление, если включал их на сайте. «Аноним» — студент попросил не показывать имя: оно не сохраняется вовсе.</>}>
+            {threads.length === 0
               ? <div style={{ fontSize: 13, color: c.muted }}>Пока вопросов нет</div>
               : <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {messages.map((m: any) => (
-                    <div key={m.id} style={{ background: c.panel2, borderRadius: 10, padding: "10px 12px", borderLeft: m.reply ? undefined : `3px solid ${c.yellow}` }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 13 }}>
-                        <span><b>{m.name}</b>{m.group && <span style={{ color: c.faint }}> · {m.group}</span>}</span>
-                        <span style={{ color: c.muted, whiteSpace: "nowrap" }}>{fmtTime(parseUtc(m.created_at))}</span>
+                  {threads.map(({ key, items, last }) => (
+                    <div key={key} style={{ background: c.panel2, borderRadius: 10, padding: "10px 12px", borderLeft: last.reply ? undefined : `3px solid ${c.yellow}` }}>
+                      <div style={{ fontSize: 13 }}>
+                        <b>{last.name}</b>{last.group && <span style={{ color: c.faint }}> · {last.group}</span>}
+                        {items.length > 1 && <span style={{ color: c.muted }}> · {items.length} сообщ.</span>}
                       </div>
-                      <div style={{ fontSize: 14, lineHeight: 1.45, whiteSpace: "pre-wrap", margin: "6px 0" }}>{m.text}</div>
-                      {m.reply && (
-                        <div style={{ fontSize: 13.5, lineHeight: 1.45, whiteSpace: "pre-wrap", borderLeft: `2px solid ${c.green}`, paddingLeft: 10, margin: "8px 0", color: c.fg }}>
-                          <div style={{ fontSize: 12, color: c.muted, marginBottom: 2 }}>
-                            Ваш ответ · {fmtTime(parseUtc(m.replied_at))} · {m.reply_seen ? "прочитан" : "ещё не прочитан"}
+                      {items.map((m: any) => (
+                        <div key={m.id} style={{ marginTop: 8 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline" }}>
+                            <div style={{ fontSize: 14, lineHeight: 1.45, whiteSpace: "pre-wrap" }}>{m.text}</div>
+                            <span style={{ fontSize: 12, color: c.muted, whiteSpace: "nowrap" }}>
+                              {fmtTime(parseUtc(m.created_at))}
+                              <button onClick={() => deleteMessage(m.id)} aria-label="Удалить сообщение" title="Удалить сообщение"
+                                style={{ background: "none", border: "none", color: c.red, cursor: "pointer", fontSize: 14, marginLeft: 6, padding: 0 }}>×</button>
+                            </span>
                           </div>
-                          {m.reply}
+                          {m.reply && (
+                            <div style={{ fontSize: 13.5, lineHeight: 1.45, whiteSpace: "pre-wrap", borderLeft: `2px solid ${c.green}`, paddingLeft: 10, margin: "6px 0", color: c.fg }}>
+                              <div style={{ fontSize: 12, color: c.muted, marginBottom: 2 }}>
+                                Ваш ответ · {fmtTime(parseUtc(m.replied_at))} · {m.reply_seen ? "прочитан" : "ещё не прочитан"}
+                              </div>
+                              {m.reply}
+                            </div>
+                          )}
                         </div>
-                      )}
+                      ))}
                       <textarea
-                        value={replies[m.id] ?? ""}
-                        onChange={e => setReplies(rs => ({ ...rs, [m.id]: e.target.value }))}
-                        placeholder={m.reply ? "Исправить ответ" : "Ответ студенту"}
+                        value={replies[key] ?? ""}
+                        onChange={e => setReplies(rs => ({ ...rs, [key]: e.target.value }))}
+                        placeholder={last.reply ? "Исправить последний ответ" : "Ответ студенту"}
                         rows={2}
-                        style={{ ...input, width: "100%", resize: "vertical", fontFamily: "inherit", marginTop: 4 }}
+                        style={{ ...input, width: "100%", resize: "vertical", fontFamily: "inherit", marginTop: 8 }}
                       />
                       <div style={{ display: "flex", gap: 8, marginTop: 6, alignItems: "center", flexWrap: "wrap" }}>
-                        <button style={btn} disabled={!(replies[m.id] ?? "").trim()} onClick={() => sendReply(m.id)}>{m.reply ? "Заменить ответ" : "Ответить"}</button>
-                        <button style={{ ...btn, color: c.red }} onClick={() => deleteMessage(m.id)}>Удалить</button>
-                        {msgNote[m.id] && <span style={{ fontSize: 12, color: c.muted }}>{msgNote[m.id]}</span>}
+                        <button style={btn} disabled={!(replies[key] ?? "").trim()} onClick={() => sendReply(key, last.id)}>{last.reply ? "Заменить ответ" : "Ответить"}</button>
+                        {msgNote[key] && <span style={{ fontSize: 12, color: c.muted }}>{msgNote[key]}</span>}
                       </div>
                     </div>
                   ))}

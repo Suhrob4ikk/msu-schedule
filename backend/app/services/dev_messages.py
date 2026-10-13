@@ -154,9 +154,13 @@ def mark_seen(db: Session, device_id: str) -> None:
 # ─── Панель /dev ─────────────────────────────────────────────────────────────
 
 def admin_list(db: Session) -> list[dict]:
+    """Последние 100 вопросов. `thread` — ключ переписки: панель собирает вопросы одного
+    студента в одну карточку (13 окт 2026). Анонимные — отдельной перепиской того же
+    устройства, иначе соседний вопрос с именем выдал бы автора."""
     rows = db.query(DevMessage).order_by(DevMessage.created_at.desc()).limit(100).all()
     return [{
         **_row(m),
+        "thread": f"{m.device_id}:{'a' if m.name is None else 'n'}",
         "name": m.name or "Аноним",
         "group": m.group_label,
         "reply_seen": bool(m.reply_seen),
