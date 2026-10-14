@@ -58,4 +58,16 @@
 @keyframes t-reply-in { from { opacity: 0; transform: translate(-50%, -24px) scale(0.96); } }
 @keyframes t-reply-out { to { opacity: 0; transform: translate(-50%, -24px) scale(0.96); } }
 @media (prefers-reduced-motion: reduce) { .t-reply-toast, .t-reply-toast-out { animation: none; } }
+
+/* «Особый профиль временно отключён» (VipPausedNotice, 14 окт 2026) */
+.t-notice-scrim { position: fixed; inset: 0; z-index: 130; display: grid; place-items: center; padding: 16px; background: rgba(5, 10, 25, 0.45); animation: t-notice-fade 0.25s ease both; }
+.t-notice { width: min(400px, 100%); display: flex; flex-direction: column; gap: 10px; padding: 22px 22px 18px; border-radius: 24px; background: var(--surface); color: var(--text); box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3); animation: t-notice-pop 0.45s cubic-bezier(0.2, 1.3, 0.4, 1) both; }
+.dark .t-notice { box-shadow: inset 0 0 0 1px var(--line), 0 20px 50px rgba(0, 0, 0, 0.5); }
+.t-notice small { font-size: 12px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink); }
+.t-notice h2 { font-size: 22px; font-weight: 800; line-height: 1.2; }
+.t-notice p { font-size: 16px; line-height: 1.45; color: var(--text-2); }
+.t-notice-btns { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; margin-top: 6px; }
+.t-notice-btns .t-btn-fill { margin-top: 0; }
+@keyframes t-notice-fade { from { opacity: 0; } }
+@keyframes t-notice-pop { from { opacity: 0; transform: scale(0.94); } }
 }

@@ -29,7 +29,13 @@ export interface VipInfo {
 
 // firstName — код действует, только если в Кабинете имя начинается с этого слова
 // (решение владельца: «код только для Шахзоды»). Устройство узнаётся и без имени.
-interface Person { devices: string[]; code: string; firstName: string; info: VipInfo }
+//
+// paused — профиль временно выключен (решение владельца, 14 окт 2026): сайт у человека как у всех,
+// без шрифта, рамок, карты и «Активировать профиль». Узнаём его по-прежнему — только чтобы один раз
+// показать «Особый профиль временно отключён… напишите разработчику» (VipPausedNotice) и вернуть
+// обычный цвет вместо металла. Ничего не стирается: серия и достижения на сервере, металл — в
+// VIP_PAUSED_BACKUP_KEY. Включить обратно — убрать paused (металл вернётся сам, см. VipPausedNotice).
+interface Person { devices: string[]; code: string; firstName: string; info: VipInfo; paused?: boolean }
 
 // Шахзода, ПМиИ 3 курс (регистрация №169): шрифт Roboto Condensed и «золотой профиль» —
 // приветствие, золотая рамка у идущей пары, золотая карта, отзыв.
@@ -39,8 +45,11 @@ const PEOPLE: Person[] = [
     code: "qguwyk5mr5",
     firstName: "шахзода",
     info: { name: "Шахзода", role: "Подружка админа", number: "001", since: "9 октября 2026", id: "shahzoda", birthday: "08-10" },
+    paused: true, // временно выключен, 14 окт 2026 (владелец)
   },
 ];
+/** Кому профиль сейчас включён. */
+const ACTIVE = PEOPLE.filter(p => !p.paused);
 
 export function cyrb53(s: string): string {
   let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
@@ -63,25 +72,34 @@ const codeHash = (s: string) => cyrb53("vip:" + normCode(s));
 const firstWord = (name: string | null) =>
   (name ?? "").trim().split(/\s+/)[0].toLowerCase().replace(/ё/g, "е").replace(/[^a-zа-я]/g, "");
 
-/** Особый ли этот браузер. Только в браузере и после монтирования (см. useVip). */
-export function readVip(): VipInfo | null {
+function findPerson(list: Person[]): Person | null {
   try {
     const id = localStorage.getItem("msu_device_id_v2");
     const code = localStorage.getItem(CODE_KEY);
     const name = firstWord(localStorage.getItem("user_name"));
     const dh = id ? cyrb53(id) : null;
     const ch = code ? codeHash(code) : null;
-    return PEOPLE.find(p => (dh && p.devices.includes(dh)) || (ch && p.code === ch && p.firstName === name))?.info ?? null;
+    return list.find(p => (dh && p.devices.includes(dh)) || (ch && p.code === ch && p.firstName === name)) ?? null;
   } catch {
     return null;
   }
+}
+
+/** Особый ли этот браузер. Только в браузере и после монтирования (см. useVip). */
+export function readVip(): VipInfo | null {
+  return findPerson(ACTIVE)?.info ?? null;
+}
+
+/** Этот браузер — особого человека, чей профиль сейчас выключен (paused). */
+export function readPausedVip(): VipInfo | null {
+  return findPerson(PEOPLE.filter(p => p.paused))?.info ?? null;
 }
 
 /** Показывать ли «Активировать профиль»: только тем, чьё имя в Кабинете начинается
  *  как у особого (решение владельца, как ссылка на /dev у «Сухроб»). Не защита — та в коде. */
 export function canActivateVip(name: string): boolean {
   const n = firstWord(name);
-  return !!n && PEOPLE.some(p => p.firstName === n);
+  return !!n && ACTIVE.some(p => p.firstName === n);
 }
 
 /** Ввели код: подошёл и имя в Кабинете то же — запоминаем и возвращаем true. */
@@ -89,7 +107,7 @@ export function applyVipCode(input: string): boolean {
   const h = codeHash(input);
   let name = "";
   try { name = firstWord(localStorage.getItem("user_name")); } catch { return false; }
-  if (!normCode(input) || !PEOPLE.some(p => p.code === h && p.firstName === name)) return false;
+  if (!normCode(input) || !ACTIVE.some(p => p.code === h && p.firstName === name)) return false;
   try { localStorage.setItem(CODE_KEY, normCode(input)); } catch { return false; }
   return true;
 }
@@ -99,9 +117,9 @@ export function applyVipCode(input: string): boolean {
 // ссылку `?code=…`: верный код запоминается, и адрес чистится от него. Код
 // включает профиль, только если и имя в Кабинете совпадает (см. firstName).
 export function specialInitScript(): string {
-  const devices = JSON.stringify(PEOPLE.flatMap(p => p.devices));
-  const codes = JSON.stringify(PEOPLE.map(p => p.code));
-  const names = JSON.stringify(PEOPLE.map(p => p.firstName));
+  const devices = JSON.stringify(ACTIVE.flatMap(p => p.devices));
+  const codes = JSON.stringify(ACTIVE.map(p => p.code));
+  const names = JSON.stringify(ACTIVE.map(p => p.firstName));
   return `(function(){try{function H(s){var h1=0xdeadbeef,h2=0x41c6ce57;for(var i=0;i<s.length;i++){var c=s.charCodeAt(i);h1=Math.imul(h1^c,2654435761);h2=Math.imul(h2^c,1597334677)}h1=Math.imul(h1^(h1>>>16),2246822507);h1^=Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507);h2^=Math.imul(h1^(h1>>>13),3266489909);return(4294967296*(2097151&h2)+(h1>>>0)).toString(36)}var N=function(s){return(s||'').toUpperCase().replace(/[^A-Z0-9]/g,'')},C=${codes},L=localStorage,u=new URL(location.href),q=u.searchParams.get('code');if(q!==null){if(C.indexOf(H('vip:'+N(q)))>=0)L.setItem('${CODE_KEY}',N(q));u.searchParams.delete('code');history.replaceState(null,'',u.pathname+u.search+u.hash)}var s=L.getItem('msu_device_id_v2'),k=L.getItem('${CODE_KEY}'),n=(L.getItem('user_name')||'').trim().split(/\\s+/)[0].toLowerCase().replace(/ё/g,'е').replace(/[^a-zа-я]/g,''),j=k?C.indexOf(H('vip:'+N(k))):-1;if((s&&${devices}.indexOf(H(s))>=0)||(j>=0&&${names}[j]===n))document.documentElement.classList.add('font-condensed','vip')}catch(e){}})();`;
 }
 
@@ -122,6 +140,9 @@ export const VIP_MEDALS_SEEN_KEY = "vip_medals_seen"; // медали, о кот
 export const VIP_SEASON_KEY = "vip_season";
 // Праздничный показ в день рождения — один раз в году: ключ + год
 export const VIP_BDAY_KEY = "vip_bday_shown";
+// Профиль выключен (paused): уведомление показано; металл, который был до выключения
+export const VIP_PAUSED_NOTICE_KEY = "vip_paused_notice_v1";
+export const VIP_PAUSED_BACKUP_KEY = "vip_paused_metal";
 // Только для проверки владельцем: «1» — сегодня как будто день рождения
 export const VIP_BDAY_TEST_KEY = "vip_bday_test";
 

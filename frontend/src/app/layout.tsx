@@ -21,6 +21,7 @@ import AppearanceSync from "@/components/AppearanceSync";
 import VipSurprise from "@/components/tablo/vip/VipSurprise";
 import VipAmbient from "@/components/tablo/vip/VipAmbient";
 import VipTracker from "@/components/tablo/vip/VipTracker";
+import VipPausedNotice from "@/components/tablo/vip/VipPausedNotice";
 import VipBirthday from "@/components/tablo/vip/VipBirthday";
 import VipMedalToast from "@/components/tablo/vip/VipMedalToast";
 import DevReplyToast from "@/components/DevReplyToast";
@@ -148,6 +149,7 @@ export default function RootLayout({
         <VipSurprise />
         <VipAmbient />
         <VipTracker />
+        <VipPausedNotice />
         <VipBirthday />
         <VipMedalToast />
         <DevReplyToast />

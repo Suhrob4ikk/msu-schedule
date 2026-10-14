@@ -12,7 +12,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Header from "@/components/Header";
 import Icon from "@/components/tablo/Icon";
 import {
-  DevMessage, fmtMessageTime, loadMessages, markRepliesSeen, myDeviceId, parseServerTime, sendMessage,
+  DRAFTS, DevMessage, fmtMessageTime, loadMessages, markRepliesSeen, myDeviceId, parseServerTime, sendMessage,
 } from "@/lib/devMessages";
 
 const MAX = 2000;
@@ -54,6 +54,14 @@ export default function MessagesPage() {
     try { if (!localStorage.getItem("selected_group_id")) dev = ""; } catch { /* приватный режим */ }
     setDevice(dev);
     if (dev) reload(dev);
+    // ?draft=… — готовый текст в поле (DRAFTS), адрес чистим, чтобы не подставлялся снова
+    const url = new URL(window.location.href);
+    const draft = DRAFTS[url.searchParams.get("draft") ?? ""];
+    if (draft) setText(t => t || draft);
+    if (url.searchParams.has("draft")) {
+      url.searchParams.delete("draft");
+      window.history.replaceState(null, "", url.pathname + url.search + url.hash);
+    }
   }, [reload]);
 
   // Пришёл push с ответом, пока страница открыта, — перечитать

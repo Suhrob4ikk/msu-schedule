@@ -15,6 +15,13 @@ export type DevMessage = {
   edited: boolean;
 };
 
+/** Готовые черновики: `/profile/messages?draft=<ключ>` подставляет текст в поле — его можно
+ *  поправить или стереть, сам он не отправляется. */
+export const DRAFTS: Record<string, string> = {
+  // окно «Особый профиль временно отключён» (VipPausedNotice, 14 окт 2026)
+  "vip-paused": "Здравствуйте! Почему отключили мой особый профиль?",
+};
+
 export function myDeviceId(): string {
   try { return localStorage.getItem("msu_device_id_v2") ?? ""; } catch { return ""; }
 }
