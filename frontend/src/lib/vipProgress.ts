@@ -50,6 +50,14 @@ export interface StreakInfo {
 }
 
 /** Пройти все дни с первого входа по сегодня: серия, рекорд, заморозки, когда серия впервые дошла до N. */
+/**
+ * Дни, когда профиль был выключен (paused в lib/special.ts): их сайт не отмечал, поэтому серию они
+ * не рвут и заморозку не тратят — как воскресенье (владелец, 14 окт 2026). [с, по]; «по» = null —
+ * выключен до сих пор. Включили профиль обратно — вписать последний выключенный день вместо null.
+ */
+export const STREAK_PAUSES: [string, string | null][] = [["2026-10-14", null]];
+const inPause = (d: string) => STREAK_PAUSES.some(([from, to]) => d >= from && (to === null || d <= to));
+
 export function computeStreak(st: VipProgressState, today: string, marks: number[]): StreakInfo {
   const visited = new Set(st.days);
   const off = new Set(st.offdays);
@@ -64,8 +72,8 @@ export function computeStreak(st: VipProgressState, today: string, marks: number
       run++;
       best = Math.max(best, run);
       for (const m of marks) if (run >= m && !reached[m]) reached[m] = d;
-    } else if (sunday || off.has(d) || d === today) {
-      // не учебный день или сегодня ещё не кончилось — серию не трогаем
+    } else if (sunday || off.has(d) || d === today || inPause(d)) {
+      // не учебный день, сегодня ещё не кончилось или профиль был выключен — серию не трогаем
     } else if (!usedWeek.has(weekKey(d))) {
       usedWeek.add(weekKey(d));
       frozen.add(d);
