@@ -45,7 +45,6 @@ const PEOPLE: Person[] = [
     code: "qguwyk5mr5",
     firstName: "шахзода",
     info: { name: "Шахзода", role: "Подружка админа", number: "001", since: "9 октября 2026", id: "shahzoda", birthday: "08-10" },
-    paused: true, // временно выключен, 14 окт 2026 (владелец)
   },
 ];
 /** Кому профиль сейчас включён. */
@@ -85,8 +84,20 @@ function findPerson(list: Person[]): Person | null {
   }
 }
 
-/** Особый ли этот браузер. Только в браузере и после монтирования (см. useVip). */
+/** Человек сам выключил себе особый профиль (переключатель внизу Кабинета; владелец, 17 окт 2026). */
+export const VIP_OFF_KEY = "vip_off";
+export function isVipOff(): boolean {
+  try { return localStorage.getItem(VIP_OFF_KEY) === "1"; } catch { return false; }
+}
+
+/** Особый ли этот браузер. Только в браузере и после монтирования (см. useVip). Выключенный
+ *  самим человеком профиль — как будто его нет. */
 export function readVip(): VipInfo | null {
+  return isVipOff() ? null : findPerson(ACTIVE)?.info ?? null;
+}
+
+/** Особый человек, даже если сам выключил профиль — чтобы показать переключатель «вернуть». */
+export function readOwnVip(): VipInfo | null {
   return findPerson(ACTIVE)?.info ?? null;
 }
 
@@ -120,7 +131,7 @@ export function specialInitScript(): string {
   const devices = JSON.stringify(ACTIVE.flatMap(p => p.devices));
   const codes = JSON.stringify(ACTIVE.map(p => p.code));
   const names = JSON.stringify(ACTIVE.map(p => p.firstName));
-  return `(function(){try{function H(s){var h1=0xdeadbeef,h2=0x41c6ce57;for(var i=0;i<s.length;i++){var c=s.charCodeAt(i);h1=Math.imul(h1^c,2654435761);h2=Math.imul(h2^c,1597334677)}h1=Math.imul(h1^(h1>>>16),2246822507);h1^=Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507);h2^=Math.imul(h1^(h1>>>13),3266489909);return(4294967296*(2097151&h2)+(h1>>>0)).toString(36)}var N=function(s){return(s||'').toUpperCase().replace(/[^A-Z0-9]/g,'')},C=${codes},L=localStorage,u=new URL(location.href),q=u.searchParams.get('code');if(q!==null){if(C.indexOf(H('vip:'+N(q)))>=0)L.setItem('${CODE_KEY}',N(q));u.searchParams.delete('code');history.replaceState(null,'',u.pathname+u.search+u.hash)}var s=L.getItem('msu_device_id_v2'),k=L.getItem('${CODE_KEY}'),n=(L.getItem('user_name')||'').trim().split(/\\s+/)[0].toLowerCase().replace(/ё/g,'е').replace(/[^a-zа-я]/g,''),j=k?C.indexOf(H('vip:'+N(k))):-1;if((s&&${devices}.indexOf(H(s))>=0)||(j>=0&&${names}[j]===n))document.documentElement.classList.add('font-condensed','vip')}catch(e){}})();`;
+  return `(function(){try{function H(s){var h1=0xdeadbeef,h2=0x41c6ce57;for(var i=0;i<s.length;i++){var c=s.charCodeAt(i);h1=Math.imul(h1^c,2654435761);h2=Math.imul(h2^c,1597334677)}h1=Math.imul(h1^(h1>>>16),2246822507);h1^=Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507);h2^=Math.imul(h1^(h1>>>13),3266489909);return(4294967296*(2097151&h2)+(h1>>>0)).toString(36)}var N=function(s){return(s||'').toUpperCase().replace(/[^A-Z0-9]/g,'')},C=${codes},L=localStorage,u=new URL(location.href),q=u.searchParams.get('code');if(q!==null){if(C.indexOf(H('vip:'+N(q)))>=0)L.setItem('${CODE_KEY}',N(q));u.searchParams.delete('code');history.replaceState(null,'',u.pathname+u.search+u.hash)}if(L.getItem('${VIP_OFF_KEY}')==='1')return;var s=L.getItem('msu_device_id_v2'),k=L.getItem('${CODE_KEY}'),n=(L.getItem('user_name')||'').trim().split(/\\s+/)[0].toLowerCase().replace(/ё/g,'е').replace(/[^a-zа-я]/g,''),j=k?C.indexOf(H('vip:'+N(k))):-1;if((s&&${devices}.indexOf(H(s))>=0)||(j>=0&&${names}[j]===n))document.documentElement.classList.add('font-condensed','vip')}catch(e){}})();`;
 }
 
 /** Металлы (золото, бриллиант, платина) — «свой цвет» в формате оформления, только у особых (значения — lib/appearance.ts). */

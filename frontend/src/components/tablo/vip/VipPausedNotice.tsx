@@ -11,7 +11,7 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { readAppearance, saveAppearance } from "@/lib/appearance";
-import { METALS, VIP_PAUSED_BACKUP_KEY, VIP_PAUSED_NOTICE_KEY, metalOf, readPausedVip, readVip, type MetalId } from "@/lib/special";
+import { METALS, VIP_PAUSED_BACKUP_KEY, VIP_PAUSED_NOTICE_KEY, metalOf, isVipOff, readOwnVip, readPausedVip, readVip, type MetalId } from "@/lib/special";
 
 export default function VipPausedNotice() {
   const path = usePathname();
@@ -30,14 +30,16 @@ export default function VipPausedNotice() {
         }
         return;
       }
-      if (!readPausedVip()) return;
+      // Сама выключила профиль переключателем — цвет обычный, окно не нужно
+      const selfOff = isVipOff() && !!readOwnVip();
+      if (!selfOff && !readPausedVip()) return;
       const a = readAppearance();
       const metal = metalOf(a);
       if (metal) {
         localStorage.setItem(VIP_PAUSED_BACKUP_KEY, metal);
         saveAppearance({ ...a, accent: { preset: "blue", custom: null } });
       }
-      if (!localStorage.getItem(VIP_PAUSED_NOTICE_KEY)) setShow(true);
+      if (!selfOff && !localStorage.getItem(VIP_PAUSED_NOTICE_KEY)) setShow(true);
     } catch { /* приватный режим */ }
   }, []);
 

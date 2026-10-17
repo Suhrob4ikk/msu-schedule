@@ -55,7 +55,7 @@ export interface StreakInfo {
  * не рвут и заморозку не тратят — как воскресенье (владелец, 14 окт 2026). [с, по]; «по» = null —
  * выключен до сих пор. Включили профиль обратно — вписать последний выключенный день вместо null.
  */
-export const STREAK_PAUSES: [string, string | null][] = [["2026-10-14", null]];
+export const STREAK_PAUSES: [string, string | null][] = [["2026-10-14", "2026-10-16"]];
 const inPause = (d: string) => STREAK_PAUSES.some(([from, to]) => d >= from && (to === null || d <= to));
 
 export function computeStreak(st: VipProgressState, today: string, marks: number[]): StreakInfo {

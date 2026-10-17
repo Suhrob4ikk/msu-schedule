@@ -19,7 +19,7 @@ import { useAppearance, useOwner, useVip } from "@/lib/tablo/hooks";
 import { OwnerCard, OwnerSections } from "@/components/owner/OwnerCard";
 import VipProfile, { VipProgressSections } from "@/components/tablo/vip/VipProfile";
 import VipCodeEntry from "@/components/tablo/vip/VipCodeEntry";
-import { VIP_NEW_KEY, canActivateVip } from "@/lib/special";
+import { VIP_NEW_KEY, VIP_OFF_KEY, canActivateVip, readOwnVip } from "@/lib/special";
 import { api, rememberGroup, shortGroupName, type Group } from "@/lib/api";
 import { markGroupChosen } from "@/lib/features";
 import { getInstallEvent, isIOS, isStandalone, onInstallChange, runInstall } from "@/lib/install";
@@ -42,6 +42,33 @@ function Switch({ on, onClick, label, busy = false }: { on: boolean; onClick: ()
     <button type="button" role="switch" aria-checked={on} aria-label={label} disabled={busy} onClick={onClick} className={`t-sw ${on ? "t-sw-on" : ""}`}>
       <i />
     </button>
+  );
+}
+
+/** Выключатель особого профиля — только у особого человека (владелец, 17 окт 2026: «если захочет, уберёт»).
+ *  Не стирает ничего: серия и достижения на сервере, выбранный металл запоминается. После нажатия страница
+ *  перезагружается — шрифт и классы ставит ранний скрипт в layout. */
+function VipSwitchRow() {
+  const [own, setOwn] = useState(false);
+  const [on, setOn] = useState(true);
+  useEffect(() => {
+    setOwn(!!readOwnVip());
+    try { setOn(localStorage.getItem(VIP_OFF_KEY) !== "1"); } catch { /* приватный режим */ }
+  }, []);
+  if (!own) return null;
+  const toggle = () => {
+    try {
+      if (on) localStorage.setItem(VIP_OFF_KEY, "1"); else localStorage.removeItem(VIP_OFF_KEY);
+    } catch { return; }
+    window.location.reload();
+  };
+  return (
+    <section className="t-pf-card">
+      <div className="t-pf-row t-pf-row-flat">
+        <div><b>Особый профиль</b><span>{on ? "Можно отключить — всё сохранится" : "Отключён — сайт как у всех"}</span></div>
+        <Switch on={on} onClick={toggle} label="Особый профиль" />
+      </div>
+    </section>
   );
 }
 
@@ -387,6 +414,7 @@ export default function ProfilePage() {
             <nav className="t-pf-card t-pf-nav t-pf-contact" aria-label="Связь">
               <MessagesLink />
             </nav>
+            <VipSwitchRow />
             <p className="t-pf-foot">
               МГУ Душанбе · Расписание · Данные с msu.tj
               {isOwner && <> · <Link href="/dev">режим разработчика</Link></>}
