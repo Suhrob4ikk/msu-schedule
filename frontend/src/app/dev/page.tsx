@@ -583,10 +583,28 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
             </div>
           </Section>
 
-          <Section title="Кто зарегистрирован" hint={<>Выберите направление и курс — как на сайте. Видно, кто в группе, с приложения или с сайта, включены ли уведомления и <b style={{ color: c.fg }}>когда последний раз заходил на сайт</b>. Заходы сайт сообщает раз в 30 минут, сервер записывает их в базу несколько раз в сутки (панель видит и свежие). Заходы из приложения пока не считаются — там «заход неизвестен».</>}>
+          <Section title="Кто зарегистрирован" hint={<>Выберите направление и курс — как на сайте. Видно, кто в группе, с приложения или с сайта, включены ли уведомления и <b style={{ color: c.fg }}>когда последний раз заходил на сайт</b>. Заходы сайт сообщает раз в 30 минут, сервер записывает их в базу несколько раз в сутки (панель видит и свежие). Из приложения заход попадает сюда, когда оно само обновляет регистрацию (не при каждом запуске); пока такого не было — «заход неизвестен».</>}>
             {(() => {
-              const dirs = new Map<string, any[]>();
+              // Один человек = одно имя в одной группе, даже если он заходил с нескольких устройств
+              // (у каждого устройства своя регистрация — см. «двойники» в CLAUDE.md). Склеиваем для показа.
+              const norm = (n: string) => String(n).toLowerCase().replace(/ё/g, "е").replace(/[^a-zа-я0-9]/g, "");
+              const merged = new Map<string, any>();
               for (const u of userList) {
+                const k = `${norm(u.name)}|${u.group_name ?? ""}|${u.year ?? ""}`;
+                const m = merged.get(k);
+                if (!m) { merged.set(k, { ...u, devices: [u] }); continue; }
+                m.devices.push(u);
+                const later = (a: string | null, b: string | null) => (!a ? b : !b ? a : a > b ? a : b);
+                m.last_seen_at = later(m.last_seen_at, u.last_seen_at);
+                m.updated_at = later(m.updated_at, u.updated_at);
+                m.registered_at = !m.registered_at ? u.registered_at : !u.registered_at ? m.registered_at : u.registered_at < m.registered_at ? u.registered_at : m.registered_at;
+                m.app_push = m.app_push || u.app_push;
+                m.web_push = m.web_push || u.web_push;
+                m.app_version = m.app_version || u.app_version;
+              }
+              const persons = [...merged.values()];
+              const dirs = new Map<string, any[]>();
+              for (const u of persons) {
                 const key = u.group_name ? shortGroupName(u.group_name) : "Без группы";
                 dirs.set(key, [...(dirs.get(key) ?? []), u]);
               }
@@ -606,8 +624,12 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
                 return { text: (exact ? "" : "≈ ") + when, tone: days <= 1 ? c.green : days <= 7 ? c.fg : c.yellow };
               };
               if (userList.length === 0) return <div style={{ fontSize: 13, color: c.muted }}>Пока никого нет</div>;
+              const extra = userList.length - persons.length;
               return (
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  <div style={{ fontSize: 12, color: c.muted }}>
+                    {persons.length} {persons.length % 10 >= 2 && persons.length % 10 <= 4 && (persons.length % 100 < 12 || persons.length % 100 > 14) ? "человека" : "человек"} · {userList.length} устройств{extra > 0 ? ` (повторы одного человека склеены: ${extra})` : ""}
+                  </div>
                   <div>
                     <div style={{ fontSize: 12, color: c.muted, marginBottom: 6 }}>Направление</div>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
@@ -639,8 +661,11 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <b>{u.name}</b>
                               <span style={{ color: c.muted }}> · {u.year ? `${u.year} курс` : "без курса"}</span>
+                              {u.devices.length > 1 && <span style={{ color: c.yellow }}> · {u.devices.length} {u.devices.length < 5 ? "устройства" : "устройств"}</span>}
                               <div style={{ color: c.faint, fontSize: 12 }}>
-                                {u.app_version ? `приложение ${u.app_version}` : "сайт"} · зарегистрирован {fmtTime(parseUtc(u.registered_at))}
+                                {u.devices.length > 1
+                                  ? `${u.devices.filter((d: any) => d.app_version).length ? "приложение и сайт" : "только сайт"}`
+                                  : u.app_version ? `приложение ${u.app_version}` : "сайт"} · зарегистрирован {fmtTime(parseUtc(u.registered_at))}
                                 {" · "}уведомления: {[u.app_push && "приложение", u.web_push && "сайт"].filter(Boolean).join(" и ") || "нет"}
                               </div>
                             </div>

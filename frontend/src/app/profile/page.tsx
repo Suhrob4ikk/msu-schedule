@@ -22,6 +22,7 @@ import VipCodeEntry from "@/components/tablo/vip/VipCodeEntry";
 import { VIP_NEW_KEY, VIP_OFF_KEY, canActivateVip, readOwnVip } from "@/lib/special";
 import { api, rememberGroup, shortGroupName, type Group } from "@/lib/api";
 import { markGroupChosen } from "@/lib/features";
+import { ensureDeviceId } from "@/lib/deviceId";
 import { getInstallEvent, isIOS, isStandalone, onInstallChange, runInstall } from "@/lib/install";
 import { getPushStatus, resyncPush, subscribePush, unsubscribePush, type PushStatus } from "@/lib/push";
 import { collectNotes, collectSkips, type SkipStats } from "@/lib/studyData";
@@ -236,12 +237,8 @@ export default function ProfilePage() {
     // Рядом с номером запоминаем название и курс: если номер разойдётся со списком, восстановимся по ним
     rememberGroup(group);
     markGroupChosen();
-    let deviceId: string | null = null;
-    try { deviceId = localStorage.getItem("msu_device_id_v2"); } catch { /* приватный режим */ }
-    if (!deviceId) {
-      deviceId = crypto.randomUUID();
-      try { localStorage.setItem("msu_device_id_v2", deviceId); } catch { /* приватный режим */ }
-    }
+    // Номер устройства: если localStorage очистили, берём сохранённый в IndexedDB / cookie — тогда это не двойник
+    const deviceId = await ensureDeviceId();
     await api.registerUser(deviceId, name.trim(), group.id);
     // Подписка на уведомления помнит группу — без этого после смены группы уведомления шли бы о старой
     resyncPush(deviceId, group.id);

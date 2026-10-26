@@ -25,6 +25,8 @@ import VipPausedNotice from "@/components/tablo/vip/VipPausedNotice";
 import VipBirthday from "@/components/tablo/vip/VipBirthday";
 import VipMedalToast from "@/components/tablo/vip/VipMedalToast";
 import DevReplyToast from "@/components/DevReplyToast";
+import DeviceIdKeeper from "@/components/DeviceIdKeeper";
+import { deviceIdInitScript } from "@/lib/deviceId";
 import OwnerSync from "@/components/OwnerSync";
 import OwnerAmbient from "@/components/owner/OwnerAmbient";
 import OwnerTracker from "@/components/owner/OwnerTracker";
@@ -133,6 +135,11 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: specialInitScript() }}
         />
         <Script
+          id="device-id-init"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: deviceIdInitScript() }}
+        />
+        <Script
           id="owner-init"
           strategy="beforeInteractive"
           dangerouslySetInnerHTML={{ __html: ownerInitScript() }}
@@ -153,6 +160,7 @@ export default function RootLayout({
         <VipBirthday />
         <VipMedalToast />
         <DevReplyToast />
+        <DeviceIdKeeper />
         <OwnerSync />
         <OwnerAmbient />
         <OwnerTracker />
