@@ -116,6 +116,23 @@ async def _run_full_names_digest():
         logger.error(f"Письмо о вариантах имён не ушло: {e}", exc_info=True)
 
 
+async def _run_flush_seen():
+    """Сброс отметок заходов (api/routes/user.py → _seen) в базу — раз в несколько часов."""
+    from app.database import SessionLocal
+    from app.api.routes.user import _seen, flush_seen
+
+    if not _seen:
+        return   # нечего писать — базу не будим
+
+    def run():
+        with SessionLocal() as db:
+            return flush_seen(db)
+    try:
+        await asyncio.to_thread(run)
+    except Exception as e:
+        logger.error(f"Сброс отметок заходов не удался: {e}", exc_info=True)
+
+
 def start_scheduler():
     # Проверка расписания: тик раз в 5 минут, частота — по таблице выше
     scheduler.add_job(
@@ -156,6 +173,17 @@ def start_scheduler():
         id="full_names_digest",
         replace_existing=True,
         misfire_grace_time=3600,
+    )
+
+    # Отметки заходов на сайт — в базу пачкой, 6 раз в сутки (база днём спит)
+    scheduler.add_job(
+        _run_flush_seen,
+        trigger=CronTrigger(hour="7,10,13,16,19,22", minute=7, timezone=TZ),
+        id="flush_seen",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=600,
     )
 
     scheduler.start()

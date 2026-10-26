@@ -331,6 +331,8 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
   const [owners, setOwners] = useState<any[]>([]);
   const [userList, setUserList] = useState<any[]>([]);
   const [userQ, setUserQ] = useState("");
+  const [whoDir, setWhoDir] = useState<string | null>(null);   // «Кто зарегистрирован»: направление
+  const [whoYear, setWhoYear] = useState<number | null>(null); // и курс
   const [myDevice, setMyDevice] = useState("");
   const [ownerLabel, setOwnerLabel] = useState("");
   useEffect(() => {
@@ -579,6 +581,78 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
                 ));
               })()}
             </div>
+          </Section>
+
+          <Section title="Кто зарегистрирован" hint={<>Выберите направление и курс — как на сайте. Видно, кто в группе, с приложения или с сайта, включены ли уведомления и <b style={{ color: c.fg }}>когда последний раз заходил на сайт</b>. Заходы сайт сообщает раз в 30 минут, сервер записывает их в базу несколько раз в сутки (панель видит и свежие). Заходы из приложения пока не считаются — там «заход неизвестен».</>}>
+            {(() => {
+              const dirs = new Map<string, any[]>();
+              for (const u of userList) {
+                const key = u.group_name ? shortGroupName(u.group_name) : "Без группы";
+                dirs.set(key, [...(dirs.get(key) ?? []), u]);
+              }
+              const dirNames = [...dirs.keys()].sort((a, b) => (a === "Без группы" ? 1 : b === "Без группы" ? -1 : a.localeCompare(b, "ru")));
+              const inDir = whoDir ? dirs.get(whoDir) ?? [] : [];
+              const years = [...new Set(inDir.map((u: any) => u.year).filter((y: any) => y != null))].sort() as number[];
+              const people = inDir
+                .filter((u: any) => whoYear == null || u.year === whoYear || (whoYear === 0 && u.year == null))
+                .sort((a: any, b: any) => String(b.last_seen_at ?? b.updated_at ?? "").localeCompare(String(a.last_seen_at ?? a.updated_at ?? "")));
+              const chip = (on: boolean): CSSProperties => ({ ...btn, background: on ? c.accent : c.panel2, color: on ? "#fff" : c.fg, borderColor: on ? c.accent : c.border });
+              const seen = (u: any): { text: string; tone: string } => {
+                const exact = parseUtc(u.last_seen_at);
+                const d = exact ?? parseUtc(u.updated_at);
+                if (!d) return { text: u.app_version ? "заход неизвестен" : "—", tone: c.faint };
+                const days = (Date.now() - d.getTime()) / 86400000;
+                const when = days < 1 && new Date().toDateString() === d.toDateString() ? `сегодня ${d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}` : ago(d);
+                return { text: (exact ? "" : "≈ ") + when, tone: days <= 1 ? c.green : days <= 7 ? c.fg : c.yellow };
+              };
+              if (userList.length === 0) return <div style={{ fontSize: 13, color: c.muted }}>Пока никого нет</div>;
+              return (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 12, color: c.muted, marginBottom: 6 }}>Направление</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {dirNames.map(d => (
+                        <button key={d} style={chip(whoDir === d)} onClick={() => { setWhoDir(d); setWhoYear(null); }}>{d} · {dirs.get(d)!.length}</button>
+                      ))}
+                    </div>
+                  </div>
+                  {whoDir && (
+                    <div>
+                      <div style={{ fontSize: 12, color: c.muted, marginBottom: 6 }}>Курс</div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        <button style={chip(whoYear == null)} onClick={() => setWhoYear(null)}>Все курсы · {inDir.length}</button>
+                        {years.map(y => (
+                          <button key={y} style={chip(whoYear === y)} onClick={() => setWhoYear(y)}>{y} курс · {inDir.filter((u: any) => u.year === y).length}</button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {whoDir && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      <div style={{ fontSize: 12, color: c.muted }}>
+                        {people.length} {(() => { const n = people.length % 100, d = n % 10; return d >= 2 && d <= 4 && (n < 12 || n > 14) ? "человека" : "человек"; })()} · первыми — кто заходил позже всех
+                      </div>
+                      {people.map((u: any) => {
+                        const sn = seen(u);
+                        return (
+                          <div key={u.id} style={{ background: c.panel2, borderRadius: 10, padding: "8px 12px", fontSize: 13, display: "flex", gap: 10, alignItems: "center" }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <b>{u.name}</b>
+                              <span style={{ color: c.muted }}> · {u.year ? `${u.year} курс` : "без курса"}</span>
+                              <div style={{ color: c.faint, fontSize: 12 }}>
+                                {u.app_version ? `приложение ${u.app_version}` : "сайт"} · зарегистрирован {fmtTime(parseUtc(u.registered_at))}
+                                {" · "}уведомления: {[u.app_push && "приложение", u.web_push && "сайт"].filter(Boolean).join(" и ") || "нет"}
+                              </div>
+                            </div>
+                            <div style={{ textAlign: "right", whiteSpace: "nowrap", color: sn.tone, fontWeight: 600 }}>{sn.text}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </Section>
 
           <Section title="Мои устройства" hint={<>На этих устройствах сайт включает <b style={{ color: c.fg }}>ваше оформление</b>. Привязать можно только отсюда, с паролем — по имени или коду это не включить. Права админа это не даёт: панель всё равно спрашивает пароль. Новый телефон — откройте на нём панель и нажмите кнопку.</>}>

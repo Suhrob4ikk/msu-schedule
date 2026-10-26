@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy.orm import Session
 import json
+from datetime import datetime
 
 from app.database import get_db
 from app.models import Feedback, Group, UserSubscription, UserRegistration
@@ -24,6 +25,29 @@ router = APIRouter(prefix="/user", tags=["user"])
 # Если ничего не поменялось, базу не трогаем. После перезапуска сервера
 # (деплой, ночной сон Render) память пуста — первая же отметка запишется.
 _saved_reg: dict[str, tuple] = {}
+
+# Заходы на сайт (панель /dev → «Кто зарегистрирован»): device_id → время последней отметки (UTC).
+# Копятся в памяти, в базу уходят пачкой раз в несколько часов (flush_seen из планировщика) —
+# иначе каждая отметка будила бы Neon. Панель берёт максимум из базы и памяти, так что точность
+# от сброса не страдает; теряется только последний кусок, если сервер перезапустили до сброса.
+_seen: dict[str, datetime] = {}
+
+
+def flush_seen(db: Session) -> int:
+    """Записывает накопленные отметки заходов в базу. Возвращает, сколько записано."""
+    if not _seen:
+        return 0
+    batch = dict(_seen)
+    rows = db.query(UserRegistration).filter(UserRegistration.device_id.in_(list(batch))).all()
+    for r in rows:
+        t = batch[r.device_id]
+        if r.last_seen_at is None or t > r.last_seen_at:
+            r.last_seen_at = t
+    db.commit()
+    for dev, t in batch.items():
+        if _seen.get(dev) == t:
+            _seen.pop(dev, None)
+    return len(rows)
 _saved_token: dict[str, tuple] = {}
 
 
@@ -88,6 +112,7 @@ def register_user(
         raise HTTPException(400, "Слишком длинный device_id")
     name = name.strip()[:200]
     version = app_version[:20] if app_version else None
+    _seen[device_id] = datetime.utcnow()   # заход — в память, см. _seen
 
     saved = _saved_reg.get(device_id)
     if silent and saved and saved == (name, group_id, version or saved[2]):
@@ -111,6 +136,7 @@ def register_user(
         db.add(reg)
     if version:
         reg.app_version = version
+    reg.last_seen_at = _seen[device_id]   # раз пишем в базу и так — заодно и заход
     db.commit()
     _saved_reg[device_id] = (name, group_id, reg.app_version)
 

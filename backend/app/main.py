@@ -221,6 +221,11 @@ async def lifespan(app: FastAPI):
                 with engine.begin() as conn:
                     conn.execute(text("ALTER TABLE user_registrations ADD COLUMN app_version VARCHAR(20)"))
                 MIGRATION_STATUS += "; app_version: добавлена"
+            # last_seen_at — когда последний раз открывал сайт (панель /dev)
+            if "last_seen_at" not in reg_cols:
+                with engine.begin() as conn:
+                    conn.execute(text("ALTER TABLE user_registrations ADD COLUMN last_seen_at TIMESTAMP"))
+                MIGRATION_STATUS += "; last_seen_at: добавлена"
         except Exception as e:
             MIGRATION_STATUS += f"; expo_push_token: ошибка — {e}"
 

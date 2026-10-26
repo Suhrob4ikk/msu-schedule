@@ -465,13 +465,29 @@ def dev_users(db: Session = Depends(get_db)):
 
 @router.get("/users/list", dependencies=[Depends(require_dev)])
 def dev_users_list(db: Session = Depends(get_db)):
-    """Все регистрации — для поиска и удаления тестовых (11 окт 2026)."""
+    """Все регистрации — для поиска и удаления тестовых (11 окт 2026) и для раздела «Кто
+    зарегистрирован» (направление → курс → люди, последний заход; 26 окт 2026)."""
+    from app.api.routes.user import _seen
     rows = (db.query(UserRegistration).options(joinedload(UserRegistration.group))
-            .order_by(UserRegistration.registered_at.desc()).limit(1000).all())
+            .order_by(UserRegistration.registered_at.desc()).limit(2000).all())
+    web_push = {s for (s,) in db.query(UserSubscription.session_id)
+                .filter(UserSubscription.push_endpoint.isnot(None)).all()}
+
+    def last_seen(r):
+        mem = _seen.get(r.device_id)   # свежее из памяти, пока не сброшено в базу
+        times = [t for t in (r.last_seen_at, mem) if t]
+        return max(times) if times else None
+
     return [{
         "id": r.id, "name": r.name, "app_version": r.app_version,
         "group": f"{r.group.year} курс · {r.group.name}" if r.group else None,
+        "group_name": r.group.name if r.group else None,
+        "year": r.group.year if r.group else None,
         "registered_at": r.registered_at.isoformat() if r.registered_at else None,
+        "updated_at": r.updated_at.isoformat() if r.updated_at else None,
+        "last_seen_at": last_seen(r).isoformat() if last_seen(r) else None,
+        "app_push": bool(r.expo_push_token),
+        "web_push": r.device_id in web_push,
     } for r in rows]
 
 
