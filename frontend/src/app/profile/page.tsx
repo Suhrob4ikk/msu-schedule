@@ -24,7 +24,6 @@ import { api, rememberGroup, shortGroupName, type Group } from "@/lib/api";
 import { markGroupChosen } from "@/lib/features";
 import { ensureDeviceId } from "@/lib/deviceId";
 import { surveyAnswered } from "@/lib/survey";
-import { savePhoto, removePhoto, usePhoto } from "@/lib/photo";
 import { getInstallEvent, isIOS, isStandalone, onInstallChange, runInstall } from "@/lib/install";
 import { getPushStatus, resyncPush, subscribePush, unsubscribePush, type PushStatus } from "@/lib/push";
 import { collectNotes, collectSkips, type SkipStats } from "@/lib/studyData";
@@ -175,37 +174,6 @@ function MessagesLink() {
   );
 }
 
-/** Кружок профиля с фото (lib/photo.ts): нажатие — выбрать, рядом «Убрать». Фото живёт только в этом браузере. */
-function AvatarPhoto({ letter }: { letter: string }) {
-  const photo = usePhoto();
-  const [err, setErr] = useState("");
-  const pick = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    try { setErr(""); await savePhoto(file); } catch (x) { setErr(x instanceof Error ? x.message : "Не удалось"); }
-  };
-  return (
-    <div className="t-pf-photo">
-      <label className="t-pf-photo-btn" aria-label={photo ? "Сменить фото" : "Добавить фото"}>
-        <span className="t-avatar t-avatar-lg">
-          {photo
-            // eslint-disable-next-line @next/next/no-img-element
-            ? <img src={photo} alt="" className="t-avatar-img" />
-            : letter || <Icon name="user" size={26} />}
-        </span>
-        <span className="t-pf-photo-badge" aria-hidden="true"><Icon name="image" size={14} /></span>
-        <input type="file" accept="image/*" onChange={pick} className="t-pf-photo-input" />
-      </label>
-      {(photo || err) && (
-        <div className="t-pf-photo-sub">
-          {err ? <span className="t-pf-photo-err">{err}</span> : <button type="button" onClick={removePhoto}>Убрать фото</button>}
-        </div>
-      )}
-    </div>
-  );
-}
-
 export default function ProfilePage() {
   const router = useRouter();
   const appearance = useAppearance();
@@ -348,7 +316,7 @@ export default function ProfilePage() {
             ) : (
             <section className="t-pf-card t-pf-me">
               <div className="t-pf-who">
-                <AvatarPhoto letter={letter} />
+                <span className="t-avatar t-avatar-lg" aria-hidden="true">{letter || <Icon name="user" size={26} />}</span>
                 <div>
                   <h1>{name.trim() || "Без имени"}</h1>
                   {group && <p>{shortGroupName(group.name)} · {group.year} курс</p>}

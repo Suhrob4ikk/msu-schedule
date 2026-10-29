@@ -101,17 +101,6 @@
 .t-sv-strip-x:hover { color: var(--text); }
 .t-sv-strip-note { padding: 12px 16px; font-size: 14.5px; line-height: 1.4; color: var(--text); }
 
-/* Фото профиля (lib/photo.ts, AvatarPhoto в app/profile/page.tsx, AvatarMenu) */
-.t-avatar { overflow: hidden; }
-.t-avatar-img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.t-pf-photo { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: none; }
-.t-pf-photo-btn { position: relative; display: inline-block; cursor: pointer; }
-.t-pf-photo-btn .t-avatar-lg { width: 72px; height: 72px; font-size: 30px; }
-.t-pf-photo-badge { position: absolute; right: -2px; bottom: -2px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--fill); color: var(--on-fill); box-shadow: 0 0 0 2px var(--surface); }
-.t-pf-photo-input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; font-size: 0; }
-.t-pf-photo-sub { font-size: 13px; }
-.t-pf-photo-sub button { background: none; border: 0; padding: 2px 4px; color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; }
-.t-pf-photo-err { color: var(--danger); }
 
 /* Строка Кабинета с названием и подписью под ним (SurveyRow) */
 .t-pf-nav .t-pf-stack { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
