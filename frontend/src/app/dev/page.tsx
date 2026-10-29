@@ -688,7 +688,7 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
               : (() => {
                   const names: Record<string, string> = {
                     daily: "каждый день", weekly3: "несколько раз в неделю", weekly: "раз в неделю", rare: "реже",
-                    schedule: "расписание", rooms: "аудитории", teachers: "педагоги", changes: "изменения", compare: "сравнение групп",
+                    site: "из этого сайта или приложения", chat: "из чата группы", starosta: "от старосты или преподавателя", none: "узнаёт, только когда приходит",
                     yes: "да", think: "я подумаю", no: "нет",
                   };
                   const bars = (title: string, data: Record<string, number>) => {
@@ -716,7 +716,7 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
                         <Stat label="средняя оценка удобства (1–5)" value={survey.rating_avg ?? "—"} />
                       </div>
                       {bars("Как часто открывают", survey.freq)}
-                      {bars("Чем пользуются чаще всего", survey.used)}
+                      {bars("Как узнают об изменениях в расписании", survey.learn)}
                       {bars("Порекомендуют друзьям", survey.recommend)}
                       <div>
                         <div style={{ fontSize: 12, color: c.muted, marginBottom: 6 }}>Свободные ответы ({survey.open.length})</div>
@@ -724,9 +724,10 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
                           {survey.open.map((o: any) => (
                             <div key={o.id} style={{ background: c.panel2, borderRadius: 10, padding: "10px 12px", fontSize: 13.5, lineHeight: 1.45 }}>
                               <div style={{ color: c.faint, fontSize: 12, marginBottom: 4 }}>{fmtTime(parseUtc(o.at))}{o.rating ? ` · оценка ${o.rating}` : ""}</div>
-                              {o.missing && <div><b style={{ color: c.muted }}>Добавить: </b>{o.missing}</div>}
-                              {o.annoy && <div><b style={{ color: c.muted }}>Мешает: </b>{o.annoy}</div>}
-                              {o.change && <div><b style={{ color: c.muted }}>Изменить: </b>{o.change}</div>}
+                              {o.last_case && <div><b style={{ color: c.muted }}>Последний раз хотел узнать: </b>{o.last_case}</div>}
+                              {o.trouble && <div><b style={{ color: c.muted }}>Пропуск или не та аудитория: </b>{o.trouble}</div>}
+                              {o.before_site && <div><b style={{ color: c.muted }}>До сайта пользовался: </b>{o.before_site}</div>}
+                              {o.missing && <div><b style={{ color: c.muted }}>Добавить или мешает: </b>{o.missing}</div>}
                             </div>
                           ))}
                         </div>

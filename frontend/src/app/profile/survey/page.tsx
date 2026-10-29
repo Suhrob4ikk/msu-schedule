@@ -1,17 +1,18 @@
 "use client";
 /**
- * Опрос «Помогите улучшить» (CustDev; владелец, 29 окт 2026). Семь вопросов, почти все необязательные,
- * ответы анонимные. Во вступлении — что нам недавно подсказали добавить фото в профиль, и просьба
- * подсказать, чего ещё не хватает. Логика и тексты вариантов — lib/survey.ts.
+ * Опрос «Помогите улучшить» (CustDev; владелец, 29 окт 2026). Восемь вопросов, все необязательные, ответы
+ * анонимные. Вопросы в духе «Mom Test»: про реальные случаи и проблемы из прошлого, а не «хотели бы вы»
+ * (люди плохо предсказывают своё поведение, но хорошо помнят, что с ними было). Логика и тексты — lib/survey.ts.
  */
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import Icon from "@/components/tablo/Icon";
 import { myDeviceId } from "@/lib/devMessages";
-import { EMPTY_SURVEY, FREQ, RECOMMEND, USED, sendSurvey, surveyFilled, type SurveyForm } from "@/lib/survey";
+import { EMPTY_SURVEY, FREQ, LEARN, RECOMMEND, sendSurvey, surveyFilled, type SurveyForm } from "@/lib/survey";
 
 const MAX = 1500;
+type OpenKey = "last_case" | "trouble" | "before_site" | "missing";
 
 export default function SurveyPage() {
   const [device, setDevice] = useState<string | null>(null);
@@ -27,7 +28,7 @@ export default function SurveyPage() {
   }, []);
 
   const set = <K extends keyof SurveyForm>(k: K, v: SurveyForm[K]) => { setF(p => ({ ...p, [k]: v })); setError(""); };
-  const toggleUsed = (code: string) => { setF(p => ({ ...p, used: p.used.includes(code) ? p.used.filter(x => x !== code) : [...p.used, code] })); setError(""); };
+  const toggleLearn = (code: string) => { setF(p => ({ ...p, learn: p.learn.includes(code) ? p.learn.filter(x => x !== code) : [...p.learn, code] })); setError(""); };
 
   const submit = async () => {
     if (!device || busy || !surveyFilled(f)) return;
@@ -38,7 +39,7 @@ export default function SurveyPage() {
   };
 
   const choice = (on: boolean) => `t-sv-opt ${on ? "t-sv-opt-on" : ""}`;
-  const area = (key: "missing" | "annoy" | "change", placeholder: string) => (
+  const area = (key: OpenKey, placeholder: string) => (
     <textarea value={f[key]} rows={3} maxLength={MAX} placeholder={placeholder}
       onChange={e => set(key, e.target.value.slice(0, MAX))} />
   );
@@ -71,7 +72,8 @@ export default function SurveyPage() {
           <>
             <p className="t-msg-lead">
               Нам важно слышать каждого: расскажите, что вам удобно, а что нет, и чего вам не хватает.
-              Ответы анонимные, на все вопросы отвечать не обязательно.
+              Лучше всего помогают реальные случаи: что было на самом деле. Ответы анонимные, на все вопросы
+              отвечать не обязательно.
             </p>
 
             <section className="t-pf-card t-sv-q">
@@ -84,27 +86,39 @@ export default function SurveyPage() {
             </section>
 
             <section className="t-pf-card t-sv-q">
-              <h2>2. Чем вы пользуетесь чаще всего?</h2>
+              <h2>2. Когда вы в последний раз открывали расписание, что хотели узнать?</h2>
+              <p>Вспомните один конкретный случай.</p>
+              {area("last_case", "Например: во сколько завтра первая пара")}
+            </section>
+
+            <section className="t-pf-card t-sv-q">
+              <h2>3. Бывало, что вы пропустили пару или пришли не в ту аудиторию из-за расписания?</h2>
+              <p>Если да, расскажите, что случилось.</p>
+              {area("trouble", "Что именно произошло")}
+            </section>
+
+            <section className="t-pf-card t-sv-q">
+              <h2>4. Как вы узнаёте об изменениях в расписании?</h2>
               <p>Можно выбрать несколько.</p>
               <div className="t-sv-opts">
-                {USED.map(([code, label]) => (
-                  <button key={code} type="button" className={choice(f.used.includes(code))} onClick={() => toggleUsed(code)}>{label}</button>
+                {LEARN.map(([code, label]) => (
+                  <button key={code} type="button" className={choice(f.learn.includes(code))} onClick={() => toggleLearn(code)}>{label}</button>
                 ))}
               </div>
             </section>
 
             <section className="t-pf-card t-sv-q">
-              <h2>3. Что бы вы хотели, чтобы мы добавили для удобства?</h2>
-              {area("missing", "Любые идеи, даже самые смелые")}
+              <h2>5. Чем вы пользовались до нашего сайта и что вас не устраивало?</h2>
+              {area("before_site", "Например: фото в чате, сайт университета")}
             </section>
 
             <section className="t-pf-card t-sv-q">
-              <h2>4. Что вам мешает или раздражает?</h2>
-              {area("annoy", "Что неудобно, непонятно или работает не так")}
+              <h2>6. Что бы вы добавили или что вам мешает?</h2>
+              {area("missing", "Любые идеи или что неудобно")}
             </section>
 
             <section className="t-pf-card t-sv-q">
-              <h2>5. Насколько вам удобно пользоваться?</h2>
+              <h2>7. Насколько вам удобно пользоваться?</h2>
               <div className="t-sv-scale">
                 {[1, 2, 3, 4, 5].map(n => (
                   <button key={n} type="button" className={choice(f.rating === n)} onClick={() => set("rating", f.rating === n ? null : n)}>{n}</button>
@@ -114,17 +128,12 @@ export default function SurveyPage() {
             </section>
 
             <section className="t-pf-card t-sv-q">
-              <h2>6. Порекомендуете сайт друзьям?</h2>
+              <h2>8. Порекомендуете сайт друзьям?</h2>
               <div className="t-sv-opts">
                 {RECOMMEND.map(([code, label]) => (
                   <button key={code} type="button" className={choice(f.recommend === code)} onClick={() => set("recommend", f.recommend === code ? null : code)}>{label}</button>
                 ))}
               </div>
-            </section>
-
-            <section className="t-pf-card t-sv-q">
-              <h2>7. Если бы можно было изменить одну вещь, что бы это было?</h2>
-              {area("change", "Одно главное изменение")}
             </section>
 
             {error && <p className="t-msg-err">{error}</p>}

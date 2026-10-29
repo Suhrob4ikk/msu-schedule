@@ -29,7 +29,7 @@ export default function SurveyStrip() {
         <span className="t-sv-strip-ic"><Icon name="chat" size={20} /></span>
         <span className="t-sv-strip-tx">
           <b>Помогите улучшить сайт</b>
-          <span>7 вопросов, 2 минуты, анонимно. Можно отказаться сейчас и пройти позже: Кабинет → «Помогите улучшить».</span>
+          <span>8 вопросов, 3 минуты, анонимно. Можно отказаться сейчас и пройти позже: Кабинет → «Помогите улучшить».</span>
         </span>
       </Link>
       <button type="button" className="t-sv-strip-x" aria-label="Скрыть"

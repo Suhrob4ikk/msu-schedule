@@ -390,13 +390,15 @@ class SurveyAnswer(Base):
     id = Column(Integer, primary_key=True)
     device_id = Column(String(100), nullable=False, unique=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+    # Вопросы в духе CustDev («Mom Test»): про реальное прошлое и проблемы, а не «хотели бы вы»
     freq = Column(String(20), nullable=True)        # daily / weekly3 / weekly / rare
-    used = Column(Text, nullable=True)              # JSON-список кодов: schedule, rooms, teachers, changes, compare
-    missing = Column(Text, nullable=True)           # что добавить для удобства (открытый)
-    annoy = Column(Text, nullable=True)             # что мешает или раздражает (открытый)
+    last_case = Column(Text, nullable=True)         # когда последний раз открывали расписание — что хотели узнать
+    trouble = Column(Text, nullable=True)           # бывало ли пропустили пару / пришли не туда из-за расписания
+    learn = Column(Text, nullable=True)             # JSON-список кодов: как узнают об изменениях (site, chat, starosta, none)
+    before_site = Column(Text, nullable=True)       # чем пользовались до сайта и что не устраивало
+    missing = Column(Text, nullable=True)           # что добавить или что мешает (открытый)
     rating = Column(Integer, nullable=True)         # 1–5
     recommend = Column(String(10), nullable=True)   # yes / think / no
-    change = Column(Text, nullable=True)            # одна вещь, которую изменить (открытый)
 
 
 class VipProgress(Base):

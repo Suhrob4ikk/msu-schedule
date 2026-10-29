@@ -151,7 +151,7 @@ function SurveyRow() {
       <span className="t-pf-ic"><Icon name="note" size={22} /></span>
       <div className="t-pf-stack">
         <b>Помогите улучшить</b>
-        <em>{answered ? "Вы ответили" : "7 вопросов, 2 минуты"}</em>
+        <em>{answered ? "Вы ответили" : "8 вопросов, 3 минуты"}</em>
       </div>
       <Icon name="chevronRight" size={20} />
     </Link>

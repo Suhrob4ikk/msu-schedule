@@ -18,26 +18,29 @@ const MIN_DAYS = 3;
 export const FREQ: [string, string][] = [
   ["daily", "Каждый день"], ["weekly3", "Несколько раз в неделю"], ["weekly", "Раз в неделю"], ["rare", "Реже"],
 ];
-export const USED: [string, string][] = [
-  ["schedule", "Расписание"], ["rooms", "Аудитории"],
-  ["teachers", "Педагоги"], ["changes", "Изменения в расписании"], ["compare", "Сравнение с другой группой"],
+export const LEARN: [string, string][] = [
+  ["site", "Из этого сайта или приложения"], ["chat", "Из чата группы"],
+  ["starosta", "От старосты или преподавателя"], ["none", "Узнаю, только когда прихожу"],
 ];
 export const RECOMMEND: [string, string][] = [["yes", "Да"], ["think", "Я подумаю"], ["no", "Нет"]];
 
 export interface SurveyForm {
   freq: string | null;
-  used: string[];
+  last_case: string;
+  trouble: string;
+  learn: string[];
+  before_site: string;
   missing: string;
-  annoy: string;
   rating: number | null;
   recommend: string | null;
-  change: string;
 }
 
-export const EMPTY_SURVEY: SurveyForm = { freq: null, used: [], missing: "", annoy: "", rating: null, recommend: null, change: "" };
+export const EMPTY_SURVEY: SurveyForm = {
+  freq: null, last_case: "", trouble: "", learn: [], before_site: "", missing: "", rating: null, recommend: null,
+};
 
 export function surveyFilled(f: SurveyForm): boolean {
-  return !!(f.freq || f.used.length || f.missing.trim() || f.annoy.trim() || f.rating || f.recommend || f.change.trim());
+  return !!(f.freq || f.learn.length || f.last_case.trim() || f.trouble.trim() || f.before_site.trim() || f.missing.trim() || f.rating || f.recommend);
 }
 
 export async function sendSurvey(deviceId: string, f: SurveyForm): Promise<void> {

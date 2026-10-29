@@ -384,19 +384,20 @@ def dev_messages_seen(body: DeviceBody, db: Session = Depends(get_db)):
 # Анонимный: имя и группа не сохраняются. Один ответ на устройство (повторный заменяет прежний).
 
 SURVEY_FREQ = {"daily", "weekly3", "weekly", "rare"}
-SURVEY_USED = {"schedule", "rooms", "teachers", "changes", "compare"}
+SURVEY_LEARN = {"site", "chat", "starosta", "none"}
 SURVEY_RECOMMEND = {"yes", "think", "no"}
 
 
 class SurveyBody(BaseModel):
     device_id: str
     freq: Optional[str] = None
-    used: list[str] = []
+    last_case: str = ""
+    trouble: str = ""
+    learn: list[str] = []
+    before_site: str = ""
     missing: str = ""
-    annoy: str = ""
     rating: Optional[int] = None
     recommend: Optional[str] = None
-    change: str = ""
 
 
 @router.post("/survey")
@@ -406,18 +407,18 @@ def send_survey(body: SurveyBody, db: Session = Depends(get_db)):
     if not db.query(UserRegistration.id).filter_by(device_id=body.device_id).first():
         raise HTTPException(403, "Сначала выберите группу в Кабинете")
     freq = body.freq if body.freq in SURVEY_FREQ else None
-    used = sorted({u for u in body.used if u in SURVEY_USED})
+    learn = sorted({u for u in body.learn if u in SURVEY_LEARN})
     recommend = body.recommend if body.recommend in SURVEY_RECOMMEND else None
     rating = body.rating if body.rating and 1 <= body.rating <= 5 else None
-    missing, annoy, change = (t.strip()[:1500] or None for t in (body.missing, body.annoy, body.change))
-    if not (freq or used or recommend or rating or missing or annoy or change):
+    last_case, trouble, before_site, missing = (t.strip()[:1500] or None for t in (body.last_case, body.trouble, body.before_site, body.missing))
+    if not (freq or learn or recommend or rating or last_case or trouble or before_site or missing):
         raise HTTPException(400, "Ответьте хотя бы на один вопрос")
     row = db.query(SurveyAnswer).filter_by(device_id=body.device_id).first()
     if not row:
         row = SurveyAnswer(device_id=body.device_id)
         db.add(row)
-    row.freq, row.used, row.missing, row.annoy = freq, json.dumps(used), missing, annoy
-    row.rating, row.recommend, row.change = rating, recommend, change
+    row.freq, row.learn, row.last_case, row.trouble = freq, json.dumps(learn), last_case, trouble
+    row.before_site, row.missing, row.rating, row.recommend = before_site, missing, rating, recommend
     row.created_at = datetime.utcnow()
     db.commit()
     return {"ok": True}

@@ -617,23 +617,24 @@ def dev_survey(db: Session = Depends(get_db)):
                 out[v] = out.get(v, 0) + 1
         return out
 
-    used: dict[str, int] = {}
+    learn: dict[str, int] = {}
     for r in rows:
         try:
-            for u in _json.loads(r.used or "[]"):
-                used[u] = used.get(u, 0) + 1
+            for u in _json.loads(r.learn or "[]"):
+                learn[u] = learn.get(u, 0) + 1
         except ValueError:
             pass
     ratings = [r.rating for r in rows if r.rating]
     open_answers = [
         {"id": r.id, "at": r.created_at.isoformat() if r.created_at else None,
-         "missing": r.missing, "annoy": r.annoy, "change": r.change, "rating": r.rating}
-        for r in rows if r.missing or r.annoy or r.change
+         "last_case": r.last_case, "trouble": r.trouble, "before_site": r.before_site,
+         "missing": r.missing, "rating": r.rating}
+        for r in rows if r.last_case or r.trouble or r.before_site or r.missing
     ]
     return {
         "total": len(rows),
         "freq": count(r.freq for r in rows),
-        "used": used,
+        "learn": learn,
         "recommend": count(r.recommend for r in rows),
         "rating_avg": round(sum(ratings) / len(ratings), 2) if ratings else None,
         "rating_count": count(str(x) for x in ratings),
