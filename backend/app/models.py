@@ -382,6 +382,23 @@ class DevMessage(Base):
     reply_seen = Column(Boolean, default=False, nullable=False)
 
 
+class SurveyAnswer(Base):
+    """Ответы на опрос «Помогите улучшить» (CustDev, 29 окт 2026). Анонимно: имени и группы нет,
+    device_id нужен только чтобы один человек не отвечал много раз (повторный ответ заменяет прежний).
+    Закрытые вопросы — короткие коды (frequency, used, recommend), открытые — текст."""
+    __tablename__ = "survey_answers"
+    id = Column(Integer, primary_key=True)
+    device_id = Column(String(100), nullable=False, unique=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    freq = Column(String(20), nullable=True)        # daily / weekly3 / weekly / rare
+    used = Column(Text, nullable=True)              # JSON-список кодов: today, week, rooms, teachers, changes, compare
+    missing = Column(Text, nullable=True)           # что добавить для удобства (открытый)
+    annoy = Column(Text, nullable=True)             # что мешает или раздражает (открытый)
+    rating = Column(Integer, nullable=True)         # 1–5
+    recommend = Column(String(10), nullable=True)   # yes / think / no
+    change = Column(Text, nullable=True)            # одна вещь, которую изменить (открытый)
+
+
 class VipProgress(Base):
     """Серия и достижения «золотого профиля» (11 окт 2026, services/vip_progress.py).
 

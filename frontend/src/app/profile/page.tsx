@@ -23,6 +23,7 @@ import { VIP_NEW_KEY, VIP_OFF_KEY, canActivateVip, readOwnVip } from "@/lib/spec
 import { api, rememberGroup, shortGroupName, type Group } from "@/lib/api";
 import { markGroupChosen } from "@/lib/features";
 import { ensureDeviceId } from "@/lib/deviceId";
+import SurveyCard from "@/components/SurveyCard";
 import { getInstallEvent, isIOS, isStandalone, onInstallChange, runInstall } from "@/lib/install";
 import { getPushStatus, resyncPush, subscribePush, unsubscribePush, type PushStatus } from "@/lib/push";
 import { collectNotes, collectSkips, type SkipStats } from "@/lib/studyData";
@@ -407,6 +408,7 @@ export default function ProfilePage() {
               )}
             {/* «Синхронизация» с кнопкой «Обновить расписание» убрана (владелец, 11 окт 2026): сайт обновляет
                 расписание сам — при открытии, возврате на вкладку и по push (lib/api.ts, ServerResync) */}
+            <SurveyCard />
             {/* Связь с владельцем: вопросы, ошибки и предложения — переписка на сайте */}
             <nav className="t-pf-card t-pf-nav t-pf-contact" aria-label="Связь">
               <MessagesLink />

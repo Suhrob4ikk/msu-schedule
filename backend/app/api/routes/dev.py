@@ -29,7 +29,7 @@ from app.core.config import settings
 from app.database import get_db
 from app.models import (
     Group, Lesson, Teacher, Room, WeekSchedule, SyncLog,
-    UserRegistration, UserSubscription, TeacherOverride, Feedback, OwnerDevice,
+    UserRegistration, UserSubscription, TeacherOverride, Feedback, OwnerDevice, SurveyAnswer,
 )
 
 logger = logging.getLogger(__name__)
@@ -602,6 +602,43 @@ def dev_messages_delete(message_id: int, db: Session = Depends(get_db)):
     from app.services.dev_messages import delete
     delete(db, message_id)
     return {"ok": True}
+
+
+@router.get("/survey", dependencies=[Depends(require_dev)])
+def dev_survey(db: Session = Depends(get_db)):
+    """Итоги опроса «Помогите улучшить»: сколько выбрали каждый вариант и открытые ответы (29 окт 2026)."""
+    import json as _json
+    rows = db.query(SurveyAnswer).order_by(SurveyAnswer.created_at.desc()).all()
+
+    def count(values):
+        out: dict[str, int] = {}
+        for v in values:
+            if v:
+                out[v] = out.get(v, 0) + 1
+        return out
+
+    used: dict[str, int] = {}
+    for r in rows:
+        try:
+            for u in _json.loads(r.used or "[]"):
+                used[u] = used.get(u, 0) + 1
+        except ValueError:
+            pass
+    ratings = [r.rating for r in rows if r.rating]
+    open_answers = [
+        {"id": r.id, "at": r.created_at.isoformat() if r.created_at else None,
+         "missing": r.missing, "annoy": r.annoy, "change": r.change, "rating": r.rating}
+        for r in rows if r.missing or r.annoy or r.change
+    ]
+    return {
+        "total": len(rows),
+        "freq": count(r.freq for r in rows),
+        "used": used,
+        "recommend": count(r.recommend for r in rows),
+        "rating_avg": round(sum(ratings) / len(ratings), 2) if ratings else None,
+        "rating_count": count(str(x) for x in ratings),
+        "open": open_answers,
+    }
 
 
 @router.post("/test-push", dependencies=[Depends(require_dev)])

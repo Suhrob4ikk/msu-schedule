@@ -13,7 +13,7 @@ import json
 from datetime import datetime
 
 from app.database import get_db
-from app.models import Feedback, Group, UserSubscription, UserRegistration
+from app.models import Feedback, Group, SurveyAnswer, UserSubscription, UserRegistration
 from app.core.config import settings
 
 router = APIRouter(prefix="/user", tags=["user"])
@@ -377,6 +377,49 @@ def dev_messages_unread(device_id: str, db: Session = Depends(get_db)):
 def dev_messages_seen(body: DeviceBody, db: Session = Depends(get_db)):
     from app.services import dev_messages as dm
     dm.mark_seen(db, body.device_id[:100])
+    return {"ok": True}
+
+
+# ─── Опрос «Помогите улучшить» (29 окт 2026) ────────────────────────────────
+# Анонимный: имя и группа не сохраняются. Один ответ на устройство (повторный заменяет прежний).
+
+SURVEY_FREQ = {"daily", "weekly3", "weekly", "rare"}
+SURVEY_USED = {"today", "week", "rooms", "teachers", "changes", "compare"}
+SURVEY_RECOMMEND = {"yes", "think", "no"}
+
+
+class SurveyBody(BaseModel):
+    device_id: str
+    freq: Optional[str] = None
+    used: list[str] = []
+    missing: str = ""
+    annoy: str = ""
+    rating: Optional[int] = None
+    recommend: Optional[str] = None
+    change: str = ""
+
+
+@router.post("/survey")
+def send_survey(body: SurveyBody, db: Session = Depends(get_db)):
+    if len(body.device_id) > 100:
+        raise HTTPException(400, "Слишком длинный device_id")
+    if not db.query(UserRegistration.id).filter_by(device_id=body.device_id).first():
+        raise HTTPException(403, "Сначала выберите группу в Кабинете")
+    freq = body.freq if body.freq in SURVEY_FREQ else None
+    used = sorted({u for u in body.used if u in SURVEY_USED})
+    recommend = body.recommend if body.recommend in SURVEY_RECOMMEND else None
+    rating = body.rating if body.rating and 1 <= body.rating <= 5 else None
+    missing, annoy, change = (t.strip()[:1500] or None for t in (body.missing, body.annoy, body.change))
+    if not (freq or used or recommend or rating or missing or annoy or change):
+        raise HTTPException(400, "Ответьте хотя бы на один вопрос")
+    row = db.query(SurveyAnswer).filter_by(device_id=body.device_id).first()
+    if not row:
+        row = SurveyAnswer(device_id=body.device_id)
+        db.add(row)
+    row.freq, row.used, row.missing, row.annoy = freq, json.dumps(used), missing, annoy
+    row.rating, row.recommend, row.change = rating, recommend, change
+    row.created_at = datetime.utcnow()
+    db.commit()
     return {"ok": True}
 
 

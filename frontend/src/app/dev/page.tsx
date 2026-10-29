@@ -324,6 +324,7 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
   const [names, setNames] = useState<any>(null);
   const [feedback, setFeedback] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
+  const [survey, setSurvey] = useState<any>(null);
   const [replies, setReplies] = useState<Record<string, string>>({});
   const [msgNote, setMsgNote] = useState<Record<string, string>>({});
   // Правка своего сообщения: какое и черновик текста
@@ -357,6 +358,7 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
     try { setNames(await api<any>("/full-names")); } catch { setNames(null); }
     try { setFeedback(await api<any[]>("/feedback")); } catch { setFeedback([]); }
     try { setMessages(await api<any[]>("/messages")); } catch { setMessages([]); }
+    try { setSurvey(await api<any>("/survey")); } catch { setSurvey(null); }
     try { setOwners(await api<any[]>("/owner-devices")); } catch { setOwners([]); }
     try { setUserList(await api<any[]>("/users/list")); } catch { setUserList([]); }
   }, [api, onLogout]);
@@ -678,6 +680,60 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
                 </div>
               );
             })()}
+          </Section>
+
+          <Section title={`Опрос${survey ? ` · ответили ${survey.total}` : ""}`} hint="Анонимный опрос «Помогите улучшить» (карточка в Кабинете сайта после трёх дней захода, прямая ссылка — /profile/survey). Кто ответил — неизвестно, видно только ответы. Повторный ответ с того же устройства заменяет прежний.">
+            {!survey || survey.total === 0
+              ? <div style={{ fontSize: 13, color: c.muted }}>Пока никто не ответил</div>
+              : (() => {
+                  const names: Record<string, string> = {
+                    daily: "каждый день", weekly3: "несколько раз в неделю", weekly: "раз в неделю", rare: "реже",
+                    today: "расписание на сегодня", week: "расписание на неделю", rooms: "аудитории", teachers: "педагоги", changes: "изменения", compare: "сравнение групп",
+                    yes: "да", think: "я подумаю", no: "нет",
+                  };
+                  const bars = (title: string, data: Record<string, number>) => {
+                    const rows = Object.entries(data).sort((a, b) => b[1] - a[1]);
+                    const max = Math.max(1, ...rows.map(r => r[1]));
+                    return (
+                      <div>
+                        <div style={{ fontSize: 12, color: c.muted, marginBottom: 6 }}>{title}</div>
+                        {rows.length === 0 ? <div style={{ fontSize: 13, color: c.faint }}>нет ответов</div> : rows.map(([k, n]) => (
+                          <div key={k} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, marginBottom: 4 }}>
+                            <span style={{ width: 170, flex: "none" }}>{names[k] ?? k}</span>
+                            <span style={{ flex: 1, height: 8, background: c.panel2, borderRadius: 4, overflow: "hidden" }}>
+                              <span style={{ display: "block", height: "100%", width: `${(n / max) * 100}%`, background: c.accent, borderRadius: 4 }} />
+                            </span>
+                            <span style={{ width: 28, textAlign: "right", color: c.muted }}>{n}</span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  };
+                  return (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                        <Stat label="ответили" value={survey.total} />
+                        <Stat label="средняя оценка удобства (1–5)" value={survey.rating_avg ?? "—"} />
+                      </div>
+                      {bars("Как часто открывают", survey.freq)}
+                      {bars("Чем пользуются чаще всего", survey.used)}
+                      {bars("Порекомендуют друзьям", survey.recommend)}
+                      <div>
+                        <div style={{ fontSize: 12, color: c.muted, marginBottom: 6 }}>Свободные ответы ({survey.open.length})</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                          {survey.open.map((o: any) => (
+                            <div key={o.id} style={{ background: c.panel2, borderRadius: 10, padding: "10px 12px", fontSize: 13.5, lineHeight: 1.45 }}>
+                              <div style={{ color: c.faint, fontSize: 12, marginBottom: 4 }}>{fmtTime(parseUtc(o.at))}{o.rating ? ` · оценка ${o.rating}` : ""}</div>
+                              {o.missing && <div><b style={{ color: c.muted }}>Добавить: </b>{o.missing}</div>}
+                              {o.annoy && <div><b style={{ color: c.muted }}>Мешает: </b>{o.annoy}</div>}
+                              {o.change && <div><b style={{ color: c.muted }}>Изменить: </b>{o.change}</div>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
           </Section>
 
           <Section title="Мои устройства" hint={<>На этих устройствах сайт включает <b style={{ color: c.fg }}>ваше оформление</b>. Привязать можно только отсюда, с паролем — по имени или коду это не включить. Права админа это не даёт: панель всё равно спрашивает пароль. Новый телефон — откройте на нём панель и нажмите кнопку.</>}>
