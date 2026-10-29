@@ -1,3 +1,5 @@
+import { offlineAnswer } from './offlineBulk';
+
 // Адрес бэкенда — единственный источник правды в next.config.ts.
 // Это путь на нашем же домене ("/backend"), а не адрес Render: до Render с
 // мобильного интернета Megafon TJ не достучаться, поэтому запросы идут через
@@ -274,6 +276,11 @@ async function fetchApi<T>(path: string, ttl = 180_000, volatile = false): Promi
     // отдаём его: офлайн-режим важнее свежести.
     const fallback = volatile ? undefined : readPersisted(path);
     if (fallback) return fallback.data as T;
+    // Этого запроса мы ещё не открывали, но всё расписание сохранено целиком (lib/offlineBulk.ts) — соберём ответ из него
+    if (!volatile) {
+      const off = await offlineAnswer(path);
+      if (off !== undefined) return off as T;
+    }
     if (isTimeout(e)) throw new Error('Сервер не отвечает — проверьте соединение');
     throw e;
   }

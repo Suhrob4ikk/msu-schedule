@@ -26,6 +26,7 @@ import VipBirthday from "@/components/tablo/vip/VipBirthday";
 import VipMedalToast from "@/components/tablo/vip/VipMedalToast";
 import DevReplyToast from "@/components/DevReplyToast";
 import DeviceIdKeeper from "@/components/DeviceIdKeeper";
+import OfflineWarmup from "@/components/OfflineWarmup";
 import { deviceIdInitScript } from "@/lib/deviceId";
 import OwnerSync from "@/components/OwnerSync";
 import OwnerAmbient from "@/components/owner/OwnerAmbient";
@@ -161,6 +162,7 @@ export default function RootLayout({
         <VipMedalToast />
         <DevReplyToast />
         <DeviceIdKeeper />
+        <OfflineWarmup />
         <OwnerSync />
         <OwnerAmbient />
         <OwnerTracker />
