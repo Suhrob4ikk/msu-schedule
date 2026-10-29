@@ -96,6 +96,7 @@ export default function SurveyPage() {
 
             <section className="t-pf-card t-sv-q">
               <h2>3. Что бы вы хотели, чтобы мы добавили для удобства?</h2>
+              <p>Например, недавно нам подсказали добавить в профиль фото, и мы уже это делаем.</p>
               {area("missing", "Любые идеи, даже самые смелые")}
             </section>
 
