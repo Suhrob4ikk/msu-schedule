@@ -391,7 +391,7 @@ class SurveyAnswer(Base):
     device_id = Column(String(100), nullable=False, unique=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     freq = Column(String(20), nullable=True)        # daily / weekly3 / weekly / rare
-    used = Column(Text, nullable=True)              # JSON-список кодов: today, week, rooms, teachers, changes, compare
+    used = Column(Text, nullable=True)              # JSON-список кодов: schedule, rooms, teachers, changes, compare
     missing = Column(Text, nullable=True)           # что добавить для удобства (открытый)
     annoy = Column(Text, nullable=True)             # что мешает или раздражает (открытый)
     rating = Column(Integer, nullable=True)         # 1–5

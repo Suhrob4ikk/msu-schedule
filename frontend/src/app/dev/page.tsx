@@ -688,7 +688,7 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
               : (() => {
                   const names: Record<string, string> = {
                     daily: "каждый день", weekly3: "несколько раз в неделю", weekly: "раз в неделю", rare: "реже",
-                    today: "расписание на сегодня", week: "расписание на неделю", rooms: "аудитории", teachers: "педагоги", changes: "изменения", compare: "сравнение групп",
+                    schedule: "расписание", rooms: "аудитории", teachers: "педагоги", changes: "изменения", compare: "сравнение групп",
                     yes: "да", think: "я подумаю", no: "нет",
                   };
                   const bars = (title: string, data: Record<string, number>) => {

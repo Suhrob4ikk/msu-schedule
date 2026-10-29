@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Помогите улучшить — макет опроса</title>
+<style>
+  :root { --bg:#f2f4f9; --card:#fff; --text:#12151f; --text2:#5a6172; --chip:#eceef4; --fill:#2f62ea; --onfill:#fff; --line:#dde1ea; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0e0f12; --card:#171a22; --text:#f1f3f7; --text2:#a8afbd; --chip:#232733; --fill:#5b84f5; --onfill:#0b1020; --line:#2a2f3b; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; line-height:1.45; }
+  main { max-width: 680px; margin: 0 auto; padding: 20px 16px 56px; }
+  .note { background:#fff6d6; color:#4a3a00; border-radius:14px; padding:12px 14px; font-size:14px; margin-bottom:18px; }
+  @media (prefers-color-scheme: dark) { .note { background:#3a3112; color:#ffe9a3; } }
+  h1 { font-size: 30px; margin: 4px 0 12px; }
+  .lead { color: var(--text2); font-size: 16px; margin: 0 0 16px; }
+  .q { background: var(--card); border-radius: 22px; padding: 16px 18px 18px; margin-bottom: 10px; }
+  .q h2 { font-size: 18px; margin: 0 0 10px; line-height: 1.3; }
+  .q .hint { color: var(--text2); font-size: 14px; margin: -4px 0 10px; }
+  .opts { display:flex; flex-wrap:wrap; gap:8px; }
+  .opt { min-height:44px; padding:0 16px; border-radius:14px; background:var(--chip); color:var(--text); font:inherit; font-size:16px; font-weight:600; border:0; cursor:pointer; }
+  .opt.on { background:var(--fill); color:var(--onfill); }
+  .scale { display:flex; gap:8px; }
+  .scale .opt { flex:1; padding:0; }
+  .scale-lb { display:flex; justify-content:space-between; font-size:13px; color:var(--text2); margin-top:6px; }
+  textarea { width:100%; min-height:84px; resize:vertical; padding:12px 14px; border-radius:14px; background:var(--chip); color:var(--text); font:inherit; font-size:16px; border:0; }
+  textarea:focus { outline:2px solid var(--fill); }
+  .send { display:flex; justify-content:flex-end; margin-top:14px; }
+  .send button { min-height:52px; padding:0 28px; border-radius:16px; background:var(--fill); color:var(--onfill); font:inherit; font-size:17px; font-weight:700; border:0; cursor:pointer; }
+  .done { display:none; background:var(--card); border-radius:22px; padding:22px; margin-top:14px; }
+  .done h2 { margin:0 0 8px; font-size:24px; }
+  .done p { margin:0; color:var(--text2); }
+  .extra { background:var(--card); border-radius:22px; padding:16px 18px; margin-top:24px; font-size:14.5px; color:var(--text2); }
+  .extra b { color:var(--text); }
+</style>
+</head>
+<body>
+<main>
+  <div class="note"><b>Это макет для просмотра.</b> Нажимать и писать можно, но ничего никуда не отправляется. Прочитайте вопросы и скажите, всё ли понятно и что поменять.</div>
+
+  <h1>Помогите улучшить</h1>
+  <p class="lead">Нам важно слышать каждого: расскажите, что вам удобно, а что нет, и чего вам не хватает. Ответы анонимные, на все вопросы отвечать не обязательно.</p>
+
+  <section class="q">
+    <h2>1. Как часто вы открываете расписание?</h2>
+    <div class="opts" data-single>
+      <button class="opt">Каждый день</button><button class="opt">Несколько раз в неделю</button><button class="opt">Раз в неделю</button><button class="opt">Реже</button>
+    </div>
+  </section>
+
+  <section class="q">
+    <h2>2. Чем вы пользуетесь чаще всего?</h2>
+    <p class="hint">Можно выбрать несколько.</p>
+    <div class="opts" data-multi>
+      <button class="opt">Расписание</button><button class="opt">Аудитории</button>
+      <button class="opt">Педагоги</button><button class="opt">Изменения в расписании</button><button class="opt">Сравнение с другой группой</button>
+    </div>
+  </section>
+
+  <section class="q">
+    <h2>3. Что бы вы хотели, чтобы мы добавили для удобства?</h2>
+    <textarea rows="3" placeholder="Любые идеи, даже самые смелые"></textarea>
+  </section>
+
+  <section class="q">
+    <h2>4. Что вам мешает или раздражает?</h2>
+    <textarea rows="3" placeholder="Что неудобно, непонятно или работает не так"></textarea>
+  </section>
+
+  <section class="q">
+    <h2>5. Насколько вам удобно пользоваться?</h2>
+    <div class="scale" data-single>
+      <button class="opt">1</button><button class="opt">2</button><button class="opt">3</button><button class="opt">4</button><button class="opt">5</button>
+    </div>
+    <div class="scale-lb"><span>Неудобно</span><span>Очень удобно</span></div>
+  </section>
+
+  <section class="q">
+    <h2>6. Порекомендуете сайт друзьям?</h2>
+    <div class="opts" data-single>
+      <button class="opt">Да</button><button class="opt">Я подумаю</button><button class="opt">Нет</button>
+    </div>
+  </section>
+
+  <section class="q">
+    <h2>7. Если бы можно было изменить одну вещь, что бы это было?</h2>
+    <textarea rows="3" placeholder="Одно главное изменение"></textarea>
+  </section>
+
+  <div class="send"><button id="send" type="button">Отправить</button></div>
+  <div class="done" id="done"><h2>Спасибо!</h2><p>Ваши ответы помогут сделать сайт удобнее. Если появятся ещё идеи, напишите разработчику из Кабинета.</p></div>
+
+  <div class="extra">
+    <b>Как люди увидят опрос на сайте:</b>
+    <ul>
+      <li>тонкая полоска на главной странице после трёх дней пользования: «Помогите улучшить сайт. 7 вопросов, 2 минуты, анонимно. Можно отказаться сейчас и пройти позже: Кабинет → «Помогите улучшить»». У неё есть крестик;</li>
+      <li>постоянная строка «Помогите улучшить» в Кабинете. Она остаётся, даже если полоску закрыли;</li>
+      <li>на вопросы отвечать необязательно, нужно ответить хотя бы на один.</li>
+    </ul>
+  </div>
+</main>
+<script>
+  document.querySelectorAll('[data-single]').forEach(g => g.addEventListener('click', e => {
+    const b = e.target.closest('.opt'); if (!b) return;
+    const was = b.classList.contains('on');
+    g.querySelectorAll('.opt').forEach(x => x.classList.remove('on'));
+    if (!was) b.classList.add('on');
+  }));
+  document.querySelectorAll('[data-multi]').forEach(g => g.addEventListener('click', e => {
+    const b = e.target.closest('.opt'); if (b) b.classList.toggle('on');
+  }));
+  document.getElementById('send').addEventListener('click', () => {
+    document.getElementById('done').style.display = 'block';
+    document.getElementById('done').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
+</script>
+</body>
+</html>

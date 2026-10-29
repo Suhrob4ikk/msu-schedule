@@ -384,7 +384,7 @@ def dev_messages_seen(body: DeviceBody, db: Session = Depends(get_db)):
 # Анонимный: имя и группа не сохраняются. Один ответ на устройство (повторный заменяет прежний).
 
 SURVEY_FREQ = {"daily", "weekly3", "weekly", "rare"}
-SURVEY_USED = {"today", "week", "rooms", "teachers", "changes", "compare"}
+SURVEY_USED = {"schedule", "rooms", "teachers", "changes", "compare"}
 SURVEY_RECOMMEND = {"yes", "think", "no"}
 
 

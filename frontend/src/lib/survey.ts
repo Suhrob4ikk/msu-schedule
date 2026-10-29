@@ -19,7 +19,7 @@ export const FREQ: [string, string][] = [
   ["daily", "Каждый день"], ["weekly3", "Несколько раз в неделю"], ["weekly", "Раз в неделю"], ["rare", "Реже"],
 ];
 export const USED: [string, string][] = [
-  ["today", "Расписание на сегодня"], ["week", "Расписание на неделю"], ["rooms", "Аудитории"],
+  ["schedule", "Расписание"], ["rooms", "Аудитории"],
   ["teachers", "Педагоги"], ["changes", "Изменения в расписании"], ["compare", "Сравнение с другой группой"],
 ];
 export const RECOMMEND: [string, string][] = [["yes", "Да"], ["think", "Я подумаю"], ["no", "Нет"]];
