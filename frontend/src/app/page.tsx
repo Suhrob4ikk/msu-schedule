@@ -18,6 +18,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import CourseCheckBanner from "@/components/CourseCheckBanner";
+import SurveyStrip from "@/components/SurveyStrip";
 import Bell from "@/components/tablo/Bell";
 import StatusChip from "@/components/tablo/StatusChip";
 import Icon from "@/components/tablo/Icon";
@@ -580,6 +581,7 @@ export default function SchedulePage() {
 
       <main className={`t-main ${layout ? `t-main-${layout}` : ""}`}>
         <CourseCheckBanner />
+        <SurveyStrip />
         {vip && now && !foreign && <VipGreeting vip={vip} now={now} />}
         {/* Устройства владельца (привязка в /dev): пульт и поиск по всему — и на чужой группе */}
         {owner && !vip && now && me && <OwnerHome name={me.name.trim().split(/\s+/)[0] || "админ"} now={now} />}

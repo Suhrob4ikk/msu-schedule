@@ -1,15 +1,19 @@
 // Опрос «Помогите улучшить» (CustDev; владелец, 29 окт 2026). Анонимный: имя и группа не уходят,
 // сервер хранит один ответ на устройство (backend/app/api/routes/user.py → /user/survey).
-// Показ: карточка в Кабинете (components/SurveyCard.tsx), после трёх разных дней захода, пока не ответил;
-// «Позже» прячет её на неделю. Прямая ссылка — /profile/survey.
+// Где человек его видит:
+// 1. тонкая полоска на главной (components/SurveyStrip.tsx) — после трёх разных дней захода, пока не ответил;
+//    крестик убирает её насовсем и подсказывает, где опрос остался;
+// 2. постоянная строка «Помогите улучшить» в Кабинете (app/profile/page.tsx → SurveyRow) — всегда на месте,
+//    после ответа пишет «Вы ответили» (владелец, 29 окт 2026: «можно отказаться сейчас и пройти позже через Кабинет»);
+// 3. прямая ссылка /profile/survey — её можно отправить в чат группы.
+// Дни захода считает DeviceIdKeeper на любой странице.
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL!;
 
 export const SURVEY_DONE_KEY = "survey_done";
-export const SURVEY_LATER_KEY = "survey_later_until";
+export const SURVEY_STRIP_OFF_KEY = "survey_strip_off";
 export const SURVEY_DAYS_KEY = "survey_days";
 const MIN_DAYS = 3;
-const LATER_MS = 7 * 24 * 3600 * 1000;
 
 export const FREQ: [string, string][] = [
   ["daily", "Каждый день"], ["weekly3", "Несколько раз в неделю"], ["weekly", "Раз в неделю"], ["rare", "Реже"],
@@ -58,18 +62,21 @@ export function noteSurveyDay(): void {
   } catch { /* приватный режим */ }
 }
 
-/** Показывать ли карточку: не отвечал, не нажал «Позже» недавно и заходил хотя бы в три разных дня.
+/** Показывать ли полоску на главной: не отвечал, не закрыл её крестиком и заходил хотя бы в три разных дня.
  *  Ключ survey_test = «1» в браузере показывает её сразу (проверка владельцем). */
-export function surveyDue(): boolean {
+export function surveyStripDue(): boolean {
   try {
-    if (localStorage.getItem(SURVEY_DONE_KEY) === "1") return false;
+    if (localStorage.getItem(SURVEY_DONE_KEY) === "1" || localStorage.getItem(SURVEY_STRIP_OFF_KEY) === "1") return false;
     if (localStorage.getItem("survey_test") === "1") return true;
-    if (Date.now() < Number(localStorage.getItem(SURVEY_LATER_KEY) ?? 0)) return false;
     const days: string[] = JSON.parse(localStorage.getItem(SURVEY_DAYS_KEY) ?? "[]");
     return days.length >= MIN_DAYS;
   } catch { return false; }
 }
 
-export function surveyLater(): void {
-  try { localStorage.setItem(SURVEY_LATER_KEY, String(Date.now() + LATER_MS)); } catch { /* приватный режим */ }
+export function surveyStripOff(): void {
+  try { localStorage.setItem(SURVEY_STRIP_OFF_KEY, "1"); } catch { /* приватный режим */ }
+}
+
+export function surveyAnswered(): boolean {
+  try { return localStorage.getItem(SURVEY_DONE_KEY) === "1"; } catch { return false; }
 }

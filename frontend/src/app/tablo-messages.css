@@ -90,10 +90,31 @@
 .t-sv-thanks { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 22px; }
 .t-sv-thanks h2 { font-size: 24px; font-weight: 800; }
 .t-sv-thanks p { font-size: 16px; color: var(--text-2); line-height: 1.45; }
-.t-sv-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 14px 16px 14px 20px; }
-.t-sv-card-tx { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.t-sv-card-tx b { font-size: 18px; font-weight: 700; }
-.t-sv-card-tx span { font-size: 14px; color: var(--text-2); }
-.t-sv-card-btns { display: flex; align-items: center; gap: 6px; }
-.t-sv-go { display: inline-flex; align-items: center; gap: 6px; margin-top: 0; min-height: 44px; padding: 0 18px; }
+/* Полоска «Помогите улучшить» на главной (SurveyStrip) */
+.t-sv-strip { display: flex; align-items: stretch; border-radius: 18px; background: var(--soft); color: var(--text); margin: 0 0 12px; overflow: hidden; }
+.t-sv-strip-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 12px 6px 12px 14px; color: inherit; text-decoration: none; text-align: left; }
+.t-sv-strip-ic { flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--fill); color: var(--on-fill); }
+.t-sv-strip-tx { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.t-sv-strip-tx b { font-size: 16px; font-weight: 700; line-height: 1.25; }
+.t-sv-strip-tx span { font-size: 13.5px; color: var(--text-2); line-height: 1.35; }
+.t-sv-strip-x { flex: none; width: 44px; display: grid; place-items: center; border: 0; background: none; color: var(--text-2); cursor: pointer; }
+.t-sv-strip-x:hover { color: var(--text); }
+.t-sv-strip-note { padding: 12px 16px; font-size: 14.5px; line-height: 1.4; color: var(--text); }
+
+/* Фото профиля (lib/photo.ts, AvatarPhoto в app/profile/page.tsx, AvatarMenu) */
+.t-avatar { overflow: hidden; }
+.t-avatar-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.t-pf-photo { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: none; }
+.t-pf-photo-btn { position: relative; display: inline-block; cursor: pointer; }
+.t-pf-photo-btn .t-avatar-lg { width: 72px; height: 72px; font-size: 30px; }
+.t-pf-photo-badge { position: absolute; right: -2px; bottom: -2px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--fill); color: var(--on-fill); box-shadow: 0 0 0 2px var(--surface); }
+.t-pf-photo-input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; font-size: 0; }
+.t-pf-photo-sub { font-size: 13px; }
+.t-pf-photo-sub button { background: none; border: 0; padding: 2px 4px; color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; }
+.t-pf-photo-err { color: var(--danger); }
+
+/* Строка Кабинета с названием и подписью под ним (SurveyRow) */
+.t-pf-nav .t-pf-stack { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.t-pf-nav .t-pf-stack b { flex: none; }
+.t-pf-nav .t-pf-stack em { font-size: 14px; }
 }

@@ -23,7 +23,8 @@ import { VIP_NEW_KEY, VIP_OFF_KEY, canActivateVip, readOwnVip } from "@/lib/spec
 import { api, rememberGroup, shortGroupName, type Group } from "@/lib/api";
 import { markGroupChosen } from "@/lib/features";
 import { ensureDeviceId } from "@/lib/deviceId";
-import SurveyCard from "@/components/SurveyCard";
+import { surveyAnswered } from "@/lib/survey";
+import { savePhoto, removePhoto, usePhoto } from "@/lib/photo";
 import { getInstallEvent, isIOS, isStandalone, onInstallChange, runInstall } from "@/lib/install";
 import { getPushStatus, resyncPush, subscribePush, unsubscribePush, type PushStatus } from "@/lib/push";
 import { collectNotes, collectSkips, type SkipStats } from "@/lib/studyData";
@@ -142,6 +143,22 @@ function PushRow({ sessionId, groupId }: { sessionId: string; groupId: number | 
  * была ссылка на Telegram владельца; убрана по его решению: аккаунт не на виду, а студент может
  * спросить без имени. Справа — «Новый ответ», если владелец ответил (счётчик сервер держит в памяти).
  */
+/** Постоянная строка опроса — всегда на месте (lib/survey.ts), после ответа пишет «Вы ответили». */
+function SurveyRow() {
+  const [answered, setAnswered] = useState(false);
+  useEffect(() => { setAnswered(surveyAnswered()); }, []);
+  return (
+    <Link href="/profile/survey">
+      <span className="t-pf-ic"><Icon name="note" size={22} /></span>
+      <div className="t-pf-stack">
+        <b>Помогите улучшить</b>
+        <em>{answered ? "Вы ответили" : "7 вопросов, 2 минуты"}</em>
+      </div>
+      <Icon name="chevronRight" size={20} />
+    </Link>
+  );
+}
+
 function MessagesLink() {
   const [unread, setUnread] = useState(0);
   useEffect(() => {
@@ -155,6 +172,37 @@ function MessagesLink() {
       {unread > 0 && <em className="t-msg-new">{unread === 1 ? "Новый ответ" : `Ответов: ${unread}`}</em>}
       <Icon name="chevronRight" size={20} />
     </Link>
+  );
+}
+
+/** Кружок профиля с фото (lib/photo.ts): нажатие — выбрать, рядом «Убрать». Фото живёт только в этом браузере. */
+function AvatarPhoto({ letter }: { letter: string }) {
+  const photo = usePhoto();
+  const [err, setErr] = useState("");
+  const pick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    try { setErr(""); await savePhoto(file); } catch (x) { setErr(x instanceof Error ? x.message : "Не удалось"); }
+  };
+  return (
+    <div className="t-pf-photo">
+      <label className="t-pf-photo-btn" aria-label={photo ? "Сменить фото" : "Добавить фото"}>
+        <span className="t-avatar t-avatar-lg">
+          {photo
+            // eslint-disable-next-line @next/next/no-img-element
+            ? <img src={photo} alt="" className="t-avatar-img" />
+            : letter || <Icon name="user" size={26} />}
+        </span>
+        <span className="t-pf-photo-badge" aria-hidden="true"><Icon name="image" size={14} /></span>
+        <input type="file" accept="image/*" onChange={pick} className="t-pf-photo-input" />
+      </label>
+      {(photo || err) && (
+        <div className="t-pf-photo-sub">
+          {err ? <span className="t-pf-photo-err">{err}</span> : <button type="button" onClick={removePhoto}>Убрать фото</button>}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -300,7 +348,7 @@ export default function ProfilePage() {
             ) : (
             <section className="t-pf-card t-pf-me">
               <div className="t-pf-who">
-                <span className="t-avatar t-avatar-lg" aria-hidden="true">{letter || <Icon name="user" size={26} />}</span>
+                <AvatarPhoto letter={letter} />
                 <div>
                   <h1>{name.trim() || "Без имени"}</h1>
                   {group && <p>{shortGroupName(group.name)} · {group.year} курс</p>}
@@ -408,9 +456,9 @@ export default function ProfilePage() {
               )}
             {/* «Синхронизация» с кнопкой «Обновить расписание» убрана (владелец, 11 окт 2026): сайт обновляет
                 расписание сам — при открытии, возврате на вкладку и по push (lib/api.ts, ServerResync) */}
-            <SurveyCard />
             {/* Связь с владельцем: вопросы, ошибки и предложения — переписка на сайте */}
             <nav className="t-pf-card t-pf-nav t-pf-contact" aria-label="Связь">
+              <SurveyRow />
               <MessagesLink />
             </nav>
             <VipSwitchRow />
