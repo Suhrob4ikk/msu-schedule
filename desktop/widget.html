@@ -38,7 +38,7 @@
     display: flex; flex-direction: column; justify-content: space-between;
     -webkit-app-region: drag;
   }
-  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .top { padding-right: 46px; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
   .label { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--text-2); white-space: nowrap; }
   .label.live { color: var(--ink); }
   .group { font-size: 11px; color: var(--text-2); white-space: nowrap; }
@@ -52,6 +52,7 @@
   .next b { color: var(--text); font-weight: 600; }
   .menu { -webkit-app-region: no-drag; position: absolute; top: 6px; right: 8px; width: 22px; height: 22px;
     border: 0; background: none; color: var(--text-2); font-size: 15px; cursor: pointer; border-radius: 6px; opacity: 0; }
+  .menu.open { right: 32px; }
   body:hover .menu { opacity: 1; }
   .menu:hover { background: var(--line); color: var(--text); }
   /* Ручки размера: правый край, нижний край и угол. Окно тянется пропорционально. */
@@ -87,6 +88,7 @@
     <div class="next" id="next"></div>
   </div>
 </div>
+<button class="menu open" id="openBtn" title="Открыть полное расписание">↗</button>
 <button class="menu" id="menuBtn" title="Меню">⋯</button>
 <div class="grip right" data-edge="right"></div>
 <div class="grip bottom" data-edge="bottom"></div>
@@ -200,6 +202,7 @@
   }
 
   window.widget.onData((payload) => { state = payload; applyTheme(payload.theme); render(); });
+  $("openBtn").addEventListener("click", () => window.widget.openApp());
   $("menuBtn").addEventListener("click", () => window.widget.menu());
   document.addEventListener("contextmenu", (e) => { e.preventDefault(); window.widget.menu(); });
   document.querySelectorAll(".grip").forEach((g) => {

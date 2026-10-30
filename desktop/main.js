@@ -127,6 +127,8 @@ function buildMenu() {
     }));
 
   const template = [
+    { label: "Открыть полное расписание", click: openApp },
+    { type: "separator" },
     { label: `Группа: ${groupLabel() || "—"}`, submenu: groupItems, enabled: groupItems.length > 0 },
     { label: "Обновить сейчас", click: refresh },
     {
@@ -190,6 +192,36 @@ function buildMenu() {
   const menu = Menu.buildFromTemplate(template);
   if (tray) tray.setContextMenu(menu);
   return menu;
+}
+
+// Полное расписание — сам сайт в обычном окне. Грузится с Vercel, поэтому всегда
+// свежий, а офлайн работает по собственному кэшу сайта.
+const SITE_URL = "https://frontend-ten-nu-80.vercel.app/";
+let appWin = null;
+
+function openApp() {
+  if (appWin && !appWin.isDestroyed()) {
+    if (appWin.isMinimized()) appWin.restore();
+    appWin.show();
+    appWin.focus();
+    return;
+  }
+  appWin = new BrowserWindow({
+    width: 1200,
+    height: 820,
+    minWidth: 380,
+    title: "Расписание МГУ",
+    icon: path.join(__dirname, "icon.png"),
+    autoHideMenuBar: true,
+    webPreferences: { contextIsolation: true, partition: "persist:site" },
+  });
+  appWin.setMenu(null);
+  appWin.loadURL(SITE_URL);
+  // Ссылки на чужие сайты — в обычный браузер, не в это окно.
+  appWin.webContents.setWindowOpenHandler(({ url }) => {
+    require("electron").shell.openExternal(url);
+    return { action: "deny" };
+  });
 }
 
 function applyOnTop() {
@@ -298,6 +330,7 @@ if (!app.requestSingleInstanceLock()) {
       settings.width = win.getSize()[0];
       saveSettings();
     });
+    ipcMain.on("open-app", openApp);
     ipcMain.on("menu", () => buildMenu().popup({ window: win }));
     refresh();
     setInterval(refresh, REFRESH_MS);
