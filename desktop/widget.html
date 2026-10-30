@@ -2,21 +2,29 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; script-src 'self' 'unsafe-inline'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; font-src 'self'; style-src 'unsafe-inline'; script-src 'self' 'unsafe-inline'">
 <title>Расписание МГУ</title>
 <style>
+  @font-face { font-family: "Onest"; font-weight: 400; src: url(fonts/onest-cyrillic-400-normal.woff2) format("woff2"); unicode-range: U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116; }
+  @font-face { font-family: "Onest"; font-weight: 400; src: url(fonts/onest-latin-400-normal.woff2) format("woff2"); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+  @font-face { font-family: "Onest"; font-weight: 600; src: url(fonts/onest-cyrillic-600-normal.woff2) format("woff2"); unicode-range: U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116; }
+  @font-face { font-family: "Onest"; font-weight: 600; src: url(fonts/onest-latin-600-normal.woff2) format("woff2"); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+  @font-face { font-family: "Onest"; font-weight: 700; src: url(fonts/onest-cyrillic-700-normal.woff2) format("woff2"); unicode-range: U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116; }
+  @font-face { font-family: "Onest"; font-weight: 700; src: url(fonts/onest-latin-700-normal.woff2) format("woff2"); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+  @font-face { font-family: "Roboto Condensed"; font-weight: 400; src: url(fonts/roboto-condensed-cyrillic-400-normal.woff2) format("woff2"); unicode-range: U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116; }
+  @font-face { font-family: "Roboto Condensed"; font-weight: 400; src: url(fonts/roboto-condensed-latin-400-normal.woff2) format("woff2"); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+  @font-face { font-family: "Roboto Condensed"; font-weight: 600; src: url(fonts/roboto-condensed-cyrillic-600-normal.woff2) format("woff2"); unicode-range: U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116; }
+  @font-face { font-family: "Roboto Condensed"; font-weight: 600; src: url(fonts/roboto-condensed-latin-600-normal.woff2) format("woff2"); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+  @font-face { font-family: "Roboto Condensed"; font-weight: 700; src: url(fonts/roboto-condensed-cyrillic-700-normal.woff2) format("woff2"); unicode-range: U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116; }
+  @font-face { font-family: "Roboto Condensed"; font-weight: 700; src: url(fonts/roboto-condensed-latin-700-normal.woff2) format("woff2"); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
   :root {
-    --bg: rgba(20, 23, 31, 0.94);
-    --text: #f2f4f8;
-    --text-2: #9aa3b5;
-    --line: rgba(255, 255, 255, 0.10);
-    --fill: #4f7cff;
-    --live: #34c77b;
+    --surface: #FFFFFF; --text: #121318; --text-2: #4E5160; --line: #DEE3E9;
+    --fill: #3F63DE; --ink: #2F52C4;
   }
   * { box-sizing: border-box; margin: 0; }
   html, body { height: 100%; background: transparent; overflow: hidden; }
   body {
-    font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+    font-family: "Onest", "Segoe UI", system-ui, sans-serif;
     color: var(--text);
     -webkit-user-select: none; user-select: none;
   }
@@ -25,27 +33,28 @@
     margin: 0;
     padding: 12px 14px 10px;
     border-radius: 16px;
-    background: var(--bg);
+    background: var(--surface);
     border: 1px solid var(--line);
     display: flex; flex-direction: column; justify-content: space-between;
     -webkit-app-region: drag;
   }
   .top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
   .label { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--text-2); white-space: nowrap; }
-  .label.live { color: var(--live); }
+  .label.live { color: var(--ink); }
   .group { font-size: 11px; color: var(--text-2); white-space: nowrap; }
   .subject { font-size: 15px; font-weight: 600; line-height: 1.2; margin-top: 2px;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .meta { font-size: 12px; color: var(--text-2); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .big { font-size: 22px; font-weight: 700; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .big { font-size: 22px; font-weight: 700; color: var(--ink); margin-top: 4px; font-variant-numeric: tabular-nums; }
   .bar { height: 4px; border-radius: 2px; background: var(--line); margin-top: 6px; overflow: hidden; }
-  .bar > i { display: block; height: 100%; width: 0; background: var(--live); transition: width .6s; }
+  .bar > i { display: block; height: 100%; width: 0; background: var(--fill); transition: width .6s; }
   .next { font-size: 11.5px; color: var(--text-2); margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .next b { color: var(--text); font-weight: 600; }
   .menu { -webkit-app-region: no-drag; position: absolute; top: 6px; right: 8px; width: 22px; height: 22px;
     border: 0; background: none; color: var(--text-2); font-size: 15px; cursor: pointer; border-radius: 6px; opacity: 0; }
   body:hover .menu { opacity: 1; }
   .menu:hover { background: var(--line); color: var(--text); }
+  body.condensed { font-family: "Roboto Condensed", "Onest", sans-serif; }
   .stale { color: #e0a84a; }
 </style>
 </head>
@@ -162,7 +171,13 @@
     }
   }
 
-  window.widget.onData((payload) => { state = payload; render(); });
+  function applyTheme(t) {
+    if (!t) return;
+    for (const [k, v] of Object.entries(t.vars)) document.documentElement.style.setProperty(k, v);
+    document.body.classList.toggle("condensed", t.font === "condensed");
+  }
+
+  window.widget.onData((payload) => { state = payload; applyTheme(payload.theme); render(); });
   $("menuBtn").addEventListener("click", () => window.widget.menu());
   document.addEventListener("contextmenu", (e) => { e.preventDefault(); window.widget.menu(); });
   window.widget.ready();

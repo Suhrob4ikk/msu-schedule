@@ -1,8 +1,9 @@
 // Виджет расписания: маленькое окно поверх всех окон + значок у часов.
 // Данные — с того же API, что у сайта (через прокси на Vercel: Megafon режет Render).
-const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen } = require("electron");
+const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, nativeTheme, screen } = require("electron");
 const fs = require("fs");
 const path = require("path");
+const { ACCENT_PRESETS, themeVars } = require("./theme");
 
 const API = "https://frontend-ten-nu-80.vercel.app/backend/schedule";
 const DEFAULT_GROUP = 1438458920; // ПМиИ 3 курс
@@ -32,7 +33,11 @@ function writeJson(name, value) {
   } catch {}
 }
 
-let settings = { groupId: DEFAULT_GROUP, onTop: true, ...readJson("settings.json", {}) };
+// background: system | light | dark | black; accent — id пресета с сайта; font: regular | condensed
+let settings = {
+  groupId: DEFAULT_GROUP, onTop: true, background: "system", accent: "blue", font: "regular",
+  ...readJson("settings.json", {}),
+};
 const saveSettings = () => writeJson("settings.json", settings);
 
 async function getJson(url) {
@@ -57,9 +62,23 @@ function groupLabel() {
   return g ? `${shortGroupName(g.name)} ${g.year}` : "";
 }
 
+function currentMode() {
+  if (["light", "dark", "black"].includes(settings.background)) return settings.background;
+  return nativeTheme.shouldUseDarkColors ? "dark" : "light";
+}
+
 function push() {
   if (!win || win.isDestroyed()) return;
-  win.webContents.send("data", { lessons, fetchedAt, offline, group: groupLabel() });
+  win.webContents.send("data", {
+    lessons, fetchedAt, offline, group: groupLabel(),
+    theme: { vars: themeVars(currentMode(), settings.accent), font: settings.font },
+  });
+}
+
+function setSetting(key, value) {
+  settings[key] = value;
+  saveSettings();
+  push();
 }
 
 async function refresh() {
@@ -110,6 +129,30 @@ function buildMenu() {
   const template = [
     { label: `Группа: ${groupLabel() || "—"}`, submenu: groupItems, enabled: groupItems.length > 0 },
     { label: "Обновить сейчас", click: refresh },
+    { type: "separator" },
+    {
+      label: "Тема",
+      submenu: [
+        ["system", "Как в системе"], ["light", "Светлая"], ["dark", "Тёмная"], ["black", "Чёрная"],
+      ].map(([id, label]) => ({
+        label, type: "radio", checked: settings.background === id,
+        click: () => setSetting("background", id),
+      })),
+    },
+    {
+      label: "Цвет",
+      submenu: ACCENT_PRESETS.map((p) => ({
+        label: p.name, type: "radio", checked: settings.accent === p.id,
+        click: () => setSetting("accent", p.id),
+      })),
+    },
+    {
+      label: "Шрифт",
+      submenu: [["regular", "Обычный"], ["condensed", "Узкий"]].map(([id, label]) => ({
+        label, type: "radio", checked: settings.font === id,
+        click: () => setSetting("font", id),
+      })),
+    },
     { type: "separator" },
     {
       label: "Поверх всех окон",
@@ -197,6 +240,7 @@ if (!app.requestSingleInstanceLock()) {
     createWindow();
     createTray();
     ipcMain.on("ready", push);
+    nativeTheme.on("updated", push); // «Как в системе» — следим за переключением темы Windows
     ipcMain.on("menu", () => buildMenu().popup({ window: win }));
     refresh();
     setInterval(refresh, REFRESH_MS);
