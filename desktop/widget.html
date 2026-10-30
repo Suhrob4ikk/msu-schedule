@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; script-src 'self' 'unsafe-inline'">
+<title>Расписание МГУ</title>
+<style>
+  :root {
+    --bg: rgba(20, 23, 31, 0.94);
+    --text: #f2f4f8;
+    --text-2: #9aa3b5;
+    --line: rgba(255, 255, 255, 0.10);
+    --fill: #4f7cff;
+    --live: #34c77b;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; background: transparent; overflow: hidden; }
+  body {
+    font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+    color: var(--text);
+    -webkit-user-select: none; user-select: none;
+  }
+  .card {
+    height: 100%;
+    margin: 0;
+    padding: 12px 14px 10px;
+    border-radius: 16px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    display: flex; flex-direction: column; justify-content: space-between;
+    -webkit-app-region: drag;
+  }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .label { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--text-2); white-space: nowrap; }
+  .label.live { color: var(--live); }
+  .group { font-size: 11px; color: var(--text-2); white-space: nowrap; }
+  .subject { font-size: 15px; font-weight: 600; line-height: 1.2; margin-top: 2px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .meta { font-size: 12px; color: var(--text-2); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .big { font-size: 22px; font-weight: 700; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .bar { height: 4px; border-radius: 2px; background: var(--line); margin-top: 6px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; width: 0; background: var(--live); transition: width .6s; }
+  .next { font-size: 11.5px; color: var(--text-2); margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .next b { color: var(--text); font-weight: 600; }
+  .menu { -webkit-app-region: no-drag; position: absolute; top: 6px; right: 8px; width: 22px; height: 22px;
+    border: 0; background: none; color: var(--text-2); font-size: 15px; cursor: pointer; border-radius: 6px; opacity: 0; }
+  body:hover .menu { opacity: 1; }
+  .menu:hover { background: var(--line); color: var(--text); }
+  .stale { color: #e0a84a; }
+</style>
+</head>
+<body>
+<div class="card" id="card">
+  <div>
+    <div class="top"><span class="label" id="label">Загрузка…</span><span class="group" id="group"></span></div>
+    <div class="subject" id="subject"></div>
+    <div class="meta" id="meta"></div>
+  </div>
+  <div>
+    <div class="big" id="big"></div>
+    <div class="bar" id="barWrap" hidden><i id="bar"></i></div>
+    <div class="next" id="next"></div>
+  </div>
+</div>
+<button class="menu" id="menuBtn" title="Меню">⋯</button>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  // Часы Душанбе — UTC+5 без перехода на летнее время, поэтому границы пар
+  // считаем с явным смещением и не зависим от часового пояса компьютера.
+  const TZ_SHIFT_MS = 5 * 3600 * 1000;
+  const DAY_SHORT = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"];
+  const BREAK_MAX_MIN = 20; // до 20 минут — перемена, дольше — перерыв (как на сайте)
+
+  let state = { lessons: [], group: "", offline: false, fetchedAt: null };
+
+  const dushanbeDate = (ms) => new Date(ms + TZ_SHIFT_MS).toISOString().slice(0, 10);
+  const dayIndex = (dateStr) => new Date(dateStr + "T00:00:00Z").getUTCDay();
+
+  function prepared() {
+    return state.lessons
+      .filter((l) => l.lesson_date && l.pair_time_start)
+      .map((l) => ({
+        ...l,
+        start: Date.parse(`${l.lesson_date}T${l.pair_time_start}:00+05:00`),
+        end: Date.parse(`${l.lesson_date}T${l.pair_time_end}:00+05:00`),
+      }))
+      .sort((a, b) => a.start - b.start);
+  }
+
+  function human(min) {
+    if (min < 60) return `${min} мин`;
+    const h = Math.floor(min / 60), m = min % 60;
+    return m ? `${h} ч ${m} мин` : `${h} ч`;
+  }
+  const hhmm = (l) => l.pair_time_start;
+  const meta = (l) => [l.teacher && l.teacher.name, l.lesson_type, l.room && `ауд. ${l.room.name}`].filter(Boolean).join(" · ");
+
+  function whenLabel(l, today) {
+    if (l.lesson_date === today) return hhmm(l);
+    const tomorrow = dushanbeDate(Date.parse(`${today}T12:00:00+05:00`) + 86400000);
+    return `${l.lesson_date === tomorrow ? "завтра" : DAY_SHORT[dayIndex(l.lesson_date)]} ${hhmm(l)}`;
+  }
+
+  function render() {
+    const now = Date.now();
+    const today = dushanbeDate(now);
+    const list = prepared();
+    const cur = list.find((l) => l.start <= now && now < l.end);
+    const nextL = list.find((l) => l.start > now);
+    const prev = [...list].reverse().find((l) => l.end <= now && l.lesson_date === today);
+
+    const label = $("label"), subj = $("subject"), mt = $("meta"), big = $("big"), nx = $("next");
+    label.className = "label";
+    $("group").textContent = state.group;
+    $("barWrap").hidden = true;
+
+    if (!list.length) {
+      label.textContent = state.offline ? "Нет сети" : "Загрузка…";
+      subj.textContent = ""; mt.textContent = ""; big.textContent = ""; nx.textContent = "";
+      return;
+    }
+
+    if (cur) {
+      label.textContent = `Идёт ${cur.pair_number} пара`;
+      label.classList.add("live");
+      subj.textContent = cur.subject;
+      mt.textContent = meta(cur);
+      big.textContent = `ещё ${human(Math.ceil((cur.end - now) / 60000))}`;
+      $("barWrap").hidden = false;
+      $("bar").style.width = `${Math.min(100, ((now - cur.start) / (cur.end - cur.start)) * 100)}%`;
+      nx.innerHTML = nextL ? `Дальше: <b>${nextL.pair_number} · ${whenLabel(nextL, today)}</b> ${nextL.subject}` : "Это последняя пара недели";
+    } else if (nextL) {
+      const sameDay = nextL.lesson_date === today;
+      const mins = Math.ceil((nextL.start - now) / 60000);
+      if (sameDay) {
+        label.textContent = prev
+          ? (mins <= BREAK_MAX_MIN ? "Перемена" : "Перерыв")
+          : `До ${nextL.pair_number} пары`;
+        subj.textContent = nextL.subject;
+        mt.textContent = meta(nextL);
+        big.textContent = `через ${human(mins)}`;
+        nx.innerHTML = `<b>${nextL.pair_number} пара · ${hhmm(nextL)}</b>`;
+      } else {
+        label.textContent = prev ? "На сегодня всё" : "Сегодня пар нет";
+        subj.textContent = nextL.subject;
+        mt.textContent = meta(nextL);
+        big.textContent = "";
+        nx.innerHTML = `Дальше: <b>${nextL.pair_number} пара · ${whenLabel(nextL, today)}</b>`;
+      }
+    } else {
+      label.textContent = prev ? "На сегодня всё" : "Пар больше нет";
+      subj.textContent = ""; mt.textContent = ""; big.textContent = "";
+      nx.textContent = "Новая неделя пока не вышла";
+    }
+
+    if (state.offline) {
+      nx.classList.add("stale");
+      nx.textContent = "Нет сети — показаны сохранённые данные";
+    } else {
+      nx.classList.remove("stale");
+    }
+  }
+
+  window.widget.onData((payload) => { state = payload; render(); });
+  $("menuBtn").addEventListener("click", () => window.widget.menu());
+  document.addEventListener("contextmenu", (e) => { e.preventDefault(); window.widget.menu(); });
+  window.widget.ready();
+  setInterval(render, 1000);
+</script>
+</body>
+</html>

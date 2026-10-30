@@ -1,0 +1,15 @@
+{
+  "name": "msu-widget",
+  "version": "1.0.0",
+  "description": "Виджет расписания МГУ Душанбе для рабочего стола (для владельца)",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-packager . MSU-Widget --platform=win32 --arch=x64 --out=dist --overwrite"
+  },
+  "devDependencies": {
+    "@electron/packager": "^18.3.6",
+    "electron": "^33.2.1"
+  }
+}
