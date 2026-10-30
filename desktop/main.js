@@ -216,6 +216,7 @@ function openApp() {
     webPreferences: { contextIsolation: true, partition: "persist:site" },
   });
   appWin.setMenu(null);
+  for (const ev of ["focus", "blur", "minimize", "restore", "show", "hide", "closed"]) appWin.on(ev, syncWidget);
   appWin.loadURL(SITE_URL);
   // Ссылки на чужие сайты — в обычный браузер, не в это окно.
   appWin.webContents.setWindowOpenHandler(({ url }) => {
@@ -228,10 +229,21 @@ function applyOnTop() {
   if (win) win.setAlwaysOnTop(settings.onTop, "floating");
 }
 
+// Виджет прячется, пока вы в окне полного расписания (там то же самое), и сам
+// возвращается, когда смотрите другое приложение. Ручное «скрыть» из меню сильнее.
+let userHidden = false;
+
+function syncWidget() {
+  if (!win || win.isDestroyed()) return;
+  const inApp = appWin && !appWin.isDestroyed() && appWin.isVisible() && !appWin.isMinimized() && appWin.isFocused();
+  if (userHidden || inApp) win.hide();
+  else if (!win.isVisible()) win.showInactive();
+}
+
 function toggle() {
-  if (!win) return;
-  if (win.isVisible()) win.hide();
-  else win.show();
+  userHidden = win && win.isVisible() ? true : false;
+  if (!userHidden && win) win.showInactive();
+  syncWidget();
 }
 
 function startPosition() {
@@ -296,7 +308,7 @@ function createWindow() {
 }
 
 function createTray() {
-  const icon = nativeImage.createFromPath(path.join(__dirname, "icon.png"));
+  const icon = nativeImage.createFromPath(path.join(__dirname, "icon.png")).resize({ width: 32, height: 32 });
   tray = new Tray(icon);
   tray.setToolTip("Расписание МГУ");
   tray.on("click", toggle);

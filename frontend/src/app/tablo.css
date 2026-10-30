@@ -483,6 +483,9 @@ html.page-transitioning .t-bottom { view-transition-name: app-bottom-nav; }
   position: relative;
   display: flex;
   flex-direction: column;
+  /* Явно: у <button> в Chromium внутри Electron содержимое иначе сжималось по
+     ширине текста, и справа оставалась пустота (окт 2026). */
+  align-items: stretch;
   gap: 10px;
   width: 100%;
   padding: 16px 18px 18px;
@@ -496,7 +499,8 @@ html.page-transitioning .t-bottom { view-transition-name: app-bottom-nav; }
 .t-focus.t-sel { box-shadow: inset 0 0 0 2.5px var(--ink); }
 .t-focus-live.t-sel { box-shadow: inset 0 0 0 2.5px var(--on-fill); }
 /* Тело карточки: слева время, предмет, тип; справа — аудитории, если их несколько */
-.t-focus-body { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 16px; align-items: start; }
+.t-focus-body { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
+.t-focus-body > .t-focus-room { margin-left: 16px; } /* отступ только когда колонка аудиторий есть */
 .t-focus-single, .t-focus-multi { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .t-focus-multi .t-focus-mid { padding-top: 19px; } /* время — на уровне первой аудитории, под подписью */
 .t-focus-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }

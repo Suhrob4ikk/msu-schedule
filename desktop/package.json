@@ -6,7 +6,7 @@
   "private": true,
   "scripts": {
     "start": "electron .",
-    "pack": "electron-packager . MSU-Widget --platform=win32 --arch=x64 --out=dist --overwrite"
+    "pack": "electron-packager . MSU-Widget --platform=win32 --arch=x64 --out=dist --overwrite --icon=icon.ico"
   },
   "devDependencies": {
     "@electron/packager": "^18.3.6",
