@@ -54,6 +54,14 @@
     border: 0; background: none; color: var(--text-2); font-size: 15px; cursor: pointer; border-radius: 6px; opacity: 0; }
   body:hover .menu { opacity: 1; }
   .menu:hover { background: var(--line); color: var(--text); }
+  body.bg-soft .card { background: color-mix(in oklab, var(--fill) 16%, var(--surface)); }
+  /* Залитое окно: как залитая карточка на сайте — текст цвета --on-fill. */
+  body.bg-fill .card {
+    background: var(--card-fill); border-color: transparent;
+    --text: var(--on-fill); --ink: var(--on-fill); --fill: var(--on-fill);
+    --text-2: color-mix(in srgb, var(--on-fill) 72%, transparent);
+    --line: color-mix(in srgb, var(--on-fill) 22%, transparent);
+  }
   body.condensed { font-family: "Roboto Condensed", "Onest", sans-serif; }
   .stale { color: #e0a84a; }
 </style>
@@ -174,7 +182,10 @@
   function applyTheme(t) {
     if (!t) return;
     for (const [k, v] of Object.entries(t.vars)) document.documentElement.style.setProperty(k, v);
+    document.documentElement.style.setProperty("--card-fill", t.vars["--fill"]);
     document.body.classList.toggle("condensed", t.font === "condensed");
+    document.body.classList.toggle("bg-soft", t.cardBg === "soft");
+    document.body.classList.toggle("bg-fill", t.cardBg === "fill");
   }
 
   window.widget.onData((payload) => { state = payload; applyTheme(payload.theme); render(); });

@@ -35,7 +35,7 @@ function writeJson(name, value) {
 
 // background: system | light | dark | black; accent — id пресета с сайта; font: regular | condensed
 let settings = {
-  groupId: DEFAULT_GROUP, onTop: true, background: "system", accent: "blue", font: "regular",
+  groupId: DEFAULT_GROUP, onTop: true, background: "system", accent: "blue", font: "regular", cardBg: "soft",
   ...readJson("settings.json", {}),
 };
 const saveSettings = () => writeJson("settings.json", settings);
@@ -71,7 +71,7 @@ function push() {
   if (!win || win.isDestroyed()) return;
   win.webContents.send("data", {
     lessons, fetchedAt, offline, group: groupLabel(),
-    theme: { vars: themeVars(currentMode(), settings.accent), font: settings.font },
+    theme: { vars: themeVars(currentMode(), settings.accent), font: settings.font, cardBg: settings.cardBg },
   });
 }
 
@@ -144,6 +144,15 @@ function buildMenu() {
       submenu: ACCENT_PRESETS.map((p) => ({
         label: p.name, type: "radio", checked: settings.accent === p.id,
         click: () => setSetting("accent", p.id),
+      })),
+    },
+    {
+      label: "Фон окна",
+      submenu: [
+        ["surface", "Как у темы"], ["soft", "Лёгкий оттенок цвета"], ["fill", "Залит цветом"],
+      ].map(([id, label]) => ({
+        label, type: "radio", checked: settings.cardBg === id,
+        click: () => setSetting("cardBg", id),
       })),
     },
     {
