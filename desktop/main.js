@@ -129,6 +129,10 @@ function buildMenu() {
   const template = [
     { label: `Группа: ${groupLabel() || "—"}`, submenu: groupItems, enabled: groupItems.length > 0 },
     { label: "Обновить сейчас", click: refresh },
+    {
+      label: "Размер по умолчанию",
+      click: () => { settings.width = applySize(WIDTH); saveSettings(); },
+    },
     { type: "separator" },
     {
       label: "Тема",
@@ -209,12 +213,37 @@ function startPosition() {
   return { x: b.x + b.width - WIDTH - 16, y: b.y + 16 };
 }
 
+const MIN_WIDTH = 220;
+const MAX_WIDTH = 720;
+const heightFor = (w) => Math.round((w * HEIGHT) / WIDTH);
+
+// Размер меняется пропорционально: окно и всё содержимое (через масштаб страницы)
+// растут вместе. Прозрачные окна в Windows не умеют тянуться за край сами,
+// поэтому ручки по краю окна шлют сюда смещение мыши.
+function applySize(width) {
+  width = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, Math.round(width)));
+  if (!win || win.isDestroyed()) return width;
+  const height = heightFor(width);
+  let [x, y] = win.getPosition();
+  // Окно у края экрана при росте сдвигается внутрь, а не уходит за экран.
+  const area = screen.getDisplayMatching({ x, y, width, height }).workArea;
+  x = Math.max(area.x, Math.min(x, area.x + area.width - width));
+  y = Math.max(area.y, Math.min(y, area.y + area.height - height));
+  win.setBounds({ x, y, width, height });
+  win.webContents.setZoomFactor(width / WIDTH);
+  return width;
+}
+
+let resizeFrom = WIDTH;
+let resizeTimer = null;
+
 function createWindow() {
   const pos = startPosition();
+  const startWidth = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, settings.width || WIDTH));
   win = new BrowserWindow({
     ...pos,
-    width: WIDTH,
-    height: HEIGHT,
+    width: startWidth,
+    height: heightFor(startWidth),
     frame: false,
     transparent: true,
     resizable: false,
@@ -225,6 +254,7 @@ function createWindow() {
   });
   applyOnTop();
   win.loadFile("widget.html");
+  win.webContents.on("did-finish-load", () => win.webContents.setZoomFactor(startWidth / WIDTH));
   win.once("ready-to-show", () => win.show());
   win.on("moved", () => {
     const [x, y] = win.getPosition();
@@ -250,6 +280,24 @@ if (!app.requestSingleInstanceLock()) {
     createTray();
     ipcMain.on("ready", push);
     nativeTheme.on("updated", push); // «Как в системе» — следим за переключением темы Windows
+    // Положение мыши читаем здесь, а не в странице: при масштабе страницы
+    // координаты в ней считаются в других единицах.
+    ipcMain.on("resize-start", (_e, edge) => {
+      resizeFrom = win.getSize()[0];
+      const from = screen.getCursorScreenPoint();
+      clearInterval(resizeTimer);
+      resizeTimer = setInterval(() => {
+        const p = screen.getCursorScreenPoint();
+        const dx = p.x - from.x;
+        const dy = ((p.y - from.y) * WIDTH) / HEIGHT; // смещение по высоте — в ширину
+        applySize(resizeFrom + (edge === "right" ? dx : edge === "bottom" ? dy : (dx + dy) / 2));
+      }, 16);
+    });
+    ipcMain.on("resize-end", () => {
+      clearInterval(resizeTimer);
+      settings.width = win.getSize()[0];
+      saveSettings();
+    });
     ipcMain.on("menu", () => buildMenu().popup({ window: win }));
     refresh();
     setInterval(refresh, REFRESH_MS);

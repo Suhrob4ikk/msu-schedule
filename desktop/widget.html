@@ -54,6 +54,14 @@
     border: 0; background: none; color: var(--text-2); font-size: 15px; cursor: pointer; border-radius: 6px; opacity: 0; }
   body:hover .menu { opacity: 1; }
   .menu:hover { background: var(--line); color: var(--text); }
+  /* Ручки размера: правый край, нижний край и угол. Окно тянется пропорционально. */
+  .grip { position: fixed; -webkit-app-region: no-drag; z-index: 5; }
+  .grip.right { top: 14px; bottom: 14px; right: 0; width: 7px; cursor: ew-resize; }
+  .grip.bottom { left: 14px; right: 14px; bottom: 0; height: 7px; cursor: ns-resize; }
+  .grip.corner { right: 0; bottom: 0; width: 16px; height: 16px; cursor: nwse-resize; }
+  .grip.corner::after { content: ""; position: absolute; right: 5px; bottom: 5px; width: 7px; height: 7px;
+    border-right: 2px solid var(--text-2); border-bottom: 2px solid var(--text-2); border-radius: 0 0 3px 0; opacity: 0; }
+  body:hover .grip.corner::after { opacity: .55; }
   body.bg-soft .card { background: color-mix(in oklab, var(--fill) 16%, var(--surface)); }
   /* Залитое окно: как залитая карточка на сайте — текст цвета --on-fill. */
   body.bg-fill .card {
@@ -80,6 +88,9 @@
   </div>
 </div>
 <button class="menu" id="menuBtn" title="Меню">⋯</button>
+<div class="grip right" data-edge="right"></div>
+<div class="grip bottom" data-edge="bottom"></div>
+<div class="grip corner" data-edge="corner"></div>
 
 <script>
   const $ = (id) => document.getElementById(id);
@@ -191,6 +202,15 @@
   window.widget.onData((payload) => { state = payload; applyTheme(payload.theme); render(); });
   $("menuBtn").addEventListener("click", () => window.widget.menu());
   document.addEventListener("contextmenu", (e) => { e.preventDefault(); window.widget.menu(); });
+  document.querySelectorAll(".grip").forEach((g) => {
+    g.addEventListener("pointerdown", (e) => {
+      g.setPointerCapture(e.pointerId);
+      window.widget.resizeStart(g.dataset.edge);
+    });
+    const end = () => window.widget.resizeEnd();
+    g.addEventListener("pointerup", end);
+    g.addEventListener("pointercancel", end);
+  });
   window.widget.ready();
   setInterval(render, 1000);
 </script>
